@@ -1,6 +1,5 @@
 import torch
 
-with open('./output/model_final.pth', 'r') as f:
-    weight = torch.load(f)
+weight = torch.load('./output/model_final.pth')
 
 print(weight.keys())
