@@ -56,7 +56,21 @@ class VisualizationDemo(object):
         pred_labels = predictions["pred_labels"]
         pred_masks = predictions["pred_masks"]
 
-        print(pred_scores)
+        image_size_ = []
+        pred_scores_ = []
+        pred_labels_ = []
+        pred_masks_ = []
+        for i, score in enumerate(pred_scores):
+            if score < 0.3:
+                continue
+            image_size_.append(image_size[i])
+            pred_scores_.append(pred_scores[i])
+            pred_labels_.append(pred_labels[i])
+            pred_masks_.append(pred_masks[i])
+        pred_scores = pred_scores_
+        pred_masks = pred_masks_
+        pred_labels = pred_labels_
+        image_size = image_size_
 
         frame_masks = list(zip(*pred_masks))
         total_vis_output = []
