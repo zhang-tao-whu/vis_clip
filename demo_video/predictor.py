@@ -92,6 +92,28 @@ class VideoPredictor(DefaultPredictor):
         inputs = cv2.imread("input.jpg")
         outputs = pred(inputs)
     """
+
+    def __init__(self, cfg):
+        self.cfg = cfg.clone()  # cfg can be modified by model
+        self.model = build_model(self.cfg)
+        self.model.eval()
+        if len(cfg.DATASETS.TEST):
+            self.metadata = MetadataCatalog.get(cfg.DATASETS.TEST[0])
+
+        #checkpointer = DetectionCheckpointer(self.model)
+        #checkpointer.load(cfg.MODEL.WEIGHTS)
+        weight = torch.load(cfg.MODEL.WEIGHTS)
+        if 'model' in weight.keys():
+            weight = weight['model']
+        self.model.load_state_dict(weight, stict=True)
+
+        self.aug = T.ResizeShortestEdge(
+            [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST
+        )
+
+        self.input_format = cfg.INPUT.FORMAT
+        assert self.input_format in ["RGB", "BGR"], self.input_format
+
     def __call__(self, frames):
         """
         Args:
