@@ -14,7 +14,7 @@ from detectron2.engine.defaults import DefaultPredictor
 from detectron2.structures import Instances
 from detectron2.utils.video_visualizer import VideoVisualizer
 from detectron2.utils.visualizer import ColorMode
-
+from detectron2.modeling import build_model
 
 class VisualizationDemo(object):
     def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False):
