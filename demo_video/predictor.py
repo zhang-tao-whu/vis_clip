@@ -60,6 +60,7 @@ class VisualizationDemo(object):
         pred_scores_ = []
         pred_labels_ = []
         pred_masks_ = []
+        print(image_size)
         for i, score in enumerate(pred_scores):
             if score < 0.3:
                 continue
