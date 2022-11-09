@@ -52,4 +52,5 @@ _darcs
 /models
 /snippet
 
-./work_dirs
+./work_dirs/
+./work_dirs/*
