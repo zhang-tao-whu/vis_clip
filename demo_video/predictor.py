@@ -56,6 +56,8 @@ class VisualizationDemo(object):
         pred_labels = predictions["pred_labels"]
         pred_masks = predictions["pred_masks"]
 
+        print(pred_scores)
+
         frame_masks = list(zip(*pred_masks))
         total_vis_output = []
         for frame_idx in range(len(frames)):
