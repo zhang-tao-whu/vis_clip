@@ -354,21 +354,20 @@ class VideoMaskFormer_frame(nn.Module):
         out_masks = []
         out_embds = []
         out_valids = []
-        print(pred_logits[0].shape, pred_valids[0].shape)
 
-        out_logits.append(pred_logits[0] * pred_valids[0].unsqueeze(1))
-        out_masks.append(pred_masks[0] * pred_valids[0])
-        out_embds.append(pred_embds[0] * pred_masks[0])
+        out_logits.append(pred_logits[0] * pred_valids[0][:, None])
+        out_masks.append(pred_masks[0] * pred_valids[0][:, None, None])
+        out_embds.append(pred_embds[0] * pred_masks[0][:, None])
 
         for i in range(1, len(pred_logits)):
             indices = self.match_from_embds_(out_embds[-1], pred_embds[i])
 
-            out_logits.append((pred_logits[i] * pred_valids[i])[indices, :])
-            out_masks.append((pred_masks[i] * pred_valids[i])[indices, :, :])
+            out_logits.append((pred_logits[i] * pred_valids[i][:, None])[indices, :])
+            out_masks.append((pred_masks[i] * pred_valids[i][:, None, None])[indices, :, :])
             out_valids.append(pred_valids[indices])
 
-            out_embds.append(pred_embds[i][indices, :] * out_valids[-1] +\
-                             pred_embds[-1] * (1 - out_valids[-1]))
+            out_embds.append(pred_embds[i][indices, :] * out_valids[-1][:, None] +\
+                             pred_embds[-1] * (1 - out_valids[-1][:, None]))
 
         out_valids = torch.clamp(torch.stack(out_valids, dim=0).sum(dim=0), 1, 1e6)
         out_logits = sum(out_logits)/out_valids
