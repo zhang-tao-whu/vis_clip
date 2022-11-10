@@ -357,7 +357,7 @@ class VideoMaskFormer_frame(nn.Module):
 
         out_logits.append(pred_logits[0] * pred_valids[0][:, None])
         out_masks.append(pred_masks[0] * pred_valids[0][:, None, None])
-        out_embds.append(pred_embds[0] * pred_masks[0][:, None])
+        out_embds.append(pred_embds[0] * pred_valids[0][:, None])
 
         for i in range(1, len(pred_logits)):
             indices = self.match_from_embds_(out_embds[-1], pred_embds[i])
