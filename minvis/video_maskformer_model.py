@@ -219,7 +219,8 @@ class VideoMaskFormer_frame(nn.Module):
                     losses.pop(k)
             return losses
         else:
-            outputs = self.post_processing(outputs)
+            #outputs = self.post_processing(outputs)
+            outputs = self.post_processing_(outputs)
 
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
@@ -278,6 +279,22 @@ class VideoMaskFormer_frame(nn.Module):
 
         return indices
 
+    def match_from_embds_(self, tgt_embds, cur_embds):
+
+        cur_embds = cur_embds / torch.clamp(cur_embds.norm(dim=1)[:, None], 0.01, 1e6)
+        tgt_embds = tgt_embds / torch.clamp(tgt_embds.norm(dim=1)[:, None], 0.01, 1e6)
+        cos_sim = torch.mm(cur_embds, tgt_embds.transpose(0,1))
+
+        cost_embd = 1 - cos_sim
+
+        C = 1.0 * cost_embd
+        C = C.cpu()
+
+        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
+        indices = indices[1]  # permutation that makes current aligns to target
+
+        return indices
+
     def post_processing(self, outputs):
         pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
 
@@ -306,6 +323,54 @@ class VideoMaskFormer_frame(nn.Module):
             out_embds.append(pred_embds[i][indices, :])
 
         out_logits = sum(out_logits)/len(out_logits)
+        out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
+
+        out_logits = out_logits.unsqueeze(0)
+        out_masks = out_masks.unsqueeze(0)
+
+        outputs['pred_logits'] = out_logits
+        outputs['pred_masks'] = out_masks
+
+        return outputs
+
+    def post_processing_(self, outputs):
+        pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
+
+        # pred_logits: 1 t q c
+        # pred_masks: 1 q t h w
+        pred_valids = F.softmax(pred_logits[0], dim=-1)
+        pred_valids = (torch.max(pred_valids, dim=-1) != pred_valids[..., -1]).to(torch.float32)# t q
+
+        pred_logits = pred_logits[0]
+        pred_masks = einops.rearrange(pred_masks[0], 'q t h w -> t q h w')
+        pred_embds = einops.rearrange(pred_embds[0], 'c t q -> t q c')
+
+        pred_logits = list(torch.unbind(pred_logits))
+        pred_masks = list(torch.unbind(pred_masks))
+        pred_embds = list(torch.unbind(pred_embds))
+        pred_valids = list(torch.unbind(pred_valids))
+
+        out_logits = []
+        out_masks = []
+        out_embds = []
+        out_valids = []
+
+        out_logits.append(pred_logits[0] * pred_valids[0])
+        out_masks.append(pred_masks[0] * pred_valids[0])
+        out_embds.append(pred_embds[0] * pred_masks[0])
+
+        for i in range(1, len(pred_logits)):
+            indices = self.match_from_embds_(out_embds[-1], pred_embds[i])
+
+            out_logits.append((pred_logits[i] * pred_valids[i])[indices, :])
+            out_masks.append((pred_masks[i] * pred_valids[i])[indices, :, :])
+            out_valids.append(pred_valids[indices])
+
+            out_embds.append(pred_embds[i][indices, :] * out_valids[-1] +\
+                             pred_embds[-1] * (1 - out_valids[-1]))
+
+        out_valids = torch.clamp(torch.stack(out_valids, dim=0).sum(dim=0), 1, 1e6)
+        out_logits = sum(out_logits)/out_valids
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
 
         out_logits = out_logits.unsqueeze(0)
