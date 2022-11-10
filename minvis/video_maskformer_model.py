@@ -354,6 +354,7 @@ class VideoMaskFormer_frame(nn.Module):
         out_masks = []
         out_embds = []
         out_valids = []
+        print(pred_logits[0].shape, pred_valids[0].shape)
 
         out_logits.append(pred_logits[0] * pred_valids[0])
         out_masks.append(pred_masks[0] * pred_valids[0])
