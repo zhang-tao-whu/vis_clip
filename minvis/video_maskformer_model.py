@@ -339,7 +339,7 @@ class VideoMaskFormer_frame(nn.Module):
         # pred_logits: 1 t q c
         # pred_masks: 1 q t h w
         pred_valids = F.softmax(pred_logits[0], dim=-1)
-        pred_valids = (torch.max(pred_valids, dim=-1) != pred_valids[..., -1]).to(torch.float32)# t q
+        pred_valids = (torch.max(pred_valids, dim=-1)[0] != pred_valids[..., -1]).to(torch.float32)# t q
 
         pred_logits = pred_logits[0]
         pred_masks = einops.rearrange(pred_masks[0], 'q t h w -> t q h w')
