@@ -219,8 +219,8 @@ class VideoMaskFormer_frame(nn.Module):
                     losses.pop(k)
             return losses
         else:
-            #outputs = self.post_processing(outputs)
-            outputs = self.post_processing_(outputs)
+            outputs = self.post_processing(outputs)
+            #outputs = self.post_processing_(outputs)
 
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
