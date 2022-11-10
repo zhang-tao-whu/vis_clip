@@ -219,8 +219,8 @@ class VideoMaskFormer_frame(nn.Module):
                     losses.pop(k)
             return losses
         else:
-            outputs = self.post_processing(outputs)
-            #outputs = self.post_processing_(outputs)
+            #outputs = self.post_processing(outputs)
+            outputs = self.post_processing_(outputs)
 
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
@@ -279,7 +279,7 @@ class VideoMaskFormer_frame(nn.Module):
 
         return indices
 
-    def match_from_embds_(self, tgt_embds, cur_embds):
+    def match_from_embds_(self, tgt_embds, cur_embds, scores=None):
 
         cur_embds = cur_embds / cur_embds.norm(dim=1)[:, None]
         tgt_embds = [tgt_embd / tgt_embd.norm(dim=1)[:, None] for tgt_embd in tgt_embds]
