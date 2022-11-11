@@ -284,7 +284,8 @@ class VideoMaskFormer_frame(nn.Module):
         cur_embds = cur_embds / cur_embds.norm(dim=1)[:, None]
         tgt_embds = [tgt_embd / tgt_embd.norm(dim=1)[:, None] for tgt_embd in tgt_embds]
         C = 0
-        weights = [0.1, 0.3, 0.6]
+        # weights = [0.1, 0.3, 0.6]
+        weights = [0.05, 0.15, 0.8]
         for i, (weight, tgt_embd) in enumerate(zip(weights, tgt_embds)):
             cos_sim = torch.mm(cur_embds, tgt_embd.transpose(0,1))
             cost_embd = 1 - cos_sim
