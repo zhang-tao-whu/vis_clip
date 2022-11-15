@@ -195,6 +195,7 @@ class VideoMaskFormer_frame(nn.Module):
                 images.append(frame.to(self.device))
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, self.size_divisibility)
+        print(images.tensor.shape)
 
         if not self.training and self.window_inference:
             outputs = self.run_window_inference(images.tensor, window_size=10)
