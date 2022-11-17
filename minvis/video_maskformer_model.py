@@ -111,6 +111,7 @@ class VideoMaskFormer_frame(nn.Module):
         class_weight = cfg.MODEL.MASK_FORMER.CLASS_WEIGHT
         dice_weight = cfg.MODEL.MASK_FORMER.DICE_WEIGHT
         mask_weight = cfg.MODEL.MASK_FORMER.MASK_WEIGHT
+        contrast_weight = cfg.MODEL.MASK_FORMER.CONTRAST_WEIGHT
 
         # building criterion
         matcher = VideoHungarianMatcher(
@@ -120,7 +121,8 @@ class VideoMaskFormer_frame(nn.Module):
             num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
         )
 
-        weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight}
+        weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight,
+                       "loss_contrast": contrast_weight}
 
         if deep_supervision:
             dec_layers = cfg.MODEL.MASK_FORMER.DEC_LAYERS
@@ -129,7 +131,7 @@ class VideoMaskFormer_frame(nn.Module):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
 
-        losses = ["labels", "masks"]
+        losses = ["labels", "masks", "contrast"]
 
         criterion = VideoSetCriterion(
             sem_seg_head.num_classes,
@@ -260,7 +262,8 @@ class VideoMaskFormer_frame(nn.Module):
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
-
+        # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
+        # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
         return outputs, gt_instances
 
     def match_from_embds(self, tgt_embds, cur_embds):
@@ -347,6 +350,7 @@ class VideoMaskFormer_frame(nn.Module):
 
         # pred_logits: 1 t q c
         # pred_masks: 1 q t h w
+        # pred_embeds: 1 c t q
         pred_logits = pred_logits[0]
         pred_scores = torch.max(F.softmax(pred_logits, dim=-1)[..., :-1], dim=-1)[0]
         pred_masks = einops.rearrange(pred_masks[0], 'q t h w -> t q h w')
@@ -413,7 +417,7 @@ class VideoMaskFormer_frame(nn.Module):
         h_pad, w_pad = images.tensor.shape[-2:]
         gt_instances = []
         for targets_per_video in targets:
-            _num_instance = len(targets_per_video["instances"][0])
+            _num_instance = len(targets_per_video["instances"][0]) # targets_per_video["instances"] -> [per frame [per instance id]]
             mask_shape = [_num_instance, self.num_frames, h_pad, w_pad]
             gt_masks_per_video = torch.zeros(mask_shape, dtype=torch.bool, device=self.device)
 
@@ -425,16 +429,16 @@ class VideoMaskFormer_frame(nn.Module):
                 gt_ids_per_video.append(targets_per_frame.gt_ids[:, None])
                 gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks.tensor
 
-            gt_ids_per_video = torch.cat(gt_ids_per_video, dim=1)
-            valid_idx = (gt_ids_per_video != -1).any(dim=-1)
+            gt_ids_per_video = torch.cat(gt_ids_per_video, dim=1) #(n_inst, frame)
+            valid_idx = (gt_ids_per_video != -1).any(dim=-1) # filter which instance in any frames
 
             gt_classes_per_video = targets_per_frame.gt_classes[valid_idx]          # N,
-            gt_ids_per_video = gt_ids_per_video[valid_idx]                          # N, num_frames
+            gt_ids_per_video = gt_ids_per_video[valid_idx]                          # N, num_frames, i instance not in j frame, id[i, j] = -1
 
             gt_instances.append({"labels": gt_classes_per_video, "ids": gt_ids_per_video})
             gt_masks_per_video = gt_masks_per_video[valid_idx].float()          # N, num_frames, H, W
             gt_instances[-1].update({"masks": gt_masks_per_video})
-
+        #gt_instances -> [per video instance], per video instance {'labels': (N, ), 'ids': (N, f), 'masks': (N, f, H, W)}
         return gt_instances
 
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, max_num=20):
