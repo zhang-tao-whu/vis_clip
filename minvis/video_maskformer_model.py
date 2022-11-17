@@ -211,7 +211,8 @@ class VideoMaskFormer_frame(nn.Module):
             outputs, targets = self.frame_decoder_loss_reshape(outputs, targets)
 
             # bipartite matching-based loss
-            losses = self.criterion(outputs, targets)
+            #losses = self.criterion(outputs, targets)
+            losses = self.criterion(outputs, targets, use_contrast=True)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
