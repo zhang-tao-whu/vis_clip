@@ -281,6 +281,8 @@ class VideoSetCriterion(nn.Module):
                 print(id_refer)
                 print(id_target)
                 print(id_neg)
+                print(distance.shape)
+                print(is_same_id.shape)
         return
 
     def _get_src_permutation_idx(self, indices):
