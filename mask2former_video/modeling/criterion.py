@@ -244,7 +244,6 @@ class VideoSetCriterion(nn.Module):
 
     def _select_pos_neg_embeds(self, frame_masks, frame_ids, frame_embeds, refer_embeds, pos_embeds, neg_embeds, neg_num=3):
         assert len(frame_masks) == len(frame_embeds) == len(frame_ids) == self.frames
-        print(frame_masks[0].shape, frame_ids[0].shape, frame_embeds[0].shape)
         refer_idx = self.frames // 2
         refer_id = frame_ids[refer_idx]
         valid = refer_id != -1
@@ -263,7 +262,7 @@ class VideoSetCriterion(nn.Module):
             pos_embeds.append(target_embed[id_target].unsqueeze(1))
             #select neg
             distance = torch.sum((refer_boxes.unsqueeze(1) - target_boxes.unsqueeze(0)) ** 2, dim=-1) ** 0.5
-            distance = is_same_id * 1e6 + distance
+            distance = is_same_id * 1e6 + distance.to(is_same_id.device)
             _neg_num = min(neg_num, distance.size(1) - 1)
             # if none neg, pass
             if _neg_num == 0:
