@@ -217,7 +217,7 @@ class VideoSetCriterion(nn.Module):
 
         cos_sim = (refer_embeds * targets_embeds).sum(dim=2)  # (n, 1+neg_num)
         target_classes = torch.full(
-            cos_sim.shape[0], 0, dtype=torch.int64, device=cos_sim.device
+            cos_sim.shape[:1], 0, dtype=torch.int64, device=cos_sim.device
         )
         empty_weight = torch.ones(neg_num + 1) / neg_num
         empty_weight[0] = 1
