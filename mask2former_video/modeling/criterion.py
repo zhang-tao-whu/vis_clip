@@ -268,7 +268,7 @@ class VideoSetCriterion(nn.Module):
             distance = is_same_id * 1e6 + distance.to(is_same_id.device)
             _neg_num = min(neg_num, distance.size(1) - 1)
             # if none neg, pass
-            if _neg_num == 0:
+            if _neg_num <= 0:
                 refer_embeds.pop()
                 pos_embeds.pop()
                 continue
@@ -277,13 +277,6 @@ class VideoSetCriterion(nn.Module):
             if _neg_num != neg_num:
                 id_neg = torch.cat([id_neg, torch.flip(id_neg, [1])] * neg_num, dim=1)[:, :neg_num]
             neg_embeds.append(target_embed[id_neg][pos_valid])
-            if neg_embeds[-1].size(0) != pos_embeds[-1].size(0):
-                print(neg_embeds[-1].size(0), pos_embeds[-1].size(0))
-                print(id_refer)
-                print(id_target)
-                print(id_neg)
-                print(distance.shape)
-                print(is_same_id.shape)
         return
 
     def _get_src_permutation_idx(self, indices):
