@@ -207,6 +207,8 @@ class VideoSetCriterion(nn.Module):
                 frame_embeds.append(pred_embeds[idx][indice[0]])  # (n, c)
             self._select_pos_neg_embeds(frame_masks, frame_ids, frame_embeds, refer_embeds,
                                         pos_embeds, neg_embeds, neg_num=neg_num)
+        if len(refer_embeds) == 0:
+            return {"loss_ce": pred_embeds.sum() * 0.0}
         refer_embeds = torch.cat(refer_embeds, dim=0)
         pos_embeds = torch.cat(pos_embeds, dim=0)
         neg_embeds = torch.cat(neg_embeds, dim=0)
