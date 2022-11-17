@@ -203,6 +203,7 @@ class VideoMaskFormer_frame(nn.Module):
         else:
             features = self.backbone(images.tensor)
             outputs = self.sem_seg_head(features)
+            print(outputs.keys())
 
         if self.training:
             # mask classification target

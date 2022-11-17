@@ -221,7 +221,6 @@ class VideoSetCriterion(nn.Module):
         )
         empty_weight = torch.ones(neg_num + 1) / neg_num
         empty_weight[0] = 1
-        print(cos_sim.shape, target_classes.shape, empty_weight)
         loss_contrast = F.cross_entropy(cos_sim, target_classes, empty_weight.to(cos_sim.device))
         return {"loss_ce": loss_contrast}
 
