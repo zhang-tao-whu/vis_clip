@@ -208,7 +208,7 @@ class VideoSetCriterion(nn.Module):
             self._select_pos_neg_embeds(frame_masks, frame_ids, frame_embeds, refer_embeds,
                                         pos_embeds, neg_embeds, neg_num=neg_num)
         if len(refer_embeds) == 0:
-            return {"loss_ce": pred_embeds.sum() * 0.0}
+            return {"loss_contrast": pred_embeds.sum() * 0.0}
         refer_embeds = torch.cat(refer_embeds, dim=0)
         pos_embeds = torch.cat(pos_embeds, dim=0)
         neg_embeds = torch.cat(neg_embeds, dim=0)
@@ -224,7 +224,7 @@ class VideoSetCriterion(nn.Module):
         empty_weight = torch.ones(neg_num + 1) / neg_num
         empty_weight[0] = 1
         loss_contrast = F.cross_entropy(cos_sim, target_classes, empty_weight.to(cos_sim.device))
-        return {"loss_ce": loss_contrast}
+        return {"loss_contrast": loss_contrast}
 
     def get_bounding_boxes(self, masks):
         """
@@ -278,6 +278,9 @@ class VideoSetCriterion(nn.Module):
             neg_embeds.append(target_embed[id_neg])
             if neg_embeds[-1].size(0) != pos_embeds[-1].size(0):
                 print(neg_embeds[-1].size(0), pos_embeds[-1].size(0))
+                print(id_refer)
+                print(id_target)
+                print(id_neg)
         return
 
     def _get_src_permutation_idx(self, indices):
