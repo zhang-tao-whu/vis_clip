@@ -273,7 +273,7 @@ class VideoSetCriterion(nn.Module):
             _, id_neg = torch.topk(distance, k=_neg_num, dim=1, largest=False)
             # is real neg num < neg_num, repeat to neg_num
             if _neg_num != neg_num:
-                id_neg = torch.cat([id_neg, id_neg[:, :neg_num - _neg_num]], dim=1)
+                id_neg = torch.cat([id_neg, ] + [id_neg[:, :1]] * (neg_num - _neg_num), dim=1)
             neg_embeds.append(target_embed[id_neg])
         return
 
