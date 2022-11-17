@@ -202,8 +202,8 @@ class VideoSetCriterion(nn.Module):
             for j in range(self.frames):
                 idx = i * self.frames + j
                 indice = indices[idx]
-                frame_masks.append(targets[idx]['masks'][indice[1]]).squeeze(1)  # (n, h, w)
-                frame_ids.append(targets[idx]['ids'][indice[1]]).squeeze(1)  # (n)
+                frame_masks.append(targets[idx]['masks'][indice[1]].squeeze(1))  # (n, h, w)
+                frame_ids.append(targets[idx]['ids'][indice[1]].squeeze(1))  # (n)
                 frame_embeds.append(pred_embeds[idx][indice[0]])  # (n, c)
             self._select_pos_neg_embeds(frame_masks, frame_ids, frame_embeds, refer_embeds,
                                         pos_embeds, neg_embeds, neg_num=neg_num)
