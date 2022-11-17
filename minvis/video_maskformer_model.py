@@ -98,6 +98,8 @@ class VideoMaskFormer_frame(nn.Module):
         self.num_frames = num_frames
         self.window_inference = window_inference
 
+        self.embed_proj = nn.Linear(256, 256)
+
     @classmethod
     def from_config(cls, cfg):
         backbone = build_backbone(cfg)
@@ -203,6 +205,8 @@ class VideoMaskFormer_frame(nn.Module):
         else:
             features = self.backbone(images.tensor)
             outputs = self.sem_seg_head(features)
+
+        outputs['pred_embds'] = self.embed_proj(outputs['pred_embds'].detach())
 
         if self.training:
             # mask classification target
