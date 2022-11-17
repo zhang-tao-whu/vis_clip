@@ -259,6 +259,7 @@ class VideoSetCriterion(nn.Module):
             target_boxes = self.get_bounding_boxes(frame_masks[i])
             #select pos
             is_same_id = ((refer_id.unsqueeze(1) - target_id.unsqueeze(0)) == 0).to(torch.float32)
+            pos_valid = is_same_id.sum(dim=1) != 0
             id_refer, id_target = torch.nonzero(is_same_id, as_tuple=True)
             refer_embeds.append(refer_embed[id_refer].unsqueeze(1))
             pos_embeds.append(target_embed[id_target].unsqueeze(1))
@@ -275,7 +276,7 @@ class VideoSetCriterion(nn.Module):
             # is real neg num < neg_num, repeat to neg_num
             if _neg_num != neg_num:
                 id_neg = torch.cat([id_neg, torch.flip(id_neg, [1])] * neg_num, dim=1)[:, :neg_num]
-            neg_embeds.append(target_embed[id_neg])
+            neg_embeds.append(target_embed[id_neg][pos_valid])
             if neg_embeds[-1].size(0) != pos_embeds[-1].size(0):
                 print(neg_embeds[-1].size(0), pos_embeds[-1].size(0))
                 print(id_refer)
