@@ -213,7 +213,6 @@ class VideoSetCriterion(nn.Module):
         pos_embeds = torch.cat(pos_embeds, dim=0)
         neg_embeds = torch.cat(neg_embeds, dim=0)
         targets_embeds = torch.cat([pos_embeds, neg_embeds], dim=1)
-        print(refer_embeds.size(0))
 
         refer_embeds = refer_embeds / refer_embeds.norm(dim=2)[:, :, None]  # (n, 1, c)
         targets_embeds = targets_embeds / targets_embeds.norm(dim=2)[:, :, None]  # (n, 1+neg_num, c)
@@ -277,6 +276,8 @@ class VideoSetCriterion(nn.Module):
             if _neg_num != neg_num:
                 id_neg = torch.cat([id_neg, torch.flip(id_neg, [1])] * neg_num, dim=1)[:, :neg_num]
             neg_embeds.append(target_embed[id_neg])
+            if neg_embeds[-1].size(0) != pos_embeds[-1].size(0):
+                print(neg_embeds[-1].size(0), pos_embeds[-1].size(0))
         return
 
     def _get_src_permutation_idx(self, indices):
