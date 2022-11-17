@@ -244,6 +244,7 @@ class VideoSetCriterion(nn.Module):
 
     def _select_pos_neg_embeds(self, frame_masks, frame_ids, frame_embeds, refer_embeds, pos_embeds, neg_embeds, neg_num=3):
         assert len(frame_masks) == len(frame_embeds) == len(frame_ids) == self.frames
+        print(frame_masks.shape, frame_ids.shape, frame_embeds.shape)
         refer_idx = self.frames // 2
         refer_id = frame_ids[refer_idx]
         valid = refer_id != -1
