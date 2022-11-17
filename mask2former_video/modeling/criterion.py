@@ -223,7 +223,8 @@ class VideoSetCriterion(nn.Module):
         )
         empty_weight = torch.ones(neg_num + 1) / neg_num
         empty_weight[0] = 1
-        loss_contrast = F.cross_entropy(cos_sim, target_classes, empty_weight.to(cos_sim.device))
+
+        loss_contrast = F.cross_entropy(cos_sim + 1e-8, target_classes, empty_weight.to(cos_sim.device))
         return {"loss_contrast": loss_contrast}
 
     def get_bounding_boxes(self, masks):
