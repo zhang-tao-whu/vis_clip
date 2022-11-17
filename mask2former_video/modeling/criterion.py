@@ -331,7 +331,7 @@ class VideoSetCriterion(nn.Module):
             for i, aux_outputs in enumerate(outputs["aux_outputs"]):
                 indices = self.matcher(aux_outputs, targets)
                 for loss in self.losses:
-                    if loss == 'contrast' and use_contrast is False:
+                    if loss == 'contrast':
                         continue
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_masks)
                     l_dict = {k + f"_{i}": v for k, v in l_dict.items()}
