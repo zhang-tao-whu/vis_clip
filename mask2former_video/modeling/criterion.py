@@ -214,8 +214,8 @@ class VideoSetCriterion(nn.Module):
         neg_embeds = torch.cat(neg_embeds, dim=0)
         targets_embeds = torch.cat([pos_embeds, neg_embeds], dim=1)
 
-        refer_embeds = refer_embeds / refer_embeds.norm(dim=2)[:, :, None]  # (n, 1, c)
-        targets_embeds = targets_embeds / targets_embeds.norm(dim=2)[:, :, None]  # (n, 1+neg_num, c)
+        refer_embeds = refer_embeds / (refer_embeds.norm(dim=2) + 1e-6)[:, :, None]  # (n, 1, c)
+        targets_embeds = targets_embeds / (targets_embeds.norm(dim=2) + 1e-6)[:, :, None]  # (n, 1+neg_num, c)
 
         cos_sim = (refer_embeds * targets_embeds).sum(dim=2)  # (n, 1+neg_num)
         target_classes = torch.full(
