@@ -14,4 +14,5 @@ def add_minvis_config(cfg):
     cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE = False
     cfg.MODEL.MASK_FORMER.CONTRAST_WEIGHT: 1.0
     print(cfg)
+    print(kkkk)
 
