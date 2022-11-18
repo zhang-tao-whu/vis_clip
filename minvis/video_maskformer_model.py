@@ -98,7 +98,7 @@ class VideoMaskFormer_frame(nn.Module):
         self.num_frames = num_frames
         self.window_inference = window_inference
 
-        self.embed_proj = nn.Linear(256, 256)
+        #self.embed_proj = nn.Linear(256, 256)
 
     @classmethod
     def from_config(cls, cfg):
