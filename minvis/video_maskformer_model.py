@@ -207,7 +207,7 @@ class VideoMaskFormer_frame(nn.Module):
             outputs = self.sem_seg_head(features)
 
         # outputs['pred_embds'] = self.embed_proj(outputs['pred_embds'].detach().permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
-        outputs['pred_embds'] = outputs['pred_embds'].detach()
+        outputs['pred_embds'] = outputs['pred_embds']
 
         if self.training:
             # mask classification target

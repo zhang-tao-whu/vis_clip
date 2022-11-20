@@ -214,17 +214,18 @@ class VideoSetCriterion(nn.Module):
         neg_embeds = torch.cat(neg_embeds, dim=0)
         targets_embeds = torch.cat([pos_embeds, neg_embeds], dim=1)
 
-        refer_embeds = refer_embeds / (refer_embeds.norm(dim=2) + 1e-6)[:, :, None]  # (n, 1, c)
-        targets_embeds = targets_embeds / (targets_embeds.norm(dim=2) + 1e-6)[:, :, None]  # (n, 1+neg_num, c)
+        refer_embeds = refer_embeds / (refer_embeds.norm(dim=2) + 1e-6).detach()[:, :, None]  # (n, 1, c)
+        targets_embeds = targets_embeds / (targets_embeds.norm(dim=2) + 1e-6).detach()[:, :, None]  # (n, 1+neg_num, c)
 
         cos_sim = (refer_embeds * targets_embeds).sum(dim=2)  # (n, 1+neg_num)
         target_classes = torch.full(
             cos_sim.shape[:1], 0, dtype=torch.int64, device=cos_sim.device
         )
+        sup_valid = torch.max(cos_sim, dim=1)[0] != cos_sim[:, 0]
         empty_weight = torch.ones(neg_num + 1) / neg_num
         empty_weight[0] = 1
 
-        loss_contrast = F.cross_entropy(cos_sim, target_classes, empty_weight.to(cos_sim.device))
+        loss_contrast = F.cross_entropy(cos_sim[sup_valid], target_classes[sup_valid], empty_weight.to(cos_sim.device))
         if torch.any(torch.isnan(loss_contrast)).item():
             return {"loss_contrast": pred_embeds.sum() * 0.0}
         return {"loss_contrast": loss_contrast}
