@@ -225,6 +225,9 @@ class VideoSetCriterion(nn.Module):
         empty_weight = torch.ones(neg_num + 1) / neg_num
         empty_weight[0] = 1
 
+        if len(cos_sim[sup_valid]) == 0:
+            return {"loss_contrast": pred_embeds.sum() * 0.0}
+
         loss_contrast = F.cross_entropy(cos_sim[sup_valid], target_classes[sup_valid], empty_weight.to(cos_sim.device))
         if torch.any(torch.isnan(loss_contrast)).item():
             return {"loss_contrast": pred_embeds.sum() * 0.0}
