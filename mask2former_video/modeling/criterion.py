@@ -413,6 +413,7 @@ class VideoSetCriterion_(nn.Module):
         target_classes = torch.full(
             (*src_logits.shape[:2], src_logits.size(2)), self.num_classes, dtype=torch.int64, device=src_logits.device
         )
+        target_classes_o[target_classes_o == -1] = self.num_classes
         target_classes[idx] = target_classes_o
 
         src_logits = src_logits.flatten(1, 2) # (bs, nq*t, c)
