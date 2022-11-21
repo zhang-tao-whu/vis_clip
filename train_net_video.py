@@ -137,7 +137,6 @@ class Trainer(DefaultTrainer):
             if 'tracker' not in module_name:
                 continue
             for module_param_name, value in module.named_parameters(recurse=False):
-                print(module_param_name)
                 if 'tracker' not in module_param_name:
                     continue
                 if not value.requires_grad:
