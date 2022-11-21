@@ -246,6 +246,8 @@ class VideoHungarianMatcher_(nn.Module):
             # all masks share the same set of points for efficient matching!
             point_coords = torch.rand(1, self.num_points, 2, device=out_mask.device)
             # get gt labels
+            print(tgt_mask.shape, point_coords.shape)
+            print(kkk)
             tgt_mask = point_sample(
                 tgt_mask,
                 point_coords.repeat(tgt_mask.shape[0], 1, 1),
