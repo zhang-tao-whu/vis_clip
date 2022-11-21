@@ -108,7 +108,6 @@ class VideoMaskFormer_frame(nn.Module):
                                     mask_dim=256,
                                     class_num=20,
                                     detach_frame_connection=False)
-
         #self.embed_proj = nn.Linear(256, 256)
 
     @classmethod
@@ -558,7 +557,7 @@ class QueryTracker(torch.nn.Module):
                  mask_dim=256,
                  class_num=20,
                  detach_frame_connection=False):
-
+        super(QueryTracker, self).__init__()
         self.detach_frame_connection = detach_frame_connection
 
         # init for object query
