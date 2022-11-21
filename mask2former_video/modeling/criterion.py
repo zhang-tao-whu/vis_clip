@@ -593,6 +593,8 @@ class VideoSetCriterion_(nn.Module):
             'masks': self.loss_masks,
             'contrast': self.loss_contrast
         }
+        print('-------------------------------done-------------------------------------')
+        print(kkk)
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices, num_masks)
 
@@ -608,9 +610,6 @@ class VideoSetCriterion_(nn.Module):
         # Retrieve the matching between the outputs of the last layer and the targets
         indices = self.matcher(outputs_without_aux, targets)
         # [per image indicates], per image indicates -> (pred inds, gt inds)
-
-        print('-------------------------------done-------------------------------------')
-        print(kkk)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_masks = sum(len(t["labels"]) for t in targets)
