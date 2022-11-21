@@ -442,8 +442,8 @@ class VideoSetCriterion_(nn.Module):
 
         # No need to upsample predictions as we are using normalized coordinates :)
         # NT x 1 x H x W
-        #src_masks = src_masks.flatten(0, 1)[:, None]
-        #target_masks = target_masks.flatten(0, 1)[:, None]
+        src_masks = src_masks.flatten(1, 2)[:, None]
+        target_masks = target_masks.flatten(1, 2)[:, None]
 
         with torch.no_grad():
             # sample point_coords
