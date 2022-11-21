@@ -93,6 +93,7 @@ class Trainer(DefaultTrainer):
             cfg (CfgNode):
         """
         super(Trainer, self).__init__(cfg)
+        print(model)
 
     @classmethod
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
