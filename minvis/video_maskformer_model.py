@@ -222,7 +222,7 @@ class VideoMaskFormer_frame(nn.Module):
                 features = self.backbone(images.tensor)
                 outputs = self.sem_seg_head(features)
                 frame_embds = outputs['pred_embds'].clone().detach()  # b c t q
-                mask_features = outputs['mask_features'].clone().detach()
+                mask_features = outputs['mask_features'].clone().detach().unsqueeze(0)
                 del outputs['pred_embds']
                 del outputs['mask_features']
                 del outputs
@@ -455,7 +455,7 @@ class VideoMaskFormer_frame(nn.Module):
             features = self.backbone(images_tensor[start_idx:end_idx])
             out = self.sem_seg_head(features)
             frame_embds = out['pred_embds']  # b c t q
-            mask_features = out['mask_features']
+            mask_features = out['mask_features'].unsqueeze(0)
             if i == 0:
                 track_out = self.tracker(frame_embds, mask_features)
             else:
