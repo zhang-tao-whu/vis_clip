@@ -228,6 +228,7 @@ class VideoHungarianMatcher_(nn.Module):
             # pred_masks (bs, nq, t, h, w)
             out_prob = outputs["pred_logits"][b].softmax(-1)  # [num_queries, T, num_classes]
             tgt_ids = targets[b]["labels"] # (N, T)
+            print(tgt_ids.shape)
             T_ids = torch.range(tgt_ids.size(1), device=tgt_ids.device,
                                 dtype=torch.int64).unsqueeze(0).repeat(tgt_ids.size(0), 1)
 
