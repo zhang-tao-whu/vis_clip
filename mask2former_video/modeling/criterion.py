@@ -416,6 +416,7 @@ class VideoSetCriterion_(nn.Module):
 
         print(target_classes.shape)
         print(idx)
+        print(target_classes_o.shape)
         target_classes_o[target_classes_o == -1] = self.num_classes
         target_classes[idx] = target_classes_o
 
