@@ -134,6 +134,8 @@ class Trainer(DefaultTrainer):
         memo: Set[torch.nn.parameter.Parameter] = set()
         for module_name, module in model.named_modules():
             for module_param_name, value in module.named_parameters(recurse=False):
+                if 'tracker' not in module_param_name:
+                    continue
                 if not value.requires_grad:
                     continue
                 # Avoid duplicating parameters
