@@ -133,6 +133,9 @@ class Trainer(DefaultTrainer):
         params: List[Dict[str, Any]] = []
         memo: Set[torch.nn.parameter.Parameter] = set()
         for module_name, module in model.named_modules():
+            print(module_name)
+            if 'tracker' not in module_name:
+                continue
             for module_param_name, value in module.named_parameters(recurse=False):
                 print(module_param_name)
                 if 'tracker' not in module_param_name:
