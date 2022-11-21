@@ -611,7 +611,7 @@ class QueryTracker(torch.nn.Module):
     def forward(self, frame_embeds, mask_features, init_query=None):
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
-        n_frame, n_q, bs, _ = frame_embeds.size(0)
+        n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
         if init_query is None:
             output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
