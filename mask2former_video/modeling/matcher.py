@@ -299,6 +299,8 @@ class VideoHungarianMatcher_(nn.Module):
 
             indices.append(linear_sum_assignment(C))
 
+        print('-------------------------------done-------------------------------------')
+        print(kkk)
         return [
             (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
             for i, j in indices
