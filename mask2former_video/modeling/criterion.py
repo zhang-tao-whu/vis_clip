@@ -635,7 +635,8 @@ class VideoSetCriterion_(nn.Module):
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_masks)
                     l_dict = {k + f"_{i}": v for k, v in l_dict.items()}
                     losses.update(l_dict)
-
+        print('-------------------------------done-------------------------------------')
+        print(kkk)
         return losses
 
     def __repr__(self):
