@@ -622,21 +622,21 @@ class QueryTracker(torch.nn.Module):
             single_frame_embeds = frame_embeds[i]
             ms_output = []
             for j in range(self.num_layers):
-                output = self.transformer_cross_attention_layers[i](
+                output = self.transformer_cross_attention_layers[j](
                     output, single_frame_embeds,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
                     pos=None, query_pos=output_pos
                 )
 
-                output = self.transformer_self_attention_layers[i](
+                output = self.transformer_self_attention_layers[j](
                     output, tgt_mask=None,
                     tgt_key_padding_mask=None,
                     query_pos=output_pos
                 )
 
                 # FFN
-                output = self.transformer_ffn_layers[i](
+                output = self.transformer_ffn_layers[j](
                     output
                 )
                 ms_output.append(output)
