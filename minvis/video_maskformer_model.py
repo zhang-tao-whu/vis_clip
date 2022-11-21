@@ -463,8 +463,8 @@ class VideoMaskFormer_frame(nn.Module):
                                          init_query=out_list[-1]['pred_embds'].permute(2, 3, 0, 1)[-1])
 
             del features['res2'], features['res3'], features['res4'], features['res5']
-            for j in range(len(out['aux_outputs'])):
-                del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
+            for j in range(len(track_out['aux_outputs'])):
+                del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
             out_list.append(track_out)
 
