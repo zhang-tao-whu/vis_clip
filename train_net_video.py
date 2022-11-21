@@ -59,12 +59,67 @@ from minvis import (
     build_detection_test_loader,
     get_detection_dataset_dicts,
 )
+from torch.nn.parallel import DistributedDataParallel
+from detectron2.engine.train_loop import AMPTrainer, SimpleTrainer, TrainerBase
+import weakref
+def create_ddp_model(model, *, fp16_compression=False, **kwargs):
+    """
+    Create a DistributedDataParallel model if there are >1 processes.
+    Args:
+        model: a torch.nn.Module
+        fp16_compression: add fp16 compression hooks to the ddp object.
+            See more at https://pytorch.org/docs/stable/ddp_comm_hooks.html#torch.distributed.algorithms.ddp_comm_hooks.default_hooks.fp16_compress_hook
+        kwargs: other arguments of :module:`torch.nn.parallel.DistributedDataParallel`.
+    """  # noqa
+    if comm.get_world_size() == 1:
+        return model
+    if "device_ids" not in kwargs:
+        kwargs["device_ids"] = [comm.get_local_rank()]
+    ddp = DistributedDataParallel(model, find_unused_parameters=True)
+    if fp16_compression:
+        from torch.distributed.algorithms.ddp_comm_hooks import default as comm_hooks
 
+        ddp.register_comm_hook(state=None, hook=comm_hooks.fp16_compress_hook)
+    return ddp
 
 class Trainer(DefaultTrainer):
     """
     Extension of the Trainer class adapted to MaskFormer.
     """
+
+    def __init__(self, cfg):
+        """
+        Args:
+            cfg (CfgNode):
+        """
+        super().__init__()
+        logger = logging.getLogger("detectron2")
+        if not logger.isEnabledFor(logging.INFO):  # setup_logger is not called for d2
+            setup_logger()
+        cfg = DefaultTrainer.auto_scale_workers(cfg, comm.get_world_size())
+
+        # Assume these objects must be constructed in this order.
+        model = self.build_model(cfg)
+        optimizer = self.build_optimizer(cfg, model)
+        data_loader = self.build_train_loader(cfg)
+
+        model = create_ddp_model(model, broadcast_buffers=False)
+        self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
+            model, data_loader, optimizer
+        )
+
+        self.scheduler = self.build_lr_scheduler(cfg, optimizer)
+        self.checkpointer = DetectionCheckpointer(
+            # Assume you want to save checkpoints together with logs/statistics
+            model,
+            cfg.OUTPUT_DIR,
+            trainer=weakref.proxy(self),
+        )
+        self.start_iter = 0
+        self.max_iter = cfg.SOLVER.MAX_ITER
+        self.cfg = cfg
+
+        self.register_hooks(self.build_hooks())
 
     @classmethod
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
@@ -135,7 +190,6 @@ class Trainer(DefaultTrainer):
         for module_name, module in model.named_modules():
             if 'tracker' not in module_name:
                 continue
-            print(module_name)
             for module_param_name, value in module.named_parameters(recurse=False):
                 if not value.requires_grad:
                     continue
