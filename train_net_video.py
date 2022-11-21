@@ -92,7 +92,7 @@ class Trainer(DefaultTrainer):
         Args:
             cfg (CfgNode):
         """
-        super().__init__()
+        super(DefaultTrainer).__init__()
         logger = logging.getLogger("detectron2")
         if not logger.isEnabledFor(logging.INFO):  # setup_logger is not called for d2
             setup_logger()
