@@ -659,9 +659,6 @@ class QueryTracker(torch.nn.Module):
         }
         # pred_logits (bs, nq, t, c)
         # pred_masks (bs, nq, t, h, w)
-        print('---------------------------------done------------------------------')
-        print(kkk)
-
         return out
 
     @torch.jit.unused
@@ -680,7 +677,6 @@ class QueryTracker(torch.nn.Module):
         decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
         outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
         mask_embed = self.mask_embed(decoder_output)
-        print(mask_embed.shape, mask_features.shape)
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         return outputs_class, outputs_mask
 
