@@ -27,6 +27,8 @@ from mask2former_video.utils.memory import retry_if_cuda_oom
 
 from scipy.optimize import linear_sum_assignment
 
+from mask2former_video.modeling.transformer_decoder.video_mask2former_transformer_decoder import SelfAttentionLayer, CrossAttentionLayer, FFNLayer, MLP
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,6 +99,15 @@ class VideoMaskFormer_frame(nn.Module):
 
         self.num_frames = num_frames
         self.window_inference = window_inference
+
+        self.tracker = QueryTracker(num_object_query=30,
+                                    hidden_channel=256,
+                                    feedforward_channel=2048,
+                                    num_head=8,
+                                    decoder_layer_num=6,
+                                    mask_dim=256,
+                                    class_num=20,
+                                    detach_frame_connection=False)
 
         #self.embed_proj = nn.Linear(256, 256)
 
@@ -202,12 +213,26 @@ class VideoMaskFormer_frame(nn.Module):
 
         if not self.training and self.window_inference:
             outputs = self.run_window_inference(images.tensor, window_size=10)
+            # frame_embds = outputs['pred_embds']  # b c t q
+            # mask_features = outputs['mask_features']
+            # outputs = self.tracker(frame_embds, mask_features)
         else:
-            features = self.backbone(images.tensor)
-            outputs = self.sem_seg_head(features)
+            self.backbone.eval()
+            self.sem_seg_head.eval()
+            with torch.no_grad():
+                features = self.backbone(images.tensor)
+                outputs = self.sem_seg_head(features)
+                frame_embds = outputs['pred_embds'].clone().detach()  # b c t q
+                mask_features = outputs['mask_features'].clone().detach()
+                del outputs['pred_embds']
+                del outputs['mask_features']
+                del outputs
+                torch.cuda.empty_cache()
+            outputs = self.tracker(frame_embds, mask_features)
 
-        # outputs['pred_embds'] = self.embed_proj(outputs['pred_embds'].detach().permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
-        outputs['pred_embds'] = outputs['pred_embds']
+        # pred_logits (bs, nq, t, c)
+        # pred_masks (bs, nq, t, h, w)
+        # pred_embds (b c t q)
 
         if self.training:
             # mask classification target
@@ -217,7 +242,7 @@ class VideoMaskFormer_frame(nn.Module):
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
-            losses = self.criterion(outputs, targets, use_contrast=True)
+            losses = self.criterion(outputs, targets, use_contrast=False)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
@@ -228,7 +253,10 @@ class VideoMaskFormer_frame(nn.Module):
             return losses
         else:
             #outputs = self.post_processing(outputs)
-            outputs = self.post_processing_(outputs)
+            # pred_logits (bs, nq, t, c)
+            # pred_masks (bs, nq, t, h, w)
+            # pred_embds (b c t q)
+            #outputs = self.post_processing_(outputs)
 
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
@@ -246,15 +274,17 @@ class VideoMaskFormer_frame(nn.Module):
             return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size)
 
     def frame_decoder_loss_reshape(self, outputs, targets):
-        outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-        outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+        # pred_logits (bs, nq, t, c)
+        # pred_masks (bs, nq, t, h, w)
+        #outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> b q t h w')
+        outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b q t c -> b q t c')
         if 'aux_outputs' in outputs:
             for i in range(len(outputs['aux_outputs'])):
-                outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
-                )
+                #outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
+                #    outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
+                #)
                 outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
+                    outputs['aux_outputs'][i]['pred_logits'], 'b q t c -> b q t c'
                 )
 
         gt_instances = []
@@ -262,12 +292,17 @@ class VideoMaskFormer_frame(nn.Module):
             # labels: N (num instances)
             # ids: N, num_labeled_frames
             # masks: N, num_labeled_frames, H, W
-            num_labeled_frames = targets_per_video['ids'].shape[1]
-            for f in range(num_labeled_frames):
-                labels = targets_per_video['labels']
-                ids = targets_per_video['ids'][:, [f]]
-                masks = targets_per_video['masks'][:, [f], :, :]
-                gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
+
+            #num_labeled_frames = targets_per_video['ids'].shape[1]
+            # for f in range(num_labeled_frames):
+            #     labels = targets_per_video['labels']
+            #     ids = targets_per_video['ids'][:, [f]]
+            #     masks = targets_per_video['masks'][:, [f], :, :]
+            #     gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
+            labels = targets_per_video['labels'] # (N, )
+            ids = targets_per_video['ids'] # (N, T)
+            masks = targets_per_video['masks'] # (N, T, H, W)
+            gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
         # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
         return outputs, gt_instances
@@ -396,6 +431,20 @@ class VideoMaskFormer_frame(nn.Module):
         return outputs
 
     def run_window_inference(self, images_tensor, window_size=30):
+
+        # self.backbone.eval()
+        # self.sem_seg_head.eval()
+        # with torch.no_grad():
+        #     features = self.backbone(images.tensor)
+        #     outputs = self.sem_seg_head(features)
+        #     frame_embds = outputs['pred_embds'].clone().detach()  # b c t q
+        #     mask_features = outputs['mask_features'].clone().detach()
+        #     del outputs['pred_embds']
+        #     del outputs['mask_features']
+        #     del outputs
+        #     torch.cuda.empty_cache()
+        # outputs = self.tracker(frame_embds, mask_features)
+
         iters = len(images_tensor) // window_size
         if len(images_tensor) % window_size != 0:
             iters += 1
@@ -406,17 +455,28 @@ class VideoMaskFormer_frame(nn.Module):
 
             features = self.backbone(images_tensor[start_idx:end_idx])
             out = self.sem_seg_head(features)
+            frame_embds = out['pred_embds']  # b c t q
+            mask_features = out['mask_features']
+            if i == 0:
+                track_out = self.tracker(frame_embds, mask_features)
+            else:
+                track_out = self.tracker(frame_embds, mask_features,
+                                         init_query=out_list[-1]['pred_embds'].permute(2, 3, 0, 1)[-1])
+
             del features['res2'], features['res3'], features['res4'], features['res5']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
-            out_list.append(out)
+                del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
+            out_list.append(track_out)
 
+        # pred_logits (bs, nq, t, c)
+        # pred_masks (bs, nq, t, h, w)
+        # pred_embds (b c t q)
         # merge outputs
         outputs = {}
-        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1).detach()
+        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=2).detach()
         outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2).detach()
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).detach()
-
         return outputs
 
     def prepare_targets(self, targets, images):
@@ -448,6 +508,9 @@ class VideoMaskFormer_frame(nn.Module):
         return gt_instances
 
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, max_num=20):
+        # pred_cls (nq, t, c)
+        # pred_masks (nq, t, h, w)
+        pred_cls = torch.mean(pred_cls, dim=1) # (nq, c)
         if len(pred_cls) > 0:
             scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             labels = torch.arange(self.sem_seg_head.num_classes, device=self.device).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
@@ -484,3 +547,142 @@ class VideoMaskFormer_frame(nn.Module):
         }
 
         return video_output
+
+class QueryTracker(torch.nn.Module):
+    def __init__(self,
+                 num_object_query=30,
+                 hidden_channel=256,
+                 feedforward_channel=2048,
+                 num_head=8,
+                 decoder_layer_num=6,
+                 mask_dim=256,
+                 class_num=20,
+                 detach_frame_connection=False):
+
+        self.detach_frame_connection = detach_frame_connection
+
+        # init for object query
+        self.num_object_query = num_object_query
+        # learnable query features
+        self.query_feat = nn.Embedding(num_object_query, hidden_channel)
+        # learnable query p.e.
+        self.query_embed = nn.Embedding(num_object_query, hidden_channel)
+
+        # init transformer layers
+        self.num_heads = num_head
+        self.num_layers = decoder_layer_num
+        self.transformer_self_attention_layers = nn.ModuleList()
+        self.transformer_cross_attention_layers = nn.ModuleList()
+        self.transformer_ffn_layers = nn.ModuleList()
+
+        for _ in range(self.num_layers):
+            self.transformer_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_cross_attention_layers.append(
+                CrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+        self.decoder_norm = nn.LayerNorm(hidden_channel)
+
+        # init heads
+        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
+        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+
+    def forward(self, frame_embeds, mask_features, init_query=None):
+        # init_query (q, b, c)
+        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
+        n_frame, n_q, bs, _ = frame_embeds.size(0)
+        outputs = []
+        if init_query is None:
+            output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+        else:
+            output = init_query
+
+        output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+        for i in range(n_frame):
+            single_frame_embeds = frame_embeds[i]
+            ms_output = []
+            for j in range(self.num_layers):
+                output = self.transformer_cross_attention_layers[i](
+                    output, single_frame_embeds,
+                    memory_mask=None,
+                    memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                    pos=None, query_pos=output_pos
+                )
+
+                output = self.transformer_self_attention_layers[i](
+                    output, tgt_mask=None,
+                    tgt_key_padding_mask=None,
+                    query_pos=output_pos
+                )
+
+                # FFN
+                output = self.transformer_ffn_layers[i](
+                    output
+                )
+                ms_output.append(output)
+            if self.detach_frame_connection:
+                output = output.detach()
+            ms_output = torch.stack(ms_output, dim=0)
+            outputs.append(ms_output)
+        outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
+
+        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
+
+        out = {
+           'pred_logits': outputs_class[-1],
+           'pred_masks': outputs_masks[-1],
+           'aux_outputs': self._set_aux_loss(
+               outputs_class, outputs_masks
+           ),
+           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
+        }
+        # pred_logits (bs, nq, t, c)
+        # pred_masks (bs, nq, t, h, w)
+
+        return out
+
+    @torch.jit.unused
+    def _set_aux_loss(self, outputs_class, outputs_seg_masks):
+        # this is a workaround to make torchscript happy, as torchscript
+        # doesn't support dictionary with non-homogeneous values, such
+        # as a dict having both a Tensor and a list.
+        return [{"pred_logits": a, "pred_masks": b}
+                for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
+                ]
+
+    def prediction(self, outputs, mask_features):
+        # outputs (T, L, q, b, c)
+        # mask_features (b, T, C, H, W)
+        decoder_output = self.decoder_norm(outputs)
+        decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
+        outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
+        mask_embed = self.mask_embed(decoder_output)
+        outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
+        return outputs_class, outputs_mask
+
+
+
+
+

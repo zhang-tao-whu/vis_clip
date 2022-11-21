@@ -39,6 +39,7 @@ class VideoMultiScaleMaskedTransformerDecoder_frame(VideoMultiScaleMaskedTransfo
         enforce_input_project: bool,
         # video related
         num_frames,
+        #
     ):
         super().__init__(
             in_channels=in_channels, 
@@ -133,16 +134,21 @@ class VideoMultiScaleMaskedTransformerDecoder_frame(VideoMultiScaleMaskedTransfo
         pred_embds = self.decoder_norm(output)
         pred_embds = einops.rearrange(pred_embds, 'q (b t) c -> b c t q', t=t)
 
-        out = {
-            'pred_logits': predictions_class[-1],
-            'pred_masks': predictions_mask[-1],
-            'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            ),
-            'pred_embds': pred_embds,
+        #out = {
+        #    'pred_logits': predictions_class[-1],
+        #    'pred_masks': predictions_mask[-1],
+        #    'aux_outputs': self._set_aux_loss(
+        #        predictions_class if self.mask_classification else None, predictions_mask
+        #    ),
+        #    'pred_embds': pred_embds,
+        #}
+
+        out_ = {
+            'mask_features': mask_features,  # bt c h w
+            'pred_embds': pred_embds,  # b c t q
         }
         
-        return out
+        return out_
 
     def forward_prediction_heads(self, output, mask_features, attn_mask_target_size):
         decoder_output = self.decoder_norm(output)
