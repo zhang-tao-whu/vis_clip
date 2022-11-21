@@ -151,6 +151,7 @@ class VideoMultiScaleMaskedTransformerDecoder_frame(VideoMultiScaleMaskedTransfo
         return out_
 
     def forward_prediction_heads(self, output, mask_features, attn_mask_target_size):
+        print(mask_features.shape)
         decoder_output = self.decoder_norm(output)
         decoder_output = decoder_output.transpose(0, 1)
         outputs_class = self.class_embed(decoder_output)
