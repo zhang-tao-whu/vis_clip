@@ -464,6 +464,7 @@ class VideoMaskFormer_frame(nn.Module):
 
             del features['res2'], features['res3'], features['res4'], features['res5']
             for j in range(len(track_out['aux_outputs'])):
+                print(track_out['aux_outputs'][j].keys())
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
             out_list.append(track_out)
