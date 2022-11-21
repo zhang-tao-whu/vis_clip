@@ -241,6 +241,8 @@ class VideoMaskFormer_frame(nn.Module):
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
+            losses = {'loss_': outputs['pred_embds'].sum() * 0.0}
+            return losses
             losses = self.criterion(outputs, targets, use_contrast=False)
 
             for k in list(losses.keys()):
