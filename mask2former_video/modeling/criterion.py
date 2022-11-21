@@ -593,8 +593,6 @@ class VideoSetCriterion_(nn.Module):
             'masks': self.loss_masks,
             'contrast': self.loss_contrast
         }
-        print('-------------------------------done-------------------------------------')
-        print(kkk)
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices, num_masks)
 
@@ -612,6 +610,8 @@ class VideoSetCriterion_(nn.Module):
         # [per image indicates], per image indicates -> (pred inds, gt inds)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
+        print('-------------------------------done-------------------------------------')
+        print(kkk)
         num_masks = sum(len(t["labels"]) for t in targets)
         num_masks = torch.as_tensor(
             [num_masks], dtype=torch.float, device=next(iter(outputs.values())).device
