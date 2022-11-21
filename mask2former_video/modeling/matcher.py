@@ -189,6 +189,28 @@ class VideoHungarianMatcher(nn.Module):
         lines = [head] + [" " * _repr_indent + line for line in body]
         return "\n".join(lines)
 
+def point_sample_(input, point_coords, **kwargs):
+    """
+    A wrapper around :function:`torch.nn.functional.grid_sample` to support 3D point_coords tensors.
+    Unlike :function:`torch.nn.functional.grid_sample` it assumes `point_coords` to lie inside
+    [0, 1] x [0, 1] square.
+    Args:
+        input (Tensor): A tensor of shape (N, C, H, W) that contains features map on a H x W grid.
+        point_coords (Tensor): A tensor of shape (N, P, 2) or (N, Hgrid, Wgrid, 2) that contains
+        [0, 1] x [0, 1] normalized point coordinates.
+    Returns:
+        output (Tensor): A tensor of shape (N, C, P) or (N, C, Hgrid, Wgrid) that contains
+            features for points in `point_coords`. The features are obtained via bilinear
+            interplation from `input` the same way as :function:`torch.nn.functional.grid_sample`.
+    """
+    add_dim = False
+    if point_coords.dim() == 3:
+        add_dim = True
+        point_coords = point_coords.unsqueeze(2)
+    output = F.grid_sample(input, 2.0 * point_coords - 1.0, **kwargs)
+    if add_dim:
+        output = output.squeeze(3)
+    return output
 
 class VideoHungarianMatcher_(nn.Module):
     """This class computes an assignment between the targets and the predictions of the network
@@ -246,9 +268,7 @@ class VideoHungarianMatcher_(nn.Module):
             # all masks share the same set of points for efficient matching!
             point_coords = torch.rand(1, self.num_points, 2, device=out_mask.device)
             # get gt labels
-            print(tgt_mask.shape, point_coords.shape)
-            print(kkk)
-            tgt_mask = point_sample(
+            tgt_mask = point_sample_(
                 tgt_mask,
                 point_coords.repeat(tgt_mask.shape[0], 1, 1),
                 align_corners=False,
