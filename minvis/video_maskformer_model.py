@@ -106,7 +106,7 @@ class VideoMaskFormer_frame(nn.Module):
                                     num_head=8,
                                     decoder_layer_num=6,
                                     mask_dim=256,
-                                    class_num=20,
+                                    class_num=25,
                                     detach_frame_connection=False)
         #self.embed_proj = nn.Linear(256, 256)
 
@@ -554,7 +554,7 @@ class QueryTracker(torch.nn.Module):
                  num_head=8,
                  decoder_layer_num=6,
                  mask_dim=256,
-                 class_num=20,
+                 class_num=25,
                  detach_frame_connection=False):
         super(QueryTracker, self).__init__()
         self.detach_frame_connection = detach_frame_connection
