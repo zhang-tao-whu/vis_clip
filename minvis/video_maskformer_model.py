@@ -659,6 +659,8 @@ class QueryTracker(torch.nn.Module):
         }
         # pred_logits (bs, nq, t, c)
         # pred_masks (bs, nq, t, h, w)
+        print('---------------------------------done------------------------------')
+        print(kkk)
 
         return out
 
