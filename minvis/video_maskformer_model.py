@@ -499,8 +499,6 @@ class VideoMaskFormer_frame(nn.Module):
 
             gt_classes_per_video = targets_per_frame.gt_classes[valid_idx]          # N,
             gt_ids_per_video = gt_ids_per_video[valid_idx]                          # N, num_frames, i instance not in j frame, id[i, j] = -1
-            print(gt_ids_per_video.shape)
-            print(kkk)
             gt_instances.append({"labels": gt_classes_per_video, "ids": gt_ids_per_video})
             gt_masks_per_video = gt_masks_per_video[valid_idx].float()          # N, num_frames, H, W
             gt_instances[-1].update({"masks": gt_masks_per_video})

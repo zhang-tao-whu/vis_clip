@@ -227,16 +227,15 @@ class VideoHungarianMatcher_(nn.Module):
             # pred_logits (bs, nq, t, c)
             # pred_masks (bs, nq, t, h, w)
             out_prob = outputs["pred_logits"][b].softmax(-1)  # [num_queries, T, num_classes]
-            tgt_ids = targets[b]["labels"] # (N, T)
-            print(tgt_ids.shape)
-            T_ids = torch.range(tgt_ids.size(1), device=tgt_ids.device,
-                                dtype=torch.int64).unsqueeze(0).repeat(tgt_ids.size(0), 1)
+            tgt_ids = targets[b]["labels"] # (N, )
+            #T_ids = torch.range(tgt_ids.size(1), device=tgt_ids.device,
+            #                    dtype=torch.int64).unsqueeze(0).repeat(tgt_ids.size(0), 1)
 
             # Compute the classification cost. Contrary to the loss, we don't use the NLL,
             # but approximate it in 1 - proba[target class].
             # The 1 is a constant that doesn't change the matching, it can be ommitted.
             # cost_class = -out_prob[:, tgt_ids]
-            cost_class = -out_prob[:, T_ids, tgt_ids].mean(-1) # (N, N)
+            cost_class = -out_prob[:, :, tgt_ids].mean(-2) # (N, N)
 
             out_mask = outputs["pred_masks"][b]  # [num_queries, T, H_pred, W_pred]
             # gt masks are already padded when preparing target
