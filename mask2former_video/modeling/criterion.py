@@ -608,7 +608,6 @@ class VideoSetCriterion_(nn.Module):
 
         # Retrieve the matching between the outputs of the last layer and the targets
         indices = self.matcher(outputs_without_aux, targets)
-        print(indices)
         # [per image indicates], per image indicates -> (pred inds, gt inds)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
@@ -616,6 +615,7 @@ class VideoSetCriterion_(nn.Module):
         num_masks = torch.as_tensor(
             [num_masks], dtype=torch.float, device=next(iter(outputs.values())).device
         )
+        print(num_masks)
         if is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_masks)
         num_masks = torch.clamp(num_masks / get_world_size(), min=1).item()
