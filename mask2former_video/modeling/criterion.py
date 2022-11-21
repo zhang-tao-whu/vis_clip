@@ -597,8 +597,6 @@ class VideoSetCriterion_(nn.Module):
         return loss_map[loss](outputs, targets, indices, num_masks)
 
     def forward(self, outputs, targets, use_contrast=False):
-        print('---------------------------------done------------------------------')
-        print(kkk)
         """This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format

@@ -21,8 +21,8 @@ from detectron2.modeling.backbone import Backbone
 from detectron2.modeling.postprocessing import sem_seg_postprocess
 from detectron2.structures import Boxes, ImageList, Instances, BitMasks
 
-from mask2former_video.modeling.criterion import VideoSetCriterion
-from mask2former_video.modeling.matcher import VideoHungarianMatcher
+from mask2former_video.modeling.criterion import VideoSetCriterion, VideoSetCriterion_
+from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_
 from mask2former_video.utils.memory import retry_if_cuda_oom
 
 from scipy.optimize import linear_sum_assignment
@@ -126,7 +126,7 @@ class VideoMaskFormer_frame(nn.Module):
         contrast_weight = cfg.MODEL.MASK_FORMER.CONTRAST_WEIGHT
 
         # building criterion
-        matcher = VideoHungarianMatcher(
+        matcher = VideoHungarianMatcher_(
             cost_class=class_weight,
             cost_mask=mask_weight,
             cost_dice=dice_weight,
@@ -145,7 +145,7 @@ class VideoMaskFormer_frame(nn.Module):
 
         losses = ["labels", "masks", "contrast"]
 
-        criterion = VideoSetCriterion(
+        criterion = VideoSetCriterion_(
             sem_seg_head.num_classes,
             matcher=matcher,
             weight_dict=weight_dict,
