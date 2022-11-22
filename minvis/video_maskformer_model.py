@@ -563,7 +563,7 @@ class QueryTracker(torch.nn.Module):
         # learnable query features
         self.query_feat = nn.Embedding(num_object_query, hidden_channel)
         # learnable query p.e.
-        self.query_embed = nn.Embedding(num_object_query, hidden_channel)
+        #self.query_embed = nn.Embedding(num_object_query, hidden_channel)
 
         # init transformer layers
         self.num_heads = num_head
@@ -616,7 +616,7 @@ class QueryTracker(torch.nn.Module):
         else:
             output = init_query
 
-        output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+        #output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
         for i in range(n_frame):
             single_frame_embeds = frame_embeds[i]
             ms_output = []
@@ -625,13 +625,13 @@ class QueryTracker(torch.nn.Module):
                     output, single_frame_embeds,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=None, query_pos=output_pos
+                    pos=None, query_pos=None
                 )
 
                 output = self.transformer_self_attention_layers[j](
                     output, tgt_mask=None,
                     tgt_key_padding_mask=None,
-                    query_pos=output_pos
+                    query_pos=None
                 )
 
                 # FFN
