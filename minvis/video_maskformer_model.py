@@ -387,7 +387,6 @@ class VideoMaskFormer_frame(nn.Module):
 
     def post_processing_(self, outputs):
         pred_logits, pred_masks, pred_embds = outputs['pred_logits'].transpose(1, 2), outputs['pred_masks'], outputs['pred_embds']
-        print(pred_logits.shape)
         # pred_logits: 1 t q c
         # pred_masks: 1 q t h w
         # pred_embeds: 1 c t q
@@ -508,7 +507,7 @@ class VideoMaskFormer_frame(nn.Module):
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, max_num=20):
         # pred_cls (nq, t, c)
         # pred_masks (nq, t, h, w)
-        pred_cls = torch.mean(pred_cls, dim=1) # (nq, c)
+        #pred_cls = torch.mean(pred_cls, dim=1) # (nq, c)
         if len(pred_cls) > 0:
             scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             labels = torch.arange(self.sem_seg_head.num_classes, device=self.device).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
