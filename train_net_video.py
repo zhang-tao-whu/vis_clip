@@ -59,9 +59,7 @@ from minvis import (
     build_detection_test_loader,
     get_detection_dataset_dicts,
 )
-from torch.nn.parallel import DistributedDataParallel
-from detectron2.engine.train_loop import AMPTrainer, SimpleTrainer, TrainerBase
-import weakref
+
 
 class Trainer(DefaultTrainer):
     """
