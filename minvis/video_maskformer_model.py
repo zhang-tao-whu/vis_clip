@@ -255,7 +255,7 @@ class VideoMaskFormer_frame(nn.Module):
             # pred_logits (bs, nq, t, c)
             # pred_masks (bs, nq, t, h, w)
             # pred_embds (b c t q)
-            #outputs = self.post_processing_(outputs)
+            outputs = self.post_processing_(outputs)
 
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
