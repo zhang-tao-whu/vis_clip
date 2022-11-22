@@ -100,14 +100,14 @@ class VideoMaskFormer_frame(nn.Module):
         self.num_frames = num_frames
         self.window_inference = window_inference
 
-        self.tracker = QueryTracker(num_object_query=30,
+        self.tracker = QueryTracker(num_object_query=100,
                                     hidden_channel=256,
                                     feedforward_channel=2048,
                                     num_head=8,
                                     decoder_layer_num=6,
                                     mask_dim=256,
                                     class_num=25,
-                                    detach_frame_connection=False)
+                                    detach_frame_connection=True)
         #self.embed_proj = nn.Linear(256, 256)
 
     @classmethod
@@ -563,7 +563,9 @@ class QueryTracker(torch.nn.Module):
         # learnable query features
         self.query_feat = nn.Embedding(num_object_query, hidden_channel)
         # learnable query p.e.
-        #self.query_embed = nn.Embedding(num_object_query, hidden_channel)
+        self.query_embed = nn.Embedding(num_object_query, hidden_channel)
+
+        self.frame_pos_embed = nn.Embedding(100, hidden_channel)
 
         # init transformer layers
         self.num_heads = num_head
@@ -606,7 +608,18 @@ class QueryTracker(torch.nn.Module):
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
+        self.mask_feature_proj = nn.Conv2d(
+            mask_dim,
+            mask_dim,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+
+        self.frame_proj = nn.Linear(hidden_channel, hidden_channel)
+
     def forward(self, frame_embeds, mask_features, init_query=None):
+        mask_features = self.mask_feature_proj(mask_features)
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
@@ -616,7 +629,10 @@ class QueryTracker(torch.nn.Module):
         else:
             output = init_query
 
-        #output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+        output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+
+        frame_pos_embed = self.frame_pos_embed.weight.unsqueeze(1).repeat(1, bs, 1)
+
         for i in range(n_frame):
             single_frame_embeds = frame_embeds[i]
             ms_output = []
@@ -625,13 +641,13 @@ class QueryTracker(torch.nn.Module):
                     output, single_frame_embeds,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=None, query_pos=None
+                    pos=frame_pos_embed, query_pos=output_pos
                 )
 
                 output = self.transformer_self_attention_layers[j](
                     output, tgt_mask=None,
                     tgt_key_padding_mask=None,
-                    query_pos=None
+                    query_pos=output_pos
                 )
 
                 # FFN
@@ -641,6 +657,7 @@ class QueryTracker(torch.nn.Module):
                 ms_output.append(output)
             if self.detach_frame_connection:
                 output = output.detach()
+            output = self.frame_proj(output)
             ms_output = torch.stack(ms_output, dim=0)
             outputs.append(ms_output)
         outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
