@@ -593,19 +593,19 @@ class QueryTracker(torch.nn.Module):
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
-        if init_query is None:
-            output_init = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
-        else:
-            output_init = self.frame_proj(init_query)
+        #if init_query is None:
+        output_init = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+        #else:
+        #    output_init = self.frame_proj(init_query)
 
         output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
 
         frame_pos_embed = self.frame_pos_embed.weight.unsqueeze(1).repeat(1, bs, 1)
-
+        output = output_init
         for i in range(n_frame):
             single_frame_embeds = frame_embeds[i]
             ms_output = []
-            output = output_init
+            #output = output_init
             for j in range(self.num_layers):
                 output = self.transformer_cross_attention_layers[j](
                     output, single_frame_embeds,
