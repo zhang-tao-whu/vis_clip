@@ -387,6 +387,7 @@ class VideoMaskFormer_frame(nn.Module):
 
     def post_processing_(self, outputs):
         pred_logits, pred_masks, pred_embds = outputs['pred_logits'].transpose(1, 2), outputs['pred_masks'], outputs['pred_embds']
+        print(pred_logits.shape)
         # pred_logits: 1 t q c
         # pred_masks: 1 q t h w
         # pred_embeds: 1 c t q
