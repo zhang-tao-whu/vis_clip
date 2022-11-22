@@ -651,7 +651,7 @@ class QueryTracker(torch.nn.Module):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
-        return [{"pred_logits": a, "pred_masks": b}
+        return [{"pred_logits": a.transpose(1, 2), "pred_masks": b}
                 for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
                 ]
 
