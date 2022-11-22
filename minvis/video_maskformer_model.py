@@ -211,7 +211,7 @@ class VideoMaskFormer_frame(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=5)
+            outputs = self.run_window_inference(images.tensor, window_size=3)
             # frame_embds = outputs['pred_embds']  # b c t q
             # mask_features = outputs['mask_features']
             # outputs = self.tracker(frame_embds, mask_features)
