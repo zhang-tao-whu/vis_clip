@@ -619,7 +619,8 @@ class QueryTracker(torch.nn.Module):
         self.frame_proj = nn.Linear(hidden_channel, hidden_channel)
 
     def forward(self, frame_embeds, mask_features, init_query=None):
-        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features.shape[1:])
+        mask_features_shape = mask_features.shape
+        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
