@@ -629,7 +629,7 @@ class QueryTracker(torch.nn.Module):
         if init_query is None:
             output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
         else:
-            output = init_query
+            output = self.frame_proj(init_query)
 
         output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
 
