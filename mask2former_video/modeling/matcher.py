@@ -251,7 +251,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
             for f in need_match_frames:
                 overall_bs = b * self.frames + f
                 used_tgt = apper_frame_id[f]
-                print(used_tgt)
+                print('used_tgt', used_tgt)
                 out_prob = outputs["pred_logits"][overall_bs].softmax(-1)  # [num_queries, num_classes]
                 tgt_ids = targets[overall_bs]["labels"][used_tgt]
 
