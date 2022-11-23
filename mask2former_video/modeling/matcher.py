@@ -236,6 +236,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                         id_apper_frame[v] = f
             print(b, bs, self.frames)
             print(id_apper_frame)
+            print(kkk)
             apper_frame_id = {}
             for id in id_apper_frame.keys():
                 f = id_apper_frame[id]
