@@ -229,7 +229,9 @@ class VideoHungarianMatcher_Consistent(nn.Module):
             id_apper_frame = {}
             for f in range(self.frames):
                 overall_bs = b * self.frames + f
+                print(overall_bs)
                 instance_ids = targets[overall_bs]["ids"]
+                print(instance_ids)
                 valid = torch.nonzero(instance_ids == -1)
                 for v in valid:
                     if v not in id_apper_frame.keys():
