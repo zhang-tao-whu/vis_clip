@@ -406,15 +406,15 @@ class VideoMaskFormer_frame(nn.Module):
             # indices = self.match_from_embds_(out_embds[-3:], pred_embds[i], scores=out_scores[-3:])
             indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
 
-            out_logits.append(pred_logits[i][indices, :])
-            out_masks.append(pred_masks[i][indices, :, :])
-            out_embds.append(pred_embds[i][indices, :])
-            out_scores.append(pred_scores[i][indices])
+            # out_logits.append(pred_logits[i][indices, :])
+            # out_masks.append(pred_masks[i][indices, :, :])
+            # out_embds.append(pred_embds[i][indices, :])
+            # out_scores.append(pred_scores[i][indices])
 
-            # out_logits.append(pred_logits[i])
-            # out_masks.append(pred_masks[i])
-            # out_embds.append(pred_embds[i])
-            # out_scores.append(pred_scores[i])
+            out_logits.append(pred_logits[i])
+            out_masks.append(pred_masks[i])
+            out_embds.append(pred_embds[i])
+            out_scores.append(pred_scores[i])
 
         out_logits = sum(out_logits)/len(out_logits)
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
@@ -596,7 +596,8 @@ class QueryTracker(torch.nn.Module):
             padding=0,
         )
 
-        #self.frame_proj = nn.Linear(hidden_channel, hidden_channel)
+        self.off_embed = nn.Linear(hidden_channel, hidden_channel)
+        self.output_proj = nn.Linear(hidden_channel, hidden_channel)
 
     def forward(self, frame_embeds, mask_features, init_query=None):
         mask_features_shape = mask_features.shape
@@ -640,6 +641,10 @@ class QueryTracker(torch.nn.Module):
             # if self.detach_frame_connection:
             #     output = output.detach()
             # output = self.frame_proj(output)
+            
+            output_pos = output_pos + self.off_embed(output)
+            output = self.output_proj(output)
+
             ms_output = torch.stack(ms_output, dim=0)
             outputs.append(ms_output)
         outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
