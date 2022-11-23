@@ -234,6 +234,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                 for v in valid:
                     if v not in id_apper_frame.keys():
                         id_apper_frame[v] = f
+            print(b, bs, self.frames)
             print(id_apper_frame)
             apper_frame_id = {}
             for id in id_apper_frame.keys():
