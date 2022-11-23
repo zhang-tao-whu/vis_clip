@@ -299,6 +299,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                 if len(used_query_idx) != 0:
                     C[used_query_idx, :] = 1e6
                 indice1, indice2 = linear_sum_assignment(C)
+                print(indice2)
                 indice2 = tgt_ids[indice2]
                 matched_indices[0] += list(indice1)
                 matched_indices[1] += list(indice2)
