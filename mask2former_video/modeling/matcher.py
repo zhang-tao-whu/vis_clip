@@ -234,6 +234,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                 for v in valid:
                     if v not in id_apper_frame.keys():
                         id_apper_frame[v] = f
+            print(id_apper_frame)
             apper_frame_id = {}
             for id in id_apper_frame.keys():
                 f = id_apper_frame[id]
@@ -247,7 +248,6 @@ class VideoHungarianMatcher_Consistent(nn.Module):
             used_query_idx = []
 
             matched_indices = [[], []]
-            print(apper_frame_id)
             for f in need_match_frames:
                 overall_bs = b * self.frames + f
                 used_tgt = apper_frame_id[f]
