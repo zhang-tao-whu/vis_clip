@@ -22,7 +22,7 @@ from detectron2.modeling.postprocessing import sem_seg_postprocess
 from detectron2.structures import Boxes, ImageList, Instances, BitMasks
 
 from mask2former_video.modeling.criterion import VideoSetCriterion
-from mask2former_video.modeling.matcher import VideoHungarianMatcher
+from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from mask2former_video.modeling.transformer_decoder.video_mask2former_transformer_decoder import SelfAttentionLayer, CrossAttentionLayer, FFNLayer, MLP
 
@@ -126,7 +126,13 @@ class VideoMaskFormer_frame(nn.Module):
         contrast_weight = cfg.MODEL.MASK_FORMER.CONTRAST_WEIGHT
 
         # building criterion
-        matcher = VideoHungarianMatcher(
+        # matcher = VideoHungarianMatcher(
+        #     cost_class=class_weight,
+        #     cost_mask=mask_weight,
+        #     cost_dice=dice_weight,
+        #     num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+        # )
+        matcher = VideoHungarianMatcher_Consistent(
             cost_class=class_weight,
             cost_mask=mask_weight,
             cost_dice=dice_weight,
@@ -399,15 +405,15 @@ class VideoMaskFormer_frame(nn.Module):
             # indices = self.match_from_embds_(out_embds[-3:], pred_embds[i], scores=out_scores[-3:])
             indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
 
-            # out_logits.append(pred_logits[i][indices, :])
-            # out_masks.append(pred_masks[i][indices, :, :])
-            # out_embds.append(pred_embds[i][indices, :])
-            # out_scores.append(pred_scores[i][indices])
+            out_logits.append(pred_logits[i][indices, :])
+            out_masks.append(pred_masks[i][indices, :, :])
+            out_embds.append(pred_embds[i][indices, :])
+            out_scores.append(pred_scores[i][indices])
 
-            out_logits.append(pred_logits[i])
-            out_masks.append(pred_masks[i])
-            out_embds.append(pred_embds[i])
-            out_scores.append(pred_scores[i])
+            # out_logits.append(pred_logits[i])
+            # out_masks.append(pred_masks[i])
+            # out_embds.append(pred_embds[i])
+            # out_scores.append(pred_scores[i])
 
         out_logits = sum(out_logits)/len(out_logits)
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
