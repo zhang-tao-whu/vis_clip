@@ -251,7 +251,6 @@ class VideoHungarianMatcher_Consistent(nn.Module):
             for f in need_match_frames:
                 overall_bs = b * self.frames + f
                 used_tgt = apper_frame_id[f]
-                print('used_tgt', used_tgt)
                 out_prob = outputs["pred_logits"][overall_bs].softmax(-1)  # [num_queries, num_classes]
                 tgt_ids = targets[overall_bs]["labels"][used_tgt]
 
@@ -300,13 +299,9 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                 if len(used_query_idx) != 0:
                     C[used_query_idx, :] = 1e6
                 indice1, indice2 = linear_sum_assignment(C)
-                print(indice2)
-                print(tgt_ids)
                 indice2 = np.array(used_tgt)[indice2]
                 matched_indices[0] += list(indice1)
                 matched_indices[1] += list(indice2)
-            print(instance_ids)
-            print(matched_indices)
             indices += [matched_indices] * self.frames
         return [
             (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
