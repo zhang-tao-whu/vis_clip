@@ -227,7 +227,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
         # Iterate through batch size
         for b in range(bs // self.frames):
             id_apper_frame = {}
-            for f in self.frames:
+            for f in range(self.frames):
                 overall_bs = b * self.frames + f
                 instance_ids = targets[overall_bs]["ids"]
                 valid = torch.nonzero(instance_ids == -1)
