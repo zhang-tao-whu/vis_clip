@@ -10,7 +10,7 @@ from torch import nn
 from torch.cuda.amp import autocast
 
 from detectron2.projects.point_rend.point_features import point_sample
-
+import numpy as np
 
 def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor):
     """
@@ -302,7 +302,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                 indice1, indice2 = linear_sum_assignment(C)
                 print(indice2)
                 print(tgt_ids)
-                indice2 = used_tgt[indice2]
+                indice2 = np.array(used_tgt)[indice2]
                 matched_indices[0] += list(indice1)
                 matched_indices[1] += list(indice2)
             print(instance_ids)
