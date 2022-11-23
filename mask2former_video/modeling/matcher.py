@@ -253,7 +253,6 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                 used_tgt = apper_frame_id[f]
                 print('used_tgt', used_tgt)
                 out_prob = outputs["pred_logits"][overall_bs].softmax(-1)  # [num_queries, num_classes]
-                print(targets[overall_bs]["labels"])
                 tgt_ids = targets[overall_bs]["labels"][used_tgt]
 
                 # Compute the classification cost. Contrary to the loss, we don't use the NLL,
@@ -303,7 +302,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                 indice1, indice2 = linear_sum_assignment(C)
                 print(indice2)
                 print(tgt_ids)
-                indice2 = tgt_ids[indice2]
+                indice2 = used_tgt[indice2]
                 matched_indices[0] += list(indice1)
                 matched_indices[1] += list(indice2)
             print(instance_ids)
