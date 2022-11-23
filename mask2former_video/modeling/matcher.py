@@ -230,7 +230,6 @@ class VideoHungarianMatcher_Consistent(nn.Module):
             for f in range(self.frames):
                 overall_bs = b * self.frames + f
                 instance_ids = targets[overall_bs]["ids"]
-                print(instance_ids)
                 valid = torch.nonzero(instance_ids.squeeze(1) != -1)
                 for v in valid:
                     v = v.item()
@@ -303,6 +302,8 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                 indice2 = tgt_ids[indice2]
                 matched_indices[0] += list(indice1)
                 matched_indices[1] += list(indice2)
+            print(instance_ids)
+            print(matched_indices)
             indices += [matched_indices] * self.frames
         return [
             (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
