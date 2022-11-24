@@ -317,8 +317,8 @@ class VideoMaskFormer_frame(nn.Module):
 
     def match_from_embds_(self, tgt_embds, cur_embds, scores=None):
 
-        cur_embds = cur_embds / cur_embds.norm(dim=1)[:, None]
-        tgt_embds = [tgt_embd / tgt_embd.norm(dim=1)[:, None] for tgt_embd in tgt_embds]
+        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+        tgt_embds = [tgt_embd / (tgt_embd.norm(dim=1)[:, None] + 1e-6) for tgt_embd in tgt_embds]
         C = 0
         weights = [0.1, 0.3, 0.6]
         #weights = [0.05, 0.15, 0.8]
@@ -334,7 +334,6 @@ class VideoMaskFormer_frame(nn.Module):
             score_average = torch.stack(scores, dim=0).sum(dim=0)
             C = C / (score_average + 1e-6).unsqueeze(0)
         C = C.cpu()
-        print(C)
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
