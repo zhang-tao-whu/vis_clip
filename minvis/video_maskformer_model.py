@@ -603,8 +603,8 @@ class QueryTracker(torch.nn.Module):
             padding=0,
         )
 
-        self.off_embed = nn.Linear(hidden_channel, hidden_channel)
-        self.output_proj = nn.Linear(hidden_channel, hidden_channel)
+        #self.off_embed = nn.Linear(hidden_channel, hidden_channel)
+        #self.output_proj = nn.Linear(hidden_channel, hidden_channel)
 
     def forward(self, frame_embeds, mask_features, resume=False):
         mask_features_shape = mask_features.shape
@@ -649,8 +649,8 @@ class QueryTracker(torch.nn.Module):
             #     output = output.detach()
             # output = self.frame_proj(output)
 
-            output_pos = output_pos + self.off_embed(output)
-            output = self.output_proj(output)
+            #output_pos = output_pos + self.off_embed(output)
+            #output = self.output_proj(output)
             self.last_output = output
             self.last_output_pos = output_pos
 
