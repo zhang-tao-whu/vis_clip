@@ -334,6 +334,7 @@ class VideoMaskFormer_frame(nn.Module):
             score_average = torch.stack(scores, dim=0).sum(dim=0)
             C = C / (score_average + 1e-6).unsqueeze(0)
         C = C.cpu()
+        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
@@ -404,17 +405,17 @@ class VideoMaskFormer_frame(nn.Module):
 
         for i in range(1, len(pred_logits)):
             # indices = self.match_from_embds_(out_embds[-3:], pred_embds[i], scores=out_scores[-3:])
-            #indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
+            indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
 
-            # out_logits.append(pred_logits[i][indices, :])
-            # out_masks.append(pred_masks[i][indices, :, :])
-            # out_embds.append(pred_embds[i][indices, :])
-            # out_scores.append(pred_scores[i][indices])
+            out_logits.append(pred_logits[i][indices, :])
+            out_masks.append(pred_masks[i][indices, :, :])
+            out_embds.append(pred_embds[i][indices, :])
+            out_scores.append(pred_scores[i][indices])
 
-            out_logits.append(pred_logits[i])
-            out_masks.append(pred_masks[i])
-            out_embds.append(pred_embds[i])
-            out_scores.append(pred_scores[i])
+            # out_logits.append(pred_logits[i])
+            # out_masks.append(pred_masks[i])
+            # out_embds.append(pred_embds[i])
+            # out_scores.append(pred_scores[i])
 
         out_logits = sum(out_logits)/len(out_logits)
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
