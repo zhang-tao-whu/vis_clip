@@ -444,7 +444,7 @@ class VideoMaskFormer_frame(nn.Module):
 
             frame_embds = out['pred_embds']  # b c t q
             mask_features = out['mask_features'].unsqueeze(0)
-            track_out = self.tracker(frame_embds, mask_features)
+            track_out = self.tracker(frame_embds, mask_features, resume=True)
 
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
@@ -547,6 +547,9 @@ class QueryTracker(torch.nn.Module):
 
         self.frame_pos_embed = nn.Embedding(100, hidden_channel)
 
+        self.last_output = None
+        self.last_output_pos = None
+
         # init transformer layers
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
@@ -599,19 +602,19 @@ class QueryTracker(torch.nn.Module):
         self.off_embed = nn.Linear(hidden_channel, hidden_channel)
         self.output_proj = nn.Linear(hidden_channel, hidden_channel)
 
-    def forward(self, frame_embeds, mask_features, init_query=None):
+    def forward(self, frame_embeds, mask_features, resume=False):
         mask_features_shape = mask_features.shape
         mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
-        #if init_query is None:
-        output_init = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
-        #else:
-        #    output_init = self.frame_proj(init_query)
-
-        output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+        if resume:
+            output_init = self.last_output
+            output_pos = self.last_output_pos
+        else:
+            output_init = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+            output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
 
         frame_pos_embed = self.frame_pos_embed.weight.unsqueeze(1).repeat(1, bs, 1)
         output = output_init
@@ -641,9 +644,11 @@ class QueryTracker(torch.nn.Module):
             # if self.detach_frame_connection:
             #     output = output.detach()
             # output = self.frame_proj(output)
-            
+
             output_pos = output_pos + self.off_embed(output)
             output = self.output_proj(output)
+            self.last_output = output
+            self.last_output_pos = output_pos
 
             ms_output = torch.stack(ms_output, dim=0)
             outputs.append(ms_output)
