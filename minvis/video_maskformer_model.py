@@ -444,7 +444,10 @@ class VideoMaskFormer_frame(nn.Module):
 
             frame_embds = out['pred_embds']  # b c t q
             mask_features = out['mask_features'].unsqueeze(0)
-            track_out = self.tracker(frame_embds, mask_features, resume=True)
+            if i != 0:
+                track_out = self.tracker(frame_embds, mask_features, resume=True)
+            else:
+                track_out = self.tracker(frame_embds, mask_features)
 
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
