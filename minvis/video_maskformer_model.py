@@ -603,9 +603,6 @@ class QueryTracker(torch.nn.Module):
             padding=0,
         )
 
-        self.off_embed = nn.Linear(hidden_channel, hidden_channel)
-        self.output_proj = nn.Linear(hidden_channel, hidden_channel)
-
     def forward(self, frame_embeds, mask_features, resume=False):
         mask_features_shape = mask_features.shape
         mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
@@ -631,13 +628,13 @@ class QueryTracker(torch.nn.Module):
                     output, single_frame_embeds,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=frame_pos_embed, query_pos=output_pos
+                    pos=frame_pos_embed, query_pos=None
                 )
 
                 output = self.transformer_self_attention_layers[j](
                     output, tgt_mask=None,
                     tgt_key_padding_mask=None,
-                    query_pos=output_pos
+                    query_pos=None
                 )
 
                 # FFN
@@ -648,9 +645,7 @@ class QueryTracker(torch.nn.Module):
             # if self.detach_frame_connection:
             #     output = output.detach()
             # output = self.frame_proj(output)
-
-            output_pos = output_pos.detach() + self.off_embed(output)
-            output = output_init.detach() + self.output_proj(output)
+            output = output.detach()
             self.last_output = output
             self.last_output_pos = output_pos
 
