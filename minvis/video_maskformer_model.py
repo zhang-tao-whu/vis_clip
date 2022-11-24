@@ -403,9 +403,8 @@ class VideoMaskFormer_frame(nn.Module):
         out_scores += [pred_scores[0]] * 3
 
         for i in range(1, len(pred_logits)):
-            print(pred_embds[i])
             # indices = self.match_from_embds_(out_embds[-3:], pred_embds[i], scores=out_scores[-3:])
-            indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
+            #indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
 
             # out_logits.append(pred_logits[i][indices, :])
             # out_masks.append(pred_masks[i][indices, :, :])
