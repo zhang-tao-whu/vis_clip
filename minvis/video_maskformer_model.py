@@ -334,6 +334,7 @@ class VideoMaskFormer_frame(nn.Module):
             score_average = torch.stack(scores, dim=0).sum(dim=0)
             C = C / (score_average + 1e-6).unsqueeze(0)
         C = C.cpu()
+        print(C)
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
