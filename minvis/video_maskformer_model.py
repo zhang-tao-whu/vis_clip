@@ -602,6 +602,8 @@ class QueryTracker(torch.nn.Module):
             stride=1,
             padding=0,
         )
+        self.frame_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+        self.frame_pos_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
 
     def forward(self, frame_embeds, mask_features, resume=False):
         mask_features_shape = mask_features.shape
@@ -645,7 +647,11 @@ class QueryTracker(torch.nn.Module):
             # if self.detach_frame_connection:
             #     output = output.detach()
             # output = self.frame_proj(output)
-            #output = output.detach()
+            output = output.detach()
+            output_pos = output_pos.detach()
+            output_pos = output_pos + self.frame_pos_proj(output)
+            output = output + self.frame_proj(output)
+
             self.last_output = output
             self.last_output_pos = output_pos
 
