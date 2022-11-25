@@ -218,7 +218,8 @@ class VideoMaskFormer_frame(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=3)
+            #outputs = self.run_window_inference(images.tensor, window_size=3)
+            outputs = self.run_window_inference_(images.tensor, window_size=3)
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
@@ -462,6 +463,36 @@ class VideoMaskFormer_frame(nn.Module):
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).detach()
 
         return outputs
+
+    def run_window_inference_(self, images_tensor, window_size=30):
+        iters = len(images_tensor) // window_size
+        if len(images_tensor) % window_size != 0:
+            iters += 1
+        out_list = []
+        for i in range(iters):
+            start_idx = i * window_size
+            end_idx = (i+1) * window_size
+
+            features = self.backbone(images_tensor[start_idx:end_idx])
+            out = self.sem_seg_head(features)
+            del features['res2'], features['res3'], features['res4'], features['res5']
+            for j in range(len(out['aux_outputs'])):
+                del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
+            del out['pred_logits'], out['pred_masks']
+            out_list.append(out)
+        outputs = {}
+        outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).detach()
+        outputs['mask_features'] = torch.cat([x['mask_features'] for x in out_list], dim=1).detach().unsqueeze(0)
+
+
+        frame_embds = outputs['pred_embds']  # b c t q
+        mask_features = outputs['mask_features']
+        track_out = self.tracker(frame_embds, mask_features)
+        del mask_features
+        for j in range(len(track_out['aux_outputs'])):
+            del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
+
+        return track_out
 
     def prepare_targets(self, targets, images):
         h_pad, w_pad = images.tensor.shape[-2:]
