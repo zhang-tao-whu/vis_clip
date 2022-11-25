@@ -752,7 +752,7 @@ class QueryTracker(torch.nn.Module):
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),
            'pred_masks': outputs_masks[-1],
-           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
+           'pred_embds': outputs.permute(2, 3, 0, 1)  # b c t q
         }
         # pred_logits (bs, t, nq, c)
         # pred_masks (bs, nq, t, h, w)
