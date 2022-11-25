@@ -776,3 +776,15 @@ class QueryTracker(torch.nn.Module):
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         return outputs_class, outputs_mask
+
+    def prediction_(self, outputs, mask_features):
+        # outputs (T, L, q, b, c)
+        # mask_features (b, T, C, H, W)
+        decoder_output = self.decoder_norm(outputs)
+        decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
+        del outputs
+        outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
+        mask_embed = self.mask_embed(decoder_output)
+        del decoder_output
+        outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
+        return outputs_class, outputs_mask
