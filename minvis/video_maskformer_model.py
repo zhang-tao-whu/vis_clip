@@ -487,10 +487,9 @@ class VideoMaskFormer_frame(nn.Module):
 
         frame_embds = outputs['pred_embds']  # b c t q
         mask_features = outputs['mask_features']
-        track_out = self.tracker(frame_embds, mask_features)
+        with torch.no_grad():
+            track_out = self.tracker(frame_embds, mask_features)
         del mask_features
-        for j in range(len(track_out['aux_outputs'])):
-            del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
 
         return track_out
 
@@ -698,6 +697,61 @@ class QueryTracker(torch.nn.Module):
            'aux_outputs': self._set_aux_loss(
                outputs_class, outputs_masks
            ),
+           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
+        }
+        # pred_logits (bs, t, nq, c)
+        # pred_masks (bs, nq, t, h, w)
+        return out
+
+    def inference(self, frame_embeds, mask_features):
+        mask_features_shape = mask_features.shape
+        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
+        # init_query (q, b, c)
+        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
+        n_frame, n_q, bs, _ = frame_embeds.size()
+        outputs = []
+        output_init = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+        output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
+
+        frame_pos_embed = self.frame_pos_embed.weight.unsqueeze(1).repeat(1, bs, 1)
+        output = output_init
+        for i in range(n_frame):
+            single_frame_embeds = frame_embeds[i]
+            #output = output_init
+            for j in range(self.num_layers):
+                output = self.transformer_cross_attention_layers[j](
+                    output, single_frame_embeds,
+                    memory_mask=None,
+                    memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                    pos=frame_pos_embed, query_pos=output_pos
+                )
+
+                output = self.transformer_self_attention_layers[j](
+                    output, tgt_mask=None,
+                    tgt_key_padding_mask=None,
+                    query_pos=output_pos
+                )
+
+                # FFN
+                output = self.transformer_ffn_layers[j](
+                    output
+                )
+            # if self.detach_frame_connection:
+            #     output = output.detach()
+            # output = self.frame_proj(output)
+            output = output.detach()
+            outputs.append(output)
+            output_pos = output_pos.detach()
+            output_pos = output_pos + self.frame_pos_proj(output)
+            output = output + self.frame_proj(output)
+
+        outputs = torch.stack(outputs, dim=0)  # frame, q, b, c
+
+        outputs_class, outputs_masks = self.prediction(outputs.unsqueeze(1), mask_features)
+
+        out = {
+           'pred_logits': outputs_class[-1].transpose(1, 2),
+           'pred_masks': outputs_masks[-1],
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
         }
         # pred_logits (bs, t, nq, c)
