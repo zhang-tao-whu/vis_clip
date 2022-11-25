@@ -747,7 +747,7 @@ class QueryTracker(torch.nn.Module):
 
         outputs = torch.stack(outputs, dim=0)  # frame, q, b, c
 
-        outputs_class, outputs_masks = self.prediction(outputs.unsqueeze(1), mask_features)
+        outputs_class, outputs_masks = self.prediction_(outputs.unsqueeze(1), mask_features)
 
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),
