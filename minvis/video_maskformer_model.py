@@ -796,7 +796,7 @@ class QueryTracker(torch.nn.Module):
         outputs_mask_ = []
         T = outputs.size(0)
         iters = T // windows_size
-        if (len(T) % windows_size != 0):
+        if T % windows_size != 0:
             iters += 1
         for i in range(iters):
             start_idx = i * windows_size
