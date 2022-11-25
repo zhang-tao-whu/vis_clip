@@ -777,14 +777,34 @@ class QueryTracker(torch.nn.Module):
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         return outputs_class, outputs_mask
 
-    def prediction_(self, outputs, mask_features):
+    def windows_prediction(self, outputs, mask_features):
         # outputs (T, L, q, b, c)
         # mask_features (b, T, C, H, W)
         decoder_output = self.decoder_norm(outputs)
         decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
         del outputs
-        outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
+        outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (L, B, q, T, Cls+1)
         mask_embed = self.mask_embed(decoder_output)
         del decoder_output
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         return outputs_class, outputs_mask
+
+    def prediction_(self, outputs, mask_features, windows_size=10):
+        # outputs (T, L, q, b, c)
+        # mask_features (b, T, C, H, W)
+        outputs_class_ = []
+        outputs_mask_ = []
+        T = outputs.size(0)
+        iters = T // windows_size
+        if len(T) % windows_size != 0:
+            iters += 1
+        for i in range(iters):
+            start_idx = i * windows_size
+            end_idx = min((i + 1) * windows_size, T)
+            outputs_class, outputs_mask = self.windows_prediction(outputs[start_idx:end_idx],
+                                                                  mask_features[:, start_idx:end_idx])
+            outputs_class_.append(outputs_class.detach())
+            outputs_mask_.append(outputs_mask_.detach())
+        outputs_class_ = torch.cat(outputs_class_, dim=3)
+        outputs_mask_ = torch.cat(outputs_mask_, dim=3)
+        return outputs_class_, outputs_mask_
