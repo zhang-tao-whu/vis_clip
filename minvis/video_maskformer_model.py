@@ -630,13 +630,13 @@ class QueryTracker(torch.nn.Module):
                     output, single_frame_embeds,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=frame_pos_embed, query_pos=None
+                    pos=frame_pos_embed, query_pos=output_pos
                 )
 
                 output = self.transformer_self_attention_layers[j](
                     output, tgt_mask=None,
                     tgt_key_padding_mask=None,
-                    query_pos=None
+                    query_pos=output_pos
                 )
 
                 # FFN
