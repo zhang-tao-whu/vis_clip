@@ -804,7 +804,7 @@ class QueryTracker(torch.nn.Module):
             outputs_class, outputs_mask = self.windows_prediction(outputs[start_idx:end_idx],
                                                                   mask_features[:, start_idx:end_idx])
             outputs_class_.append(outputs_class.detach())
-            outputs_mask_.append(outputs_mask_.detach())
+            outputs_mask_.append(outputs_mask.detach())
         outputs_class_ = torch.cat(outputs_class_, dim=3)
         outputs_mask_ = torch.cat(outputs_mask_, dim=3)
         return outputs_class_, outputs_mask_
