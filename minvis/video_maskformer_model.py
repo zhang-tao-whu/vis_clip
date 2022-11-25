@@ -645,7 +645,7 @@ class QueryTracker(torch.nn.Module):
             # if self.detach_frame_connection:
             #     output = output.detach()
             # output = self.frame_proj(output)
-            output = output.detach()
+            #output = output.detach()
             self.last_output = output
             self.last_output_pos = output_pos
 
