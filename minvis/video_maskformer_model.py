@@ -481,6 +481,8 @@ class VideoMaskFormer_frame(nn.Module):
             del out['pred_logits'], out['pred_masks']
             out_list.append(out)
         outputs = {}
+        print(out_list[0]['pred_embds'].shape)
+        print(out_list[0]['mask_features'].shape)
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).detach()
         outputs['mask_features'] = torch.cat([x['mask_features'] for x in out_list], dim=1).detach().unsqueeze(0)
 
