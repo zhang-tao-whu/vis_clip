@@ -488,7 +488,7 @@ class VideoMaskFormer_frame(nn.Module):
         frame_embds = outputs['pred_embds']  # b c t q
         mask_features = outputs['mask_features']
         with torch.no_grad():
-            track_out = self.tracker(frame_embds, mask_features)
+            track_out = self.tracker.inference(frame_embds, mask_features)
         del mask_features
 
         return track_out
