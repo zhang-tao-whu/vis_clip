@@ -546,10 +546,6 @@ class QueryTracker(torch.nn.Module):
         self.num_object_query = num_object_query
         # learnable query features
         self.query_feat = nn.Embedding(num_object_query, hidden_channel)
-        # learnable query p.e.
-        self.query_embed = nn.Embedding(num_object_query, hidden_channel)
-
-        self.frame_pos_embed = nn.Embedding(100, hidden_channel)
 
         self.last_output = None
         self.last_output_pos = None
@@ -612,12 +608,9 @@ class QueryTracker(torch.nn.Module):
         outputs = []
         if resume:
             output_init = self.last_output
-            output_pos = self.last_output_pos
         else:
             output_init = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
-            output_pos = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
 
-        frame_pos_embed = self.frame_pos_embed.weight.unsqueeze(1).repeat(1, bs, 1)
         output = output_init
         for i in range(n_frame):
             single_frame_embeds = frame_embeds[i]
@@ -628,7 +621,7 @@ class QueryTracker(torch.nn.Module):
                     output, single_frame_embeds,
                     memory_mask=None,
                     memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=frame_pos_embed, query_pos=None
+                    pos=None, query_pos=None
                 )
 
                 output = self.transformer_self_attention_layers[j](
@@ -642,14 +635,8 @@ class QueryTracker(torch.nn.Module):
                     output
                 )
                 ms_output.append(output)
-            # if self.detach_frame_connection:
-            #     output = output.detach()
-            # output = self.frame_proj(output)
-            #output = output.detach()
-
+            output = output.detach()
             self.last_output = output
-            self.last_output_pos = output_pos
-
             ms_output = torch.stack(ms_output, dim=0)
             outputs.append(ms_output)
         outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
