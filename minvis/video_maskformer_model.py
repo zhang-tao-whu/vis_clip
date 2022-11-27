@@ -887,7 +887,7 @@ class QueryTracker_mine(torch.nn.Module):
                         )
                         ms_output.append(output)
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
-            self.last_outputs = ms_output.detach()
+            self.last_outputs = ms_output
             outputs.append(ms_output[1:])
         outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
