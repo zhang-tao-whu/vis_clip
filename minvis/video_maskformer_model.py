@@ -134,7 +134,7 @@ class VideoMaskFormer_frame(nn.Module):
             cost_mask=mask_weight,
             cost_dice=dice_weight,
             num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-            frames=11
+            frames=3
         )
 
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight,
@@ -785,13 +785,13 @@ class QueryTracker_mine(torch.nn.Module):
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
-        self.mask_feature_proj = nn.Conv2d(
-            mask_dim,
-            mask_dim,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-        )
+        # self.mask_feature_proj = nn.Conv2d(
+        #     mask_dim,
+        #     mask_dim,
+        #     kernel_size=1,
+        #     stride=1,
+        #     padding=0,
+        # )
 
         self.last_outputs = None
 
@@ -801,8 +801,8 @@ class QueryTracker_mine(torch.nn.Module):
         return
 
     def forward(self, frame_embeds, mask_features, resume=False):
-        mask_features_shape = mask_features.shape
-        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
+        # mask_features_shape = mask_features.shape
+        # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
@@ -818,7 +818,7 @@ class QueryTracker_mine(torch.nn.Module):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
                         output = self.transformer_cross_attention_layers[j](
-                            0, single_frame_embeds, single_frame_embeds,
+                            single_frame_embeds, single_frame_embeds, single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -855,7 +855,7 @@ class QueryTracker_mine(torch.nn.Module):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
                         output = self.transformer_cross_attention_layers[j](
-                            0, self.last_outputs[-1], single_frame_embeds,
+                            self.last_outputs[j], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
