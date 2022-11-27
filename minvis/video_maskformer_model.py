@@ -221,12 +221,10 @@ class VideoMaskFormer_frame(nn.Module):
             self.sem_seg_head.eval()
             with torch.no_grad():
                 features = self.backbone(images.tensor)
-                outputs = self.sem_seg_head(features)
-                frame_embds = outputs['pred_embds'].clone().detach()  # b c t q
-                mask_features = outputs['mask_features'].clone().detach().unsqueeze(0)
-                del outputs['pred_embds']
-                del outputs['mask_features']
-                del outputs
+                image_outputs = self.sem_seg_head(features)
+                frame_embds = image_outputs['pred_embds'].clone().detach()  # b c t q
+                mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
+                del image_outputs['mask_features']
                 torch.cuda.empty_cache()
             outputs = self.tracker(frame_embds, mask_features)
 
@@ -237,11 +235,11 @@ class VideoMaskFormer_frame(nn.Module):
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
 
-            outputs, targets = self.frame_decoder_loss_reshape(outputs, targets)
+            image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets, image_outputs=image_outputs)
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
-            losses = self.criterion(outputs, targets, use_contrast=False)
+            losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
@@ -269,9 +267,12 @@ class VideoMaskFormer_frame(nn.Module):
 
             return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size)
 
-    def frame_decoder_loss_reshape(self, outputs, targets):
+    def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+        if image_outputs is not None:
+            image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
+            image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
         if 'aux_outputs' in outputs:
             for i in range(len(outputs['aux_outputs'])):
                 outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
@@ -294,7 +295,7 @@ class VideoMaskFormer_frame(nn.Module):
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
         # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
-        return outputs, gt_instances
+        return image_outputs, outputs, gt_instances
 
     def match_from_embds(self, tgt_embds, cur_embds):
 
