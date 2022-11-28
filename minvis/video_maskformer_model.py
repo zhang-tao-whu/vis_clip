@@ -140,6 +140,7 @@ class VideoMaskFormer_frame(nn.Module):
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight,
                        "loss_contrast": contrast_weight}
 
+
         if deep_supervision:
             dec_layers = cfg.MODEL.MASK_FORMER.DEC_LAYERS
             aux_weight_dict = {}
