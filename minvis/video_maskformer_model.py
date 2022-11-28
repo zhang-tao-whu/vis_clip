@@ -911,10 +911,9 @@ class QueryTracker_mine(torch.nn.Module):
 
     def match_embds(self, ref_embds, cur_embds):
         # embds (q, b, c)
-        ref_embds, cur_embds = ref_embds.detach(), cur_embds.detach()
+        ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
         cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-        C = 0
         cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
         C = 1 - cos_sim
 
