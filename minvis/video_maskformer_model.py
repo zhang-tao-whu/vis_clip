@@ -185,6 +185,7 @@ class VideoMaskFormer_frame(nn.Module):
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
             "criterion": criterion,
+            "criterion_segm": criterion_segm,
             "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
             "object_mask_threshold": cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD,
             "overlap_threshold": cfg.MODEL.MASK_FORMER.TEST.OVERLAP_THRESHOLD,
