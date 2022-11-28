@@ -795,6 +795,7 @@ class QueryTracker_mine(torch.nn.Module):
         # )
 
         self.last_outputs = None
+        self.last_frame_embeds = None
 
     def _clear_memory(self):
         del self.last_outputs
@@ -815,6 +816,7 @@ class QueryTracker_mine(torch.nn.Module):
             # the first frame of a video
             if i == 0 and resume is False:
                 self._clear_memory()
+                self.last_frame_embeds = single_frame_embeds
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
@@ -855,8 +857,10 @@ class QueryTracker_mine(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
+                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
+                        self.last_frame_embeds = single_frame_embeds[indices]
                         output = self.transformer_cross_attention_layers[j](
-                            self.last_outputs[j], self.last_outputs[-1], single_frame_embeds,
+                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -904,6 +908,22 @@ class QueryTracker_mine(torch.nn.Module):
         # pred_logits (bs, t, nq, c)
         # pred_masks (bs, nq, t, h, w)
         return out
+
+    def match_embds(self, ref_embds, cur_embds):
+        # embds (q, b, c)
+        ref_embds, cur_embds = ref_embds.detach(), cur_embds.detach()
+        ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
+        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+        C = 0
+        cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
+        C = 1 - cos_sim
+
+        C = C.cpu()
+        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
+
+        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
+        indices = indices[1]  # permutation that makes current aligns to target
+        return indices
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_seg_masks):
