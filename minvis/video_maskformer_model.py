@@ -55,7 +55,6 @@ class VideoMaskFormer_frame(nn.Module):
         # video
         num_frames,
         window_inference,
-        criterion_segm=None,
     ):
         """
         Args:
@@ -85,7 +84,6 @@ class VideoMaskFormer_frame(nn.Module):
         self.backbone = backbone
         self.sem_seg_head = sem_seg_head
         self.criterion = criterion
-        self.criterion_segm = criterion_segm
         self.num_queries = num_queries
         self.overlap_threshold = overlap_threshold
         self.object_mask_threshold = object_mask_threshold
@@ -139,13 +137,6 @@ class VideoMaskFormer_frame(nn.Module):
             frames=3
         )
 
-        matcher_segm = VideoHungarianMatcher(
-            cost_class=class_weight,
-            cost_mask=mask_weight,
-            cost_dice=dice_weight,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-        )
-
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight,
                        "loss_contrast": contrast_weight}
 
@@ -170,22 +161,10 @@ class VideoMaskFormer_frame(nn.Module):
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
 
-        criterion_segm = VideoSetCriterion(
-            sem_seg_head.num_classes,
-            matcher=matcher_segm,
-            weight_dict=weight_dict,
-            eos_coef=no_object_weight,
-            losses=losses,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-            oversample_ratio=cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
-            importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
-        )
-
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
             "criterion": criterion,
-            "criterion_segm": criterion_segm,
             "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
             "object_mask_threshold": cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD,
             "overlap_threshold": cfg.MODEL.MASK_FORMER.TEST.OVERLAP_THRESHOLD,
@@ -249,7 +228,6 @@ class VideoMaskFormer_frame(nn.Module):
                 del image_outputs['mask_features']
                 torch.cuda.empty_cache()
             outputs = self.tracker(frame_embds, mask_features)
-            segmentation_outputs = self.tracker.forward_segmentation(frame_embds, mask_features)
 
         # outputs['pred_embds'] = self.embed_proj(outputs['pred_embds'].detach().permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
         #outputs['pred_embds'] = outputs['pred_embds']
@@ -258,31 +236,19 @@ class VideoMaskFormer_frame(nn.Module):
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
 
-            image_outputs, outputs, targets, segmentation_outputs = \
-                self.frame_decoder_loss_reshape(outputs, targets,
-                                                image_outputs=image_outputs, segmentation_outputs=segmentation_outputs)
+            image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets, image_outputs=image_outputs)
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
             losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
-            losses_segm = self.criterion_segm(segmentation_outputs, targets, matcher_outputs=image_outputs)
 
-            overall_losses = {}
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
                     losses[k] *= self.criterion.weight_dict[k]
-                    overall_losses[k] = losses[k]
                 else:
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
-            # for k in list(losses_segm.keys()):
-            #     if k in self.criterion_segm.weight_dict:
-            #         losses_segm[k] *= self.criterion_segm.weight_dict[k]
-            #         overall_losses['segm' + k] = losses_segm[k]
-            #     else:
-            #         # remove this loss if not specified in `weight_dict`
-            #         losses_segm.pop(k)
-            return overall_losses
+            return losses
         else:
             #outputs = self.post_processing(outputs)
             outputs = self.post_processing_(outputs)
@@ -302,15 +268,12 @@ class VideoMaskFormer_frame(nn.Module):
 
             return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size)
 
-    def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None, segmentation_outputs=None):
+    def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
         if image_outputs is not None:
             image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
             image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
-        if segmentation_outputs is not None:
-            segmentation_outputs['pred_masks'] = einops.rearrange(segmentation_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-            segmentation_outputs['pred_logits'] = einops.rearrange(segmentation_outputs['pred_logits'], 'b t q c -> (b t) q c')
         if 'aux_outputs' in outputs:
             for i in range(len(outputs['aux_outputs'])):
                 outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
@@ -318,14 +281,6 @@ class VideoMaskFormer_frame(nn.Module):
                 )
                 outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
                     outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
-                )
-        if 'aux_outputs' in segmentation_outputs:
-            for i in range(len(segmentation_outputs['aux_outputs'])):
-                segmentation_outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
-                    segmentation_outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
-                )
-                segmentation_outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
-                    segmentation_outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
                 )
 
         gt_instances = []
@@ -341,7 +296,7 @@ class VideoMaskFormer_frame(nn.Module):
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
         # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
-        return image_outputs, outputs, gt_instances, segmentation_outputs
+        return image_outputs, outputs, gt_instances
 
     def match_from_embds(self, tgt_embds, cur_embds):
 
@@ -846,70 +801,6 @@ class QueryTracker_mine(torch.nn.Module):
         self.last_outputs = None
         return
 
-    def forward_segmentation(self, frame_embeds, mask_features):
-        # only for training to supervise the single image semgmentation
-        # init_query (q, b, c)
-        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
-        n_frame, n_q, bs, _ = frame_embeds.size()
-        outputs = []
-
-        for i in range(n_frame):
-            ms_output = []
-            single_frame_embeds = frame_embeds[i]  # q b c
-            # the first frame of a video
-            if True:
-                for j in range(self.num_layers):
-                    if j == 0:
-                        ms_output.append(single_frame_embeds)
-                        output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds, single_frame_embeds, single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], ms_output[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-            ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
-            outputs.append(ms_output[1:])
-        outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
-        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
-        out = {
-           'pred_logits': outputs_class[-1].transpose(1, 2),
-           'pred_masks': outputs_masks[-1],
-           'aux_outputs': self._set_aux_loss(
-               outputs_class, outputs_masks
-           ),
-           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
-        }
-        # pred_logits (bs, t, nq, c)
-        # pred_masks (bs, nq, t, h, w)
-        return out
-
     def forward(self, frame_embeds, mask_features, resume=False):
         # mask_features_shape = mask_features.shape
         # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
@@ -964,7 +855,6 @@ class QueryTracker_mine(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
-                        #indices = self.match(self.last_outputs[j], single_frame_embeds)
                         output = self.transformer_cross_attention_layers[j](
                             self.last_outputs[j], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
