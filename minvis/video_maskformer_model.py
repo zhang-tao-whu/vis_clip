@@ -136,7 +136,7 @@ class VideoMaskFormer_frame(nn.Module):
             cost_mask=mask_weight,
             cost_dice=dice_weight,
             num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-            frames=5
+            frames=3
         )
 
         matcher_segm = VideoHungarianMatcher(
@@ -965,7 +965,7 @@ class QueryTracker_mine(torch.nn.Module):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
                         output = self.transformer_cross_attention_layers[j](
-                            self.last_outputs[j], self.last_outputs[-1], single_frame_embeds,
+                            self.last_outputs[-1], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
