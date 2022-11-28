@@ -136,7 +136,7 @@ class VideoMaskFormer_frame(nn.Module):
             cost_mask=mask_weight,
             cost_dice=dice_weight,
             num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-            frames=3
+            frames=5
         )
 
         matcher_segm = VideoHungarianMatcher(
@@ -275,13 +275,13 @@ class VideoMaskFormer_frame(nn.Module):
                 else:
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
-            for k in list(losses_segm.keys()):
-                if k in self.criterion_segm.weight_dict:
-                    losses_segm[k] *= self.criterion_segm.weight_dict[k]
-                    overall_losses['segm' + k] = losses_segm[k]
-                else:
-                    # remove this loss if not specified in `weight_dict`
-                    losses_segm.pop(k)
+            # for k in list(losses_segm.keys()):
+            #     if k in self.criterion_segm.weight_dict:
+            #         losses_segm[k] *= self.criterion_segm.weight_dict[k]
+            #         overall_losses['segm' + k] = losses_segm[k]
+            #     else:
+            #         # remove this loss if not specified in `weight_dict`
+            #         losses_segm.pop(k)
             return overall_losses
         else:
             #outputs = self.post_processing(outputs)
