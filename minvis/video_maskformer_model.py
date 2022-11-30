@@ -290,11 +290,14 @@ class VideoMaskFormer_frame(nn.Module):
             # ids: N, num_labeled_frames
             # masks: N, num_labeled_frames, H, W
             num_labeled_frames = targets_per_video['ids'].shape[1]
+            set2none = True
             for f in range(num_labeled_frames):
                 labels = targets_per_video['labels']
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
-                gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
+                if ids != -1:
+                    set2none = False
+                gt_instances.append({"labels": labels if not set2none else -1, "ids": ids, "masks": masks})
         # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
         # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
         return image_outputs, outputs, gt_instances
