@@ -1165,6 +1165,8 @@ class MfQueryTracker_mine(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
+                        print(ms_output[-1].shape)
+                        print(item.shape for item in [ms_output[-1]] * self.history_frame_nums)
                         output = self.transformer_cross_attention_layers[j](
                             ms_output[-1], [ms_output[-1]] * self.history_frame_nums, single_frame_embeds,
                             memory_mask=None,
