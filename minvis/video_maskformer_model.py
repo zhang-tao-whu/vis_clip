@@ -975,10 +975,10 @@ class CrossAttentionLayer_mine_mf(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
         if self.history_weight.weight.size(0) >= 3:
-            self.history_weight.weight[0, 0] = 0.6
-            self.history_weight.weight[1, 0] = 0.3
-            self.history_weight.weight[2, 0] = 0.1
-            self.history_weight.weight[3:] = 0.01
+            self.history_weight.weight.data[0, 0] = 0.6
+            self.history_weight.weight.data[1, 0] = 0.3
+            self.history_weight.weight.data[2, 0] = 0.1
+            self.history_weight.weight.data[3:] = 0.01
 
     def with_pos_embed(self, tensor, pos):
         return tensor if pos is None else tensor + pos
