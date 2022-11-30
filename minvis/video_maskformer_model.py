@@ -989,16 +989,15 @@ class CrossAttentionLayer_mine_mf(nn.Module):
                      pos=None,
                      query_pos=None):
         tgt2_list = []
-        print(len(tgt))
         for query in tgt:
-            print(query.size())
             tgt2 = self.multihead_attn(query=self.with_pos_embed(query, query_pos),
                                        key=self.with_pos_embed(memory, pos),
                                        value=memory, attn_mask=memory_mask,
                                        key_padding_mask=memory_key_padding_mask)[0]
             tgt2_list.append(tgt2)
         tgt2 = torch.stack(tgt2_list, dim=0)
-        tgt2 = (tgt2 * self.history_weight.weight).sum(dim=0) / self.history_weight.weight.sum()
+        tgt2 = (tgt2 * self.history_weight.weight.unsqueeze(2).unsqueeze(3)).sum(dim=0) /\
+               self.history_weight.weight.sum()
         tgt = indentify + self.dropout(tgt2)
         tgt = self.norm(tgt)
         return tgt
@@ -1165,8 +1164,6 @@ class MfQueryTracker_mine(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
-                        print(ms_output[-1].shape)
-                        print(item.shape for item in [ms_output[-1]] * self.history_frame_nums)
                         output = self.transformer_cross_attention_layers[j](
                             ms_output[-1], [ms_output[-1]] * self.history_frame_nums, single_frame_embeds,
                             memory_mask=None,
