@@ -99,13 +99,23 @@ class VideoMaskFormer_frame(nn.Module):
         self.num_frames = num_frames
         self.window_inference = window_inference
 
-        self.tracker = QueryTracker_mine(
+        # self.tracker = QueryTracker_mine(
+        #     hidden_channel=256,
+        #     feedforward_channel=2048,
+        #     num_head=8,
+        #     decoder_layer_num=6,
+        #     mask_dim=256,
+        #     class_num=25,)
+
+        self.tracker = MfQueryTracker_mine(
             hidden_channel=256,
             feedforward_channel=2048,
             num_head=8,
             decoder_layer_num=6,
             mask_dim=256,
-            class_num=25,)
+            class_num=25,
+            history_frame_nums=3
+        )
 
     @classmethod
     def from_config(cls, cfg):
