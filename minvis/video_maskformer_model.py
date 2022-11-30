@@ -134,7 +134,7 @@ class VideoMaskFormer_frame(nn.Module):
             cost_mask=mask_weight,
             cost_dice=dice_weight,
             num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-            frames=11
+            frames=5
         )
 
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight,
@@ -921,6 +921,323 @@ class QueryTracker_mine(torch.nn.Module):
         C = C.cpu()
         C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
 
+        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
+        indices = indices[1]  # permutation that makes current aligns to target
+        return indices
+
+    @torch.jit.unused
+    def _set_aux_loss(self, outputs_class, outputs_seg_masks):
+        # this is a workaround to make torchscript happy, as torchscript
+        # doesn't support dictionary with non-homogeneous values, such
+        # as a dict having both a Tensor and a list.
+        return [{"pred_logits": a.transpose(1, 2), "pred_masks": b}
+                for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
+                ]
+
+    def prediction(self, outputs, mask_features):
+        # outputs (T, L, q, b, c)
+        # mask_features (b, T, C, H, W)
+        decoder_output = self.decoder_norm(outputs)
+        decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
+        outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
+        mask_embed = self.mask_embed(decoder_output)
+        outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
+        return outputs_class, outputs_mask
+
+class CrossAttentionLayer_mine_mf(nn.Module):
+
+    def __init__(self, d_model, nhead, dropout=0.0,
+                 activation="relu", normalize_before=False, history_frame_nums=3):
+        super().__init__()
+        self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+
+        self.norm = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
+
+        self.activation = _get_activation_fn(activation)
+        self.normalize_before = normalize_before
+        self.history_weight = nn.Embedding(history_frame_nums, 1)
+
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
+        if self.history_weight.weight.size(0) >= 3:
+            self.history_weight.weight[0, 0] = 0.6
+            self.history_weight.weight[1, 0] = 0.3
+            self.history_weight.weight[2, 0] = 0.1
+            self.history_weight.weight[3:] = 0.01
+
+    def with_pos_embed(self, tensor, pos):
+        return tensor if pos is None else tensor + pos
+
+    def forward_post(self, indentify, tgt, memory,
+                     memory_mask=None,
+                     memory_key_padding_mask=None,
+                     pos=None,
+                     query_pos=None):
+        tgt2_list = []
+        for query in tgt:
+            tgt2 = self.multihead_attn(query=self.with_pos_embed(query, query_pos),
+                                       key=self.with_pos_embed(memory, pos),
+                                       value=memory, attn_mask=memory_mask,
+                                       key_padding_mask=memory_key_padding_mask)[0]
+            tgt2_list.append(tgt2)
+        tgt2 = torch.stack(tgt2_list, dim=0)
+        tgt2 = (tgt2 * self.history_weight.weight).sum(dim=0) / self.history_weight.weight.sum()
+        tgt = indentify + self.dropout(tgt2)
+        tgt = self.norm(tgt)
+        return tgt
+
+    def forward_pre(self, indentify, tgt, memory,
+                    memory_mask=None,
+                    memory_key_padding_mask=None,
+                    pos=None,
+                    query_pos=None):
+        tgt = self.norm(tgt)
+        tgt2_list = []
+        for query in tgt:
+            tgt2 = self.multihead_attn(query=self.with_pos_embed(query, query_pos),
+                                       key=self.with_pos_embed(memory, pos),
+                                       value=memory, attn_mask=memory_mask,
+                                       key_padding_mask=memory_key_padding_mask)[0]
+            tgt2_list.append(tgt2)
+        tgt2 = torch.stack(tgt2_list, dim=0)
+        tgt2 = (tgt2 * self.history_weight.weight).sum(dim=0) / self.history_weight.weight.sum()
+        tgt = indentify + self.dropout(tgt2)
+        return tgt
+
+    def forward(self, indentify, tgt, memory,
+                memory_mask=None,
+                memory_key_padding_mask=None,
+                pos=None,
+                query_pos=None):
+        if self.normalize_before:
+            return self.forward_pre(indentify, tgt, memory, memory_mask,
+                                    memory_key_padding_mask, pos, query_pos)
+        return self.forward_post(indentify, tgt, memory, memory_mask,
+                                 memory_key_padding_mask, pos, query_pos)
+
+class MfQueryTracker_mine(torch.nn.Module):
+    def __init__(self,
+                 hidden_channel=256,
+                 feedforward_channel=2048,
+                 num_head=8,
+                 decoder_layer_num=6,
+                 mask_dim=256,
+                 class_num=25,
+                 history_frame_nums=3,
+                 ):
+        super(MfQueryTracker_mine, self).__init__()
+
+        # init transformer layers
+        self.num_heads = num_head
+        self.num_layers = decoder_layer_num
+        self.transformer_self_attention_layers = nn.ModuleList()
+        self.transformer_cross_attention_layers = nn.ModuleList()
+        self.transformer_ffn_layers = nn.ModuleList()
+
+        for _ in range(self.num_layers):
+            self.transformer_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_cross_attention_layers.append(
+                CrossAttentionLayer_mine_mf(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                    history_frame_nums=history_frame_nums
+                )
+            )
+
+            self.transformer_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+        self.decoder_norm = nn.LayerNorm(hidden_channel)
+
+        # init heads
+        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
+        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+
+        # self.mask_feature_proj = nn.Conv2d(
+        #     mask_dim,
+        #     mask_dim,
+        #     kernel_size=1,
+        #     stride=1,
+        #     padding=0,
+        # )
+        self.history_frame_nums = history_frame_nums
+        self.history_outputs = []
+        self.last_frame_embeds = []
+        self.match_weight = [0.6, 0.3, 0.1]
+
+    def _clear_memory(self):
+        for item in self.history_outputs:
+            del item
+        del self.history_outputs
+        self.history_outputs = []
+
+        for item in self.last_frame_embeds:
+            del item
+        del self.last_frame_embeds
+        self.last_frame_embeds = []
+        return
+
+    def _push(self, item):
+        if len(self.history_outputs) < self.history_frame_nums:
+            while len(self.history_outputs) < self.history_frame_nums:
+                self.history_outputs.insert(0, item)
+            return
+        else:
+            self.history_outputs.pop(-1)
+            self.history_outputs.insert(0, item)
+        return
+
+    def _push_frame_embds(self, item):
+        if len(self.last_frame_embeds) < 3:
+            while len(self.last_frame_embeds) < 3:
+                self.last_frame_embeds.insert(0, item)
+            return
+        else:
+            self.last_frame_embeds.pop(-1)
+            self.last_frame_embeds.insert(0, item)
+        return
+
+    def forward(self, frame_embeds, mask_features, resume=False):
+        # mask_features_shape = mask_features.shape
+        # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
+        # init_query (q, b, c)
+        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
+        n_frame, n_q, bs, _ = frame_embeds.size()
+        outputs = []
+
+        for i in range(n_frame):
+            ms_output = []
+            single_frame_embeds = frame_embeds[i]  # q b c
+            # the first frame of a video
+            if i == 0 and resume is False:
+                self._clear_memory()
+                self._push_frame_embds(single_frame_embeds)
+                for j in range(self.num_layers):
+                    if j == 0:
+                        ms_output.append(single_frame_embeds)
+                        output = self.transformer_cross_attention_layers[j](
+                            single_frame_embeds, [single_frame_embeds] * self.history_frame_nums, single_frame_embeds,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                            pos=None, query_pos=None
+                        )
+                        output = self.transformer_self_attention_layers[j](
+                            output, tgt_mask=None,
+                            tgt_key_padding_mask=None,
+                            query_pos=None
+                        )
+                        # FFN
+                        output = self.transformer_ffn_layers[j](
+                            output
+                        )
+                        ms_output.append(output)
+                    else:
+                        output = self.transformer_cross_attention_layers[j](
+                            ms_output[-1], [ms_output[-1]] * self.history_frame_nums, single_frame_embeds,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                            pos=None, query_pos=None
+                        )
+                        output = self.transformer_self_attention_layers[j](
+                            output, tgt_mask=None,
+                            tgt_key_padding_mask=None,
+                            query_pos=None
+                        )
+                        # FFN
+                        output = self.transformer_ffn_layers[j](
+                            output
+                        )
+                        ms_output.append(output)
+            else:
+                for j in range(self.num_layers):
+                    if j == 0:
+                        ms_output.append(single_frame_embeds)
+                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
+                        self._push_frame_embds(single_frame_embeds[indices])
+                        output = self.transformer_cross_attention_layers[j](
+                            single_frame_embeds[indices], self.history_outputs, single_frame_embeds,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                            pos=None, query_pos=None
+                        )
+                        output = self.transformer_self_attention_layers[j](
+                            output, tgt_mask=None,
+                            tgt_key_padding_mask=None,
+                            query_pos=None
+                        )
+                        # FFN
+                        output = self.transformer_ffn_layers[j](
+                            output
+                        )
+                        ms_output.append(output)
+                    else:
+                        output = self.transformer_cross_attention_layers[j](
+                            ms_output[-1], self.history_outputs, single_frame_embeds,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                            pos=None, query_pos=None
+                        )
+                        output = self.transformer_self_attention_layers[j](
+                            output, tgt_mask=None,
+                            tgt_key_padding_mask=None,
+                            query_pos=None
+                        )
+                        # FFN
+                        output = self.transformer_ffn_layers[j](
+                            output
+                        )
+                        ms_output.append(output)
+            ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
+            self._push(ms_output[-1])
+            outputs.append(ms_output[1:])
+        outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
+        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
+        out = {
+           'pred_logits': outputs_class[-1].transpose(1, 2),
+           'pred_masks': outputs_masks[-1],
+           'aux_outputs': self._set_aux_loss(
+               outputs_class, outputs_masks
+           ),
+           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
+        }
+        # pred_logits (bs, t, nq, c)
+        # pred_masks (bs, nq, t, h, w)
+        return out
+
+    def match_embds(self, ref_embds, cur_embds):
+        # embds (q, b, c)
+        ref_embds = [item.detach()[:, 0, :] for item in ref_embds]
+        cur_embds = cur_embds.detach()[:, 0, :]
+        ref_embds = [item / (item.norm(dim=1)[:, None] + 1e-6) for item in ref_embds]
+        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+        C = 0
+        for ref_embd, weight in zip(ref_embds, self.match_weight):
+            cos_sim = torch.mm(ref_embd, cur_embds.transpose(0, 1))
+            cost = 1 - cos_sim
+            C = C + cost
+        C = C.cpu()
+        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
         return indices
