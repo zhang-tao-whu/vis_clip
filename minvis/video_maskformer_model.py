@@ -767,14 +767,14 @@ class QueryTracker_mine(torch.nn.Module):
         self.encoder = nn.Sequential()
 
         for i in range(encoder_layers):
-            self.encoder.append(
+            self.encoder.add_module('self_attn_{}'.format(i),
                 SelfAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
                     dropout=0.0,
                     normalize_before=False,
                 ))
-            self.encoder.append(
+            self.encoder.add_module('ffn_{}'.format(i),
                 FFNLayer(
                     d_model=hidden_channel,
                     dim_feedforward=feedforward_channel,
