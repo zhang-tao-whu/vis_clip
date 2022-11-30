@@ -839,8 +839,8 @@ class QueryTracker_mine(torch.nn.Module):
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
-        frame_embeds = frame_embeds.permute(1, 0, 2, 3).flatten(1, 2)
-        frame_embeds = self.encoder(frame_embeds).view(n_q, n_frame, bs, _).permute(1, 0, 2, 3)
+        # frame_embeds = frame_embeds.permute(1, 0, 2, 3).flatten(1, 2)
+        # frame_embeds = self.encoder(frame_embeds).view(n_q, n_frame, bs, _).permute(1, 0, 2, 3)
         outputs = []
 
         for i in range(n_frame):
@@ -853,6 +853,7 @@ class QueryTracker_mine(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
+                        single_frame_embeds = self.encoder(single_frame_embeds)
                         output = self.transformer_cross_attention_layers[j](
                             single_frame_embeds, single_frame_embeds, single_frame_embeds,
                             memory_mask=None,
@@ -892,6 +893,7 @@ class QueryTracker_mine(torch.nn.Module):
                         ms_output.append(single_frame_embeds)
                         indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
                         self.last_frame_embeds = single_frame_embeds[indices]
+                        single_frame_embeds = self.encoder(single_frame_embeds)
                         output = self.transformer_cross_attention_layers[j](
                             single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
