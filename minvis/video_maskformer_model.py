@@ -295,6 +295,7 @@ class VideoMaskFormer_frame(nn.Module):
                 labels = targets_per_video['labels']
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
+                print(ids)
                 if ids != -1:
                     set2none = False
                 gt_instances.append({"labels": labels if not set2none else -1, "ids": ids, "masks": masks})
