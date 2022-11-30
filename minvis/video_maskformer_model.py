@@ -114,7 +114,7 @@ class VideoMaskFormer_frame(nn.Module):
             decoder_layer_num=6,
             mask_dim=256,
             class_num=25,
-            history_frame_nums=3
+            history_frame_nums=1
         )
 
     @classmethod
