@@ -290,7 +290,7 @@ class VideoMaskFormer_frame(nn.Module):
             # ids: N, num_labeled_frames
             # masks: N, num_labeled_frames, H, W
             num_labeled_frames = targets_per_video['ids'].shape[1]
-            set2none = targets_per_video['ids'][:, [0]] == -1
+            set2none = targets_per_video['ids'][:, 0] == -1
             for f in range(num_labeled_frames):
                 labels = targets_per_video['labels']
                 ids = targets_per_video['ids'][:, [f]]
