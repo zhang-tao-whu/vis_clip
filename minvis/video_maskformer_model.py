@@ -989,6 +989,7 @@ class CrossAttentionLayer_mine_mf(nn.Module):
                      pos=None,
                      query_pos=None):
         tgt2_list = []
+        print(len(tgt))
         for query in tgt:
             print(query.size())
             tgt2 = self.multihead_attn(query=self.with_pos_embed(query, query_pos),
