@@ -1246,7 +1246,7 @@ class MfQueryTracker_mine(torch.nn.Module):
         for ref_embd, weight in zip(ref_embds, self.match_weight):
             cos_sim = torch.mm(ref_embd, cur_embds.transpose(0, 1))
             cost = 1 - cos_sim
-            C = C + cost
+            C = C + cost * weight
         C = C.cpu()
         C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
