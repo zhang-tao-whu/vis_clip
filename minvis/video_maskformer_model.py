@@ -99,23 +99,23 @@ class VideoMaskFormer_frame(nn.Module):
         self.num_frames = num_frames
         self.window_inference = window_inference
 
-        # self.tracker = QueryTracker_mine(
-        #     hidden_channel=256,
-        #     feedforward_channel=2048,
-        #     num_head=8,
-        #     decoder_layer_num=6,
-        #     mask_dim=256,
-        #     class_num=25,)
-
-        self.tracker = MfQueryTracker_mine(
+        self.tracker = QueryTracker_mine(
             hidden_channel=256,
             feedforward_channel=2048,
             num_head=8,
             decoder_layer_num=6,
             mask_dim=256,
-            class_num=25,
-            history_frame_nums=1
-        )
+            class_num=25,)
+
+        # self.tracker = MfQueryTracker_mine(
+        #     hidden_channel=256,
+        #     feedforward_channel=2048,
+        #     num_head=8,
+        #     decoder_layer_num=6,
+        #     mask_dim=256,
+        #     class_num=25,
+        #     history_frame_nums=1
+        # )
 
     @classmethod
     def from_config(cls, cfg):
@@ -753,7 +753,8 @@ class QueryTracker_mine(torch.nn.Module):
                  num_head=8,
                  decoder_layer_num=6,
                  mask_dim=256,
-                 class_num=25,):
+                 class_num=25,
+                 encoder_layers=6):
         super(QueryTracker_mine, self).__init__()
 
         # init transformer layers
@@ -762,6 +763,25 @@ class QueryTracker_mine(torch.nn.Module):
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
+
+        self.encoder = nn.Sequential()
+
+        for i in range(encoder_layers):
+            self.encoder.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                ))
+            self.encoder.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
 
         for _ in range(self.num_layers):
             self.transformer_self_attention_layers.append(
@@ -819,6 +839,8 @@ class QueryTracker_mine(torch.nn.Module):
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
+        frame_embeds = frame_embeds.permute(1, 0, 2, 3).flatten(1, 2)
+        frame_embeds = self.encoder(frame_embeds).view(n_q, n_frame, bs, _).permute(1, 0, 2, 3)
         outputs = []
 
         for i in range(n_frame):
