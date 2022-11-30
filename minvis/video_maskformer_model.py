@@ -423,7 +423,7 @@ class VideoMaskFormer_frame(nn.Module):
             out_embds.append(pred_embds[i])
             out_scores.append(pred_scores[i])
 
-        out_logits = out_logits.stack(dim=0) # (t, q, c)
+        out_logits = torch.stack(out_logits, dim=0) # (t, q, c)
         out_logits_ = out_logits.mean(dim=0) # (q, c)
         is_background = is_background.unsqueeze(2).to(torch.float32) # (t, q, 1)
         out_logits_[not_whole_background] = ((out_logits * is_background).sum(dim=0) /\
