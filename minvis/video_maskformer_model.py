@@ -391,6 +391,7 @@ class VideoMaskFormer_frame(nn.Module):
         pred_logits = pred_logits[0]
         pred_scores, pred_labels = torch.max(F.softmax(pred_logits, dim=-1)[..., :-1], dim=-1)
         is_background = pred_labels == pred_logits.size(-1) - 1  # (t, q)
+        is_background = is_background.to(torch.float32)
         not_whole_background = (1 - is_background).sum(dim=0) != 0
         pred_masks = einops.rearrange(pred_masks[0], 'q t h w -> t q h w')
         pred_embds = einops.rearrange(pred_embds[0], 'c t q -> t q c')
@@ -425,7 +426,7 @@ class VideoMaskFormer_frame(nn.Module):
 
         out_logits = torch.stack(out_logits, dim=0) # (t, q, c)
         out_logits_ = out_logits.mean(dim=0) # (q, c)
-        is_background = is_background.unsqueeze(2).to(torch.float32) # (t, q, 1)
+        is_background = is_background.unsqueeze(2) # (t, q, 1)
         out_logits_[not_whole_background] = ((out_logits * (1 - is_background)).sum(dim=0) /\
                                              ((1 - is_background).sum(dim=0) + 1e-6))[not_whole_background].to(out_logits_.dtype)
         # out_logits = sum(out_logits)/len(out_logits)
