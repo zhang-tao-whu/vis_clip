@@ -290,13 +290,10 @@ class VideoMaskFormer_frame(nn.Module):
             # ids: N, num_labeled_frames
             # masks: N, num_labeled_frames, H, W
             num_labeled_frames = targets_per_video['ids'].shape[1]
-            set2none = targets_per_video['ids'][:, 0] == -1
             for f in range(num_labeled_frames):
                 labels = targets_per_video['labels']
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
-                set2none[ids[:, 0] != -1] = False
-                labels[set2none] = -1
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
         # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
@@ -389,10 +386,7 @@ class VideoMaskFormer_frame(nn.Module):
         # pred_masks: 1 q t h w
         # pred_embeds: 1 c t q
         pred_logits = pred_logits[0]
-        pred_scores, pred_labels = torch.max(F.softmax(pred_logits, dim=-1)[..., :-1], dim=-1)
-        is_background = pred_labels == pred_logits.size(-1) - 1  # (t, q)
-        is_background = is_background.to(torch.float32)
-        not_whole_background = (1 - is_background).sum(dim=0) != 0
+        pred_scores = torch.max(F.softmax(pred_logits, dim=-1)[..., :-1], dim=-1)[0]
         pred_masks = einops.rearrange(pred_masks[0], 'q t h w -> t q h w')
         pred_embds = einops.rearrange(pred_embds[0], 'c t q -> t q c')
 
@@ -404,7 +398,6 @@ class VideoMaskFormer_frame(nn.Module):
         out_masks = []
         out_embds = []
         out_scores = []
-
         out_logits.append(pred_logits[0])
         out_masks.append(pred_masks[0])
         out_embds += [pred_embds[0]] * 3
@@ -424,15 +417,8 @@ class VideoMaskFormer_frame(nn.Module):
             out_embds.append(pred_embds[i])
             out_scores.append(pred_scores[i])
 
-        out_logits = torch.stack(out_logits, dim=0) # (t, q, c)
-        out_logits_ = out_logits.mean(dim=0) # (q, c)
-        is_background = is_background.unsqueeze(2) # (t, q, 1)
-        out_logits_[not_whole_background] = ((out_logits * (1 - is_background)).sum(dim=0) /\
-                                             ((1 - is_background).sum(dim=0) + 1e-6))[not_whole_background].to(out_logits_.dtype)
-        # out_logits = sum(out_logits)/len(out_logits)
-        out_logits = out_logits_
+        out_logits = sum(out_logits)/len(out_logits)
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
-        out_masks = out_masks * (1 - is_background).transpose(0, 1).unsqueeze(3) - 1e-6
 
         out_logits = out_logits.unsqueeze(0)
         out_masks = out_masks.unsqueeze(0)
@@ -765,7 +751,6 @@ class QueryTracker_mine(torch.nn.Module):
         self.num_layers = decoder_layer_num
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
-        self.transformer_self_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
         for _ in range(self.num_layers):
@@ -779,15 +764,6 @@ class QueryTracker_mine(torch.nn.Module):
             )
 
             self.transformer_cross_attention_layers.append(
-                CrossAttentionLayer_mine(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_self_cross_attention_layers.append(
                 CrossAttentionLayer_mine(
                     d_model=hidden_channel,
                     nhead=num_head,
@@ -851,14 +827,6 @@ class QueryTracker_mine(torch.nn.Module):
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
                         )
-
-                        output = self.transformer_self_cross_attention_layers[j](
-                            output, output, single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -872,12 +840,6 @@ class QueryTracker_mine(torch.nn.Module):
                     else:
                         output = self.transformer_cross_attention_layers[j](
                             ms_output[-1], ms_output[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_cross_attention_layers[j](
-                            output, output, single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -904,12 +866,6 @@ class QueryTracker_mine(torch.nn.Module):
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
                         )
-                        output = self.transformer_self_cross_attention_layers[j](
-                            output, output, single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -923,12 +879,6 @@ class QueryTracker_mine(torch.nn.Module):
                     else:
                         output = self.transformer_cross_attention_layers[j](
                             ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_cross_attention_layers[j](
-                            output, output, single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
