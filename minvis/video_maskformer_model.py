@@ -427,6 +427,7 @@ class VideoMaskFormer_frame(nn.Module):
         out_logits = torch.stack(out_logits, dim=0) # (t, q, c)
         out_logits_ = out_logits.mean(dim=0) # (q, c)
         is_background = is_background.unsqueeze(2) # (t, q, 1)
+        print(not_whole_background)
         out_logits_[not_whole_background] = ((out_logits * (1 - is_background)).sum(dim=0) /\
                                              ((1 - is_background).sum(dim=0) + 1e-6))[not_whole_background].to(out_logits_.dtype)
         # out_logits = sum(out_logits)/len(out_logits)
