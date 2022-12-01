@@ -795,6 +795,13 @@ class QueryTracker_mine(torch.nn.Module):
             padding=0,
         )
 
+        self.first_frame_query_proj = FFNLayer(
+            d_model=hidden_channel,
+            dim_feedforward=feedforward_channel,
+            dropout=0.0,
+            normalize_before=False,
+        )
+
         self.last_outputs = None
         self.last_frame_embeds = None
 
@@ -818,11 +825,12 @@ class QueryTracker_mine(torch.nn.Module):
             if i == 0 and resume is False:
                 self._clear_memory()
                 self.last_frame_embeds = single_frame_embeds
+                init_last_query = self.first_frame_query_proj(single_frame_embeds)
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
                         output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds, single_frame_embeds, single_frame_embeds,
+                            single_frame_embeds, init_last_query, single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -839,7 +847,7 @@ class QueryTracker_mine(torch.nn.Module):
                         ms_output.append(output)
                     else:
                         output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], ms_output[-1], single_frame_embeds,
+                            ms_output[-1], init_last_query, single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
