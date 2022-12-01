@@ -787,13 +787,13 @@ class QueryTracker_mine(torch.nn.Module):
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
-        # self.mask_feature_proj = nn.Conv2d(
-        #     mask_dim,
-        #     mask_dim,
-        #     kernel_size=1,
-        #     stride=1,
-        #     padding=0,
-        # )
+        self.mask_feature_proj = nn.Conv2d(
+            mask_dim,
+            mask_dim,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
 
         self.last_outputs = None
         self.last_frame_embeds = None
@@ -804,8 +804,8 @@ class QueryTracker_mine(torch.nn.Module):
         return
 
     def forward(self, frame_embeds, mask_features, resume=False):
-        # mask_features_shape = mask_features.shape
-        # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
+        mask_features_shape = mask_features.shape
+        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
