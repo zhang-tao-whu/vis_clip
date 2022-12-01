@@ -431,6 +431,7 @@ class VideoMaskFormer_frame(nn.Module):
         # out_logits = sum(out_logits)/len(out_logits)
         out_logits = out_logits_
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
+        out_masks = out_masks * is_background.transpose(0, 1).unsqueeze(3) - 1e-6
 
         out_logits = out_logits.unsqueeze(0)
         out_masks = out_masks.unsqueeze(0)
