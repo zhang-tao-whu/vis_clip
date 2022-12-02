@@ -460,6 +460,7 @@ class VideoMaskFormer_frame(nn.Module):
         outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1).detach()
         outputs['pred_masks'] = torch.cat([x['pred_masks'].cpu() for x in out_list], dim=2).detach()
         outputs['pred_embds'] = torch.cat([x['pred_embds'].cpu() for x in out_list], dim=2).detach()
+        print(outputs['pred_masks'].dtype)
 
         return outputs
 
