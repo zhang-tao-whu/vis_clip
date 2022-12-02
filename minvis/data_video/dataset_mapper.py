@@ -244,7 +244,6 @@ class YTVISDatasetMapper:
             selected_idx = [start_idx + item for item in rela_frames]
             if random.random() < 0.5:
                 selected_idx = np.array(selected_idx)[::-1].tolist()
-
         return selected_idx
 
     def __call__(self, dataset_dict):
