@@ -103,7 +103,7 @@ class VideoMaskFormer_frame(nn.Module):
             hidden_channel=256,
             feedforward_channel=2048,
             num_head=8,
-            decoder_layer_num=6,
+            decoder_layer_num=9,
             mask_dim=256,
             class_num=25,)
 
