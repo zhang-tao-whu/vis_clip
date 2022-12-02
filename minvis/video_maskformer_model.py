@@ -216,7 +216,7 @@ class VideoMaskFormer_frame(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=3)
+            outputs = self.run_window_inference(images.tensor, window_size=2)
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
@@ -450,7 +450,7 @@ class VideoMaskFormer_frame(nn.Module):
             else:
                 track_out = self.tracker(frame_embds, mask_features)
 
-            del mask_features
+            del mask_features, frame_embds
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
             out_list.append(track_out)
