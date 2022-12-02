@@ -839,7 +839,7 @@ class QueryTracker_mine(torch.nn.Module):
                         ms_output.append(output)
                     else:
                         output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], single_frame_embeds, single_frame_embeds,
+                            ms_output[-1], ms_output[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -934,6 +934,15 @@ class QueryTracker_mine(torch.nn.Module):
                 for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
                 ]
 
+    def reset_gradient(self, pred_class, pred_mask, ratio=0.8):
+        L, B, Q, T, _ = pred_class.size()
+        weight = torch.Tensor([ratio ** i for i in range(T)]).to(pred_class.device)
+        weight_class = weight[None, None, None, :, None]
+        weight_mask = weight[None, None, None, :, None, None]
+        pred_class = pred_class * weight_class + pred_class.detach() * (1 - weight_class)
+        pred_mask = pred_mask * weight_mask + pred_mask.detach() * (1 - weight_mask)
+        return pred_class, pred_mask
+
     def prediction(self, outputs, mask_features):
         # outputs (T, L, q, b, c)
         # mask_features (b, T, C, H, W)
@@ -942,4 +951,4 @@ class QueryTracker_mine(torch.nn.Module):
         outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
-        return outputs_class, outputs_mask
+        return self.reset_gradient(outputs_class, outputs_mask)
