@@ -829,7 +829,7 @@ class QueryTracker_mine(torch.nn.Module):
             memory_mask=None,
             memory_key_padding_mask=None,  # here we do not apply masking on padded region
             pos=None, query_pos=None)
-        return queries.viev(q, b, c)
+        return queries.reshape(q, b, c)
 
     def forward(self, frame_embeds, mask_features, resume=False):
         # mask_features_shape = mask_features.shape
