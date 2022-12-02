@@ -964,15 +964,6 @@ class QueryTracker_mine(torch.nn.Module):
                 for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
                 ]
 
-    def reset_gradient(self, pred_class, pred_mask, ratio=0.8):
-        L, B, Q, T, _ = pred_class.size()
-        weight = torch.Tensor([ratio ** i for i in range(T)]).to(pred_class.device)
-        weight_class = weight[None, None, None, :, None]
-        weight_mask = weight[None, None, None, :, None, None]
-        pred_class = pred_class * weight_class + pred_class.detach() * (1 - weight_class)
-        pred_mask = pred_mask * weight_mask + pred_mask.detach() * (1 - weight_mask)
-        return pred_class, pred_mask
-
     def prediction(self, outputs, mask_features):
         # outputs (T, L, q, b, c)
         # mask_features (b, T, C, H, W)
@@ -981,4 +972,81 @@ class QueryTracker_mine(torch.nn.Module):
         outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
-        return self.reset_gradient(outputs_class, outputs_mask)
+        return outputs_class, outputs_mask
+
+
+class Offline_QueryTracker(torch.nn.Module):
+    def __init__(self,
+                 hidden_channel=256,
+                 feedforward_channel=2048,
+                 num_head=8,
+                 decoder_layer_num=6,
+                 mask_dim=256,
+                 class_num=25,):
+        super(Offline_QueryTracker, self).__init__()
+
+        # init transformer layers
+        self.num_heads = num_head
+        self.num_layers = decoder_layer_num
+        self.transformer_time_self_attention_layers = nn.ModuleList()
+        self.conv_time_layers = nn.ModuleList()
+        self.transformer_cross_attention_layers = nn.ModuleList()
+        self.transformer_ffn_layers = nn.ModuleList()
+
+        for _ in range(self.num_layers):
+            self.transformer_time_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.conv_time_layers.append(
+                nn.Conv1D(hidden_channel, hidden_channel, 7, padding='same', padding_mode='replicate')
+            )
+
+            self.transformer_cross_attention_layers.append(
+                CrossAttentionLayer_mine(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+        self.decoder_norm = nn.LayerNorm(hidden_channel)
+
+        # init heads
+        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
+        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+
+        # self.mask_feature_proj = nn.Conv2d(
+        #     mask_dim,
+        #     mask_dim,
+        #     kernel_size=1,
+        #     stride=1,
+        #     padding=0,
+        # )
+
+        self.last_outputs = None
+        self.last_frame_embeds = None
+
+        self.time_cross_attention = \
+            CrossAttentionLayer(
+                d_model=hidden_channel,
+                nhead=num_head,
+                dropout=0.0,
+                normalize_before=False,
+            )
+        self.memories = []
