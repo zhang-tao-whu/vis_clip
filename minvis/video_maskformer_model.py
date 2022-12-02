@@ -216,7 +216,7 @@ class VideoMaskFormer_frame(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=2)
+            outputs = self.run_window_inference(images.tensor, window_size=3)
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
@@ -457,9 +457,9 @@ class VideoMaskFormer_frame(nn.Module):
 
         # merge outputs
         outputs = {}
-        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
-        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
-        outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
+        outputs['pred_logits'] = torch.cat([x['pred_logits'].cpu() for x in out_list], dim=1)
+        outputs['pred_masks'] = torch.cat([x['pred_masks'].cpu() for x in out_list], dim=2)
+        outputs['pred_embds'] = torch.cat([x['pred_embds'].cpu() for x in out_list], dim=2)
 
         return outputs
 
