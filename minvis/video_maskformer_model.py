@@ -450,16 +450,19 @@ class VideoMaskFormer_frame(nn.Module):
             else:
                 track_out = self.tracker(frame_embds, mask_features)
 
-            del mask_features, frame_embds
+            del mask_features
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
+            track_out['pred_logits'] = track_out['pred_logits'].detach().cpu().to(torch.float32)
+            track_out['pred_masks'] = track_out['pred_masks'].detach().cpu().to(torch.float32)
+            track_out['pred_embds'] = track_out['pred_embds'].detach().cpu().to(torch.float32)
             out_list.append(track_out)
 
         # merge outputs
         outputs = {}
-        outputs['pred_logits'] = torch.cat([x['pred_logits'].cpu().to(torch.float32) for x in out_list], dim=1).detach()
-        outputs['pred_masks'] = torch.cat([x['pred_masks'].cpu().to(torch.float32) for x in out_list], dim=2).detach()
-        outputs['pred_embds'] = torch.cat([x['pred_embds'].cpu().to(torch.float32) for x in out_list], dim=2).detach()
+        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
+        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
+        outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
 
         return outputs
 
@@ -798,38 +801,10 @@ class QueryTracker_mine(torch.nn.Module):
         self.last_outputs = None
         self.last_frame_embeds = None
 
-        self.time_cross_attention = \
-            CrossAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
-        self.memories = []
-
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
-        for item in self.memories:
-            del item
-        self.memories = []
         return
-
-    def time_aggregate(self, queries, outputs):
-        q, b, c = queries.size()
-        queries = queries.flatten(0, 1).unsqueeze(0) # (1, qb, c)
-        if len(outputs) == 0:
-            memories = queries
-        else:
-            memories = torch.stack(outputs, dim=0) # (t, L, q, b, c)
-            memories = memories[:, -1].flatten(1, 2)
-        queries = self.time_cross_attention(
-            queries,
-            memories,
-            memory_mask=None,
-            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-            pos=None, query_pos=None)
-        return queries.reshape(q, b, c)
 
     def forward(self, frame_embeds, mask_features, resume=False):
         # mask_features_shape = mask_features.shape
@@ -883,14 +858,13 @@ class QueryTracker_mine(torch.nn.Module):
                         )
                         ms_output.append(output)
             else:
-                query_T = self.time_aggregate(self.last_outputs[-1], self.memories)
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
                         indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
                         self.last_frame_embeds = single_frame_embeds[indices]
                         output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds[indices], query_T, single_frame_embeds,
+                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -907,7 +881,7 @@ class QueryTracker_mine(torch.nn.Module):
                         ms_output.append(output)
                     else:
                         output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], query_T, single_frame_embeds,
+                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -925,7 +899,6 @@ class QueryTracker_mine(torch.nn.Module):
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
             outputs.append(ms_output[1:])
-            self.memories.append(ms_output[1:])
         outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
         out = {
@@ -973,80 +946,3 @@ class QueryTracker_mine(torch.nn.Module):
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         return outputs_class, outputs_mask
-
-
-class Offline_QueryTracker(torch.nn.Module):
-    def __init__(self,
-                 hidden_channel=256,
-                 feedforward_channel=2048,
-                 num_head=8,
-                 decoder_layer_num=6,
-                 mask_dim=256,
-                 class_num=25,):
-        super(Offline_QueryTracker, self).__init__()
-
-        # init transformer layers
-        self.num_heads = num_head
-        self.num_layers = decoder_layer_num
-        self.transformer_time_self_attention_layers = nn.ModuleList()
-        self.conv_time_layers = nn.ModuleList()
-        self.transformer_cross_attention_layers = nn.ModuleList()
-        self.transformer_ffn_layers = nn.ModuleList()
-
-        for _ in range(self.num_layers):
-            self.transformer_time_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.conv_time_layers.append(
-                nn.Conv1D(hidden_channel, hidden_channel, 7, padding='same', padding_mode='replicate')
-            )
-
-            self.transformer_cross_attention_layers.append(
-                CrossAttentionLayer_mine(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_ffn_layers.append(
-                FFNLayer(
-                    d_model=hidden_channel,
-                    dim_feedforward=feedforward_channel,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-        self.decoder_norm = nn.LayerNorm(hidden_channel)
-
-        # init heads
-        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
-        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
-
-        # self.mask_feature_proj = nn.Conv2d(
-        #     mask_dim,
-        #     mask_dim,
-        #     kernel_size=1,
-        #     stride=1,
-        #     padding=0,
-        # )
-
-        self.last_outputs = None
-        self.last_frame_embeds = None
-
-        self.time_cross_attention = \
-            CrossAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
-        self.memories = []
