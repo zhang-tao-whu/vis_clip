@@ -453,13 +453,16 @@ class VideoMaskFormer_frame(nn.Module):
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
+            track_out['pred_logits'] = track_out['pred_logits'].cpu().to(torch.float32).detach()
+            track_out['pred_masks'] = track_out['pred_masks'].cpu().to(torch.float32).detach()
+            track_out['pred_embds'] = track_out['pred_embds'].cpu().to(torch.float32).detach()
             out_list.append(track_out)
 
         # merge outputs
         outputs = {}
-        outputs['pred_logits'] = torch.cat([x['pred_logits'].cpu().to(torch.float32) for x in out_list], dim=1).detach()
-        outputs['pred_masks'] = torch.cat([x['pred_masks'].cpu().to(torch.float32) for x in out_list], dim=2).detach()
-        outputs['pred_embds'] = torch.cat([x['pred_embds'].cpu().to(torch.float32) for x in out_list], dim=2).detach()
+        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
+        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
+        outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
 
         return outputs
 
