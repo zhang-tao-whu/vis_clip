@@ -103,7 +103,7 @@ class VideoMaskFormer_frame(nn.Module):
             hidden_channel=256,
             feedforward_channel=2048,
             num_head=8,
-            decoder_layer_num=9,
+            decoder_layer_num=6,
             mask_dim=256,
             class_num=25,)
 
@@ -453,9 +453,9 @@ class VideoMaskFormer_frame(nn.Module):
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
-            track_out['pred_logits'] = track_out['pred_logits'].cpu().to(torch.float32).detach()
-            track_out['pred_masks'] = track_out['pred_masks'].cpu().to(torch.float32).detach()
-            track_out['pred_embds'] = track_out['pred_embds'].cpu().to(torch.float32).detach()
+            track_out['pred_logits'] = track_out['pred_logits'].detach().cpu().to(torch.float32)
+            track_out['pred_masks'] = track_out['pred_masks'].detach().cpu().to(torch.float32)
+            track_out['pred_embds'] = track_out['pred_embds'].detach().cpu().to(torch.float32)
             out_list.append(track_out)
 
         # merge outputs
@@ -744,7 +744,7 @@ class QueryTracker_mine(torch.nn.Module):
                  hidden_channel=256,
                  feedforward_channel=2048,
                  num_head=8,
-                 decoder_layer_num=9,
+                 decoder_layer_num=6,
                  mask_dim=256,
                  class_num=25,):
         super(QueryTracker_mine, self).__init__()
@@ -880,20 +880,12 @@ class QueryTracker_mine(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
-                        if j < 6:
-                            output = self.transformer_cross_attention_layers[j](
-                                ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                                pos=None, query_pos=None
-                            )
-                        else:
-                            output = self.transformer_cross_attention_layers[j](
-                                ms_output[-1], ms_output[-1], single_frame_embeds,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                                pos=None, query_pos=None
-                            )
+                        output = self.transformer_cross_attention_layers[j](
+                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                            pos=None, query_pos=None
+                        )
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -911,7 +903,7 @@ class QueryTracker_mine(torch.nn.Module):
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),
-           'pred_masks': outputs_masks[-3],
+           'pred_masks': outputs_masks[-1],
            'aux_outputs': self._set_aux_loss(
                outputs_class, outputs_masks
            ),
