@@ -902,8 +902,8 @@ class QueryTracker_mine(torch.nn.Module):
         outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
         out = {
-           'pred_logits': outputs_class[-1].transpose(1, 2),
-           'pred_masks': outputs_masks[-1],
+           'pred_logits': outputs_class[-2].transpose(1, 2),
+           'pred_masks': outputs_masks[-2],
            'aux_outputs': self._set_aux_loss(
                outputs_class, outputs_masks
            ),
