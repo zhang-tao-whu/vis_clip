@@ -230,6 +230,7 @@ class YTVISDatasetMapper:
             # selected_idx = sorted(selected_idx)
 
             step_prob_dict = {1: 1}
+            # step_prob_dict = {0.8: 1, 1: 2}
             rela_frames = [0]
             for i in range(self.sampling_frame_num - 1):
                 random_num = random.random()
