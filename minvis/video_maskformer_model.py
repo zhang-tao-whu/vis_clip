@@ -453,9 +453,9 @@ class VideoMaskFormer_frame(nn.Module):
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
-            track_out['pred_logits'] = track_out['pred_logits'].detach().cpu().to(torch.float32)
-            track_out['pred_masks'] = track_out['pred_masks'].detach().cpu().to(torch.float32)
-            track_out['pred_embds'] = track_out['pred_embds'].detach().cpu().to(torch.float32)
+            track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
+            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
+            track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
             out_list.append(track_out)
 
         # merge outputs
@@ -864,7 +864,7 @@ class QueryTracker_mine(torch.nn.Module):
                         indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
                         self.last_frame_embeds = single_frame_embeds[indices]
                         output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds[indices], self.last_outputs[-1].detach(), single_frame_embeds,
+                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -881,7 +881,7 @@ class QueryTracker_mine(torch.nn.Module):
                         ms_output.append(output)
                     else:
                         output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1].detach(), single_frame_embeds,
+                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
