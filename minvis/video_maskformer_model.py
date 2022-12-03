@@ -790,6 +790,8 @@ class QueryTracker_mine(torch.nn.Module):
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
+        self.instance_embed = nn.Embedding(100, hidden_channel)
+
         # self.mask_feature_proj = nn.Conv2d(
         #     mask_dim,
         #     mask_dim,
@@ -814,6 +816,8 @@ class QueryTracker_mine(torch.nn.Module):
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
 
+        instance_embed = self.instance_embed.weight.unsqueeze(1).repeat(1, bs, 1)
+
         for i in range(n_frame):
             ms_output = []
             single_frame_embeds = frame_embeds[i]  # q b c
@@ -828,12 +832,12 @@ class QueryTracker_mine(torch.nn.Module):
                             single_frame_embeds, single_frame_embeds, single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
+                            pos=instance_embed, query_pos=instance_embed
                         )
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
-                            query_pos=None
+                            query_pos=instance_embed
                         )
                         # FFN
                         output = self.transformer_ffn_layers[j](
@@ -845,12 +849,12 @@ class QueryTracker_mine(torch.nn.Module):
                             ms_output[-1], ms_output[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
+                            pos=instance_embed, query_pos=instance_embed
                         )
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
-                            query_pos=None
+                            query_pos=instance_embed
                         )
                         # FFN
                         output = self.transformer_ffn_layers[j](
@@ -862,17 +866,18 @@ class QueryTracker_mine(torch.nn.Module):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
                         indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        self.last_frame_embeds = single_frame_embeds[indices]
+                        single_frame_embeds = single_frame_embeds[indices]
+                        self.last_frame_embeds = single_frame_embeds
                         output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
+                            single_frame_embeds, self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
+                            pos=instance_embed, query_pos=instance_embed
                         )
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
-                            query_pos=None
+                            query_pos=instance_embed
                         )
                         # FFN
                         output = self.transformer_ffn_layers[j](
@@ -884,12 +889,12 @@ class QueryTracker_mine(torch.nn.Module):
                             ms_output[-1], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
+                            pos=instance_embed, query_pos=instance_embed
                         )
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
-                            query_pos=None
+                            query_pos=instance_embed
                         )
                         # FFN
                         output = self.transformer_ffn_layers[j](
