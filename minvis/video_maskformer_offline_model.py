@@ -460,7 +460,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             frame_embds = out['pred_embds']  # b c t q
             mask_features = out['mask_features'].unsqueeze(0)
 
-            overall_mask_features.append(mask_features)
+            overall_mask_features.append(mask_features.cpu())
             overall_frame_embds.append(frame_embds)
 
             if i != 0:
@@ -684,7 +684,7 @@ class QueryTracker_offline(torch.nn.Module):
             outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (L, B, q, T, Cls+1)
             mask_embed = self.mask_embed(decoder_output)
             outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed,
-                                        mask_features[:, start_idx:end_idx])
+                                        mask_features[:, start_idx:end_idx].to(mask_embed.device))
             outputs_classes.append(outputs_class.cpu().to(torch.float32))
             outputs_masks.append(outputs_mask.cpu().to(torch.float32))
         return torch.cat(outputs_classes, dim=3), torch.cat(outputs_masks, dim=3)
