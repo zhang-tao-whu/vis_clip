@@ -685,8 +685,8 @@ class QueryTracker_offline(torch.nn.Module):
             mask_embed = self.mask_embed(decoder_output)
             outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed,
                                         mask_features[:, start_idx:end_idx])
-            outputs_classes.append(outputs_class.cpu())
-            outputs_masks.append(outputs_mask.cpu())
+            outputs_classes.append(outputs_class.cpu().to(torch.float32))
+            outputs_masks.append(outputs_mask.cpu().to(torch.float32))
         return torch.cat(outputs_classes, dim=3), torch.cat(outputs_masks, dim=3)
 
     def prediction(self, outputs, mask_features):
