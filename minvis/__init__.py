@@ -12,7 +12,7 @@ from .config import add_minvis_config
 # models
 from .video_maskformer_model import VideoMaskFormer_frame
 from .video_mask2former_transformer_decoder import VideoMultiScaleMaskedTransformerDecoder_frame
-
+from .video_maskformer_offline_model import VideoMaskFormer_frame_offline
 # video
 from .data_video import (
     YTVISDatasetMapper,

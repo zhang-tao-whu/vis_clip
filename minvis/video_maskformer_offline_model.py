@@ -1,9 +1,3 @@
-# Copyright (c) 2021-2022, NVIDIA Corporation & Affiliates. All rights reserved.
-#
-# This work is made available under the Nvidia Source Code License-NC.
-# To view a copy of this license, visit
-# https://github.com/NVlabs/MinVIS/blob/main/LICENSE
-
 # Copyright (c) Facebook, Inc. and its affiliates.
 import logging
 import math
@@ -25,6 +19,7 @@ from mask2former_video.modeling.criterion import VideoSetCriterion
 from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from mask2former_video.modeling.transformer_decoder.video_mask2former_transformer_decoder import SelfAttentionLayer, CrossAttentionLayer, FFNLayer, MLP, _get_activation_fn
+from .video_maskformer_model import QueryTracker_mine
 
 from scipy.optimize import linear_sum_assignment
 
@@ -32,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 @META_ARCH_REGISTRY.register()
-class VideoMaskFormer_frame(nn.Module):
+class VideoMaskFormer_frame_offline(nn.Module):
     """
     Main class for mask classification semantic segmentation architectures.
     """
@@ -107,6 +102,15 @@ class VideoMaskFormer_frame(nn.Module):
             mask_dim=256,
             class_num=25,)
 
+        self.offline_tracker = QueryTracker_offline(
+            hidden_channel=256,
+            feedforward_channel=2048,
+            num_head=8,
+            decoder_layer_num=6,
+            mask_dim=256,
+            class_num=25,
+        )
+
     @classmethod
     def from_config(cls, cfg):
         backbone = build_backbone(cfg)
@@ -134,12 +138,11 @@ class VideoMaskFormer_frame(nn.Module):
             cost_mask=mask_weight,
             cost_dice=dice_weight,
             num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-            frames=5
+            frames=21
         )
 
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight,
                        "loss_contrast": contrast_weight}
-
 
         if deep_supervision:
             dec_layers = cfg.MODEL.MASK_FORMER.DEC_LAYERS
@@ -214,20 +217,27 @@ class VideoMaskFormer_frame(nn.Module):
                 images.append(frame.to(self.device))
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, self.size_divisibility)
+        self.backbone.eval()
+        self.sem_seg_head.eval()
+        self.tracker.eval()
 
         if not self.training and self.window_inference:
             outputs = self.run_window_inference(images.tensor, window_size=3)
         else:
-            self.backbone.eval()
-            self.sem_seg_head.eval()
             with torch.no_grad():
                 features = self.backbone(images.tensor)
                 image_outputs = self.sem_seg_head(features)
+                del features['res2'], features['res3'], features['res4'], features['res5']
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # b c t q
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
+                outputs = self.tracker(frame_embds, mask_features)
+                instance_embeds = outputs['pred_embds'].clone().detach()
+                del outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
+                for j in range(len(outputs['aux_outputs'])):
+                    del outputs['aux_outputs'][j]['pred_masks'], outputs['aux_outputs'][j]['pred_logits']
                 torch.cuda.empty_cache()
-            outputs = self.tracker(frame_embds, mask_features)
+            outputs = self.offline_tracker(instance_embeds, frame_embds, mask_features)
 
         # outputs['pred_embds'] = self.embed_proj(outputs['pred_embds'].detach().permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
         #outputs['pred_embds'] = outputs['pred_embds']
@@ -432,7 +442,10 @@ class VideoMaskFormer_frame(nn.Module):
         iters = len(images_tensor) // window_size
         if len(images_tensor) % window_size != 0:
             iters += 1
-        out_list = []
+
+        overall_mask_features = []
+        overall_frame_embds = []
+        overall_instance_embds = []
         for i in range(iters):
             start_idx = i * window_size
             end_idx = (i+1) * window_size
@@ -440,30 +453,34 @@ class VideoMaskFormer_frame(nn.Module):
             features = self.backbone(images_tensor[start_idx:end_idx])
             out = self.sem_seg_head(features)
             del features['res2'], features['res3'], features['res4'], features['res5']
+            del out['pred_masks'], out['pred_logits']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
 
             frame_embds = out['pred_embds']  # b c t q
             mask_features = out['mask_features'].unsqueeze(0)
+
+            overall_mask_features.append(mask_features)
+            overall_frame_embds.append(frame_embds)
+
             if i != 0:
                 track_out = self.tracker(frame_embds, mask_features, resume=True)
             else:
                 track_out = self.tracker(frame_embds, mask_features)
 
-            del mask_features
+            del track_out['pred_masks'], track_out['pred_logits']
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
-            track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
-            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
-            track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
-            out_list.append(track_out)
+
+            instance_embds = track_out['pred_embds']
+            overall_instance_embds.append(instance_embds)
+
+        overall_frame_embds = torch.cat(overall_frame_embds, dim=2)
+        overall_instance_embds = torch.cat(overall_instance_embds, dim=2)
+        overall_mask_features = torch.cat(overall_mask_features, dim=1)
 
         # merge outputs
-        outputs = {}
-        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
-        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
-        outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
-
+        outputs = self.offline_tracker(overall_instance_embds, overall_frame_embds, overall_mask_features)
         return outputs
 
     def prepare_targets(self, targets, images):
@@ -532,31 +549,22 @@ class VideoMaskFormer_frame(nn.Module):
 
         return video_output
 
-class QueryTracker(torch.nn.Module):
+class QueryTracker_offline(torch.nn.Module):
     def __init__(self,
-                 num_object_query=30,
                  hidden_channel=256,
                  feedforward_channel=2048,
                  num_head=8,
                  decoder_layer_num=6,
                  mask_dim=256,
-                 class_num=25,
-                 detach_frame_connection=False):
-        super(QueryTracker, self).__init__()
-        self.detach_frame_connection = detach_frame_connection
-
-        # init for object query
-        self.num_object_query = num_object_query
-        # learnable query features
-        self.query_feat = nn.Embedding(num_object_query, hidden_channel)
-
-        self.last_output = None
-        self.last_output_pos = None
+                 class_num=25,):
+        super(QueryTracker_offline, self).__init__()
 
         # init transformer layers
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
         self.transformer_self_attention_layers = nn.ModuleList()
+        self.conv_short_aggregate_layers = nn.ModuleList()
+        self.conv_norms = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
@@ -569,6 +577,16 @@ class QueryTracker(torch.nn.Module):
                     normalize_before=False,
                 )
             )
+
+            self.conv_short_aggregate_layers.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channel, hidden_channel, kernel_size=5, stride=1,
+                            padding='same', padding_mode='replicate'),
+                    nn.ReLU(inplace=True),
+                )
+            )
+
+            self.conv_norms.append(nn.LayerNorm(hidden_channel))
 
             self.transformer_cross_attention_layers.append(
                 CrossAttentionLayer(
@@ -594,312 +612,40 @@ class QueryTracker(torch.nn.Module):
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
-        self.mask_feature_proj = nn.Conv2d(
-            mask_dim,
-            mask_dim,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-        )
-
-    def forward(self, frame_embeds, mask_features, resume=False):
-        mask_features_shape = mask_features.shape
-        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
-        # init_query (q, b, c)
-        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
-        n_frame, n_q, bs, _ = frame_embeds.size()
+    def forward(self, instance_embeds, frame_embeds, mask_features):
+        # instance_embds (b, c, t, q)
+        # frame_embds (b, c, t, q)
+        n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
         outputs = []
-        if resume:
-            output_init = self.last_output
-        else:
-            output_init = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) # q, b, c
 
-        output = output_init
-        for i in range(n_frame):
-            single_frame_embeds = frame_embeds[i]
-            ms_output = []
-            #output = output_init
-            for j in range(self.num_layers):
-                output = self.transformer_cross_attention_layers[j](
-                    output, single_frame_embeds,
-                    memory_mask=None,
-                    memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                    pos=None, query_pos=None
-                )
+        frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
 
-                output = self.transformer_self_attention_layers[j](
-                    output, tgt_mask=None,
-                    tgt_key_padding_mask=None,
-                    query_pos=None
-                )
+        output = instance_embeds
 
-                # FFN
-                output = self.transformer_ffn_layers[j](
-                    output
-                )
-                ms_output.append(output)
-            output = output.detach()
-            self.last_output = output
-            ms_output = torch.stack(ms_output, dim=0)
-            outputs.append(ms_output)
-        outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
-
-        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
-
-        out = {
-           'pred_logits': outputs_class[-1].transpose(1, 2),
-           'pred_masks': outputs_masks[-1],
-           'aux_outputs': self._set_aux_loss(
-               outputs_class, outputs_masks
-           ),
-           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
-        }
-        # pred_logits (bs, t, nq, c)
-        # pred_masks (bs, nq, t, h, w)
-        return out
-
-    @torch.jit.unused
-    def _set_aux_loss(self, outputs_class, outputs_seg_masks):
-        # this is a workaround to make torchscript happy, as torchscript
-        # doesn't support dictionary with non-homogeneous values, such
-        # as a dict having both a Tensor and a list.
-        return [{"pred_logits": a.transpose(1, 2), "pred_masks": b}
-                for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
-                ]
-
-    def prediction(self, outputs, mask_features):
-        # outputs (T, L, q, b, c)
-        # mask_features (b, T, C, H, W)
-        decoder_output = self.decoder_norm(outputs)
-        decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
-        outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
-        mask_embed = self.mask_embed(decoder_output)
-        outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
-        return outputs_class, outputs_mask
-
-class CrossAttentionLayer_mine(nn.Module):
-
-    def __init__(self, d_model, nhead, dropout=0.0,
-                 activation="relu", normalize_before=False):
-        super().__init__()
-        self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-
-        self.norm = nn.LayerNorm(d_model)
-        self.dropout = nn.Dropout(dropout)
-
-        self.activation = _get_activation_fn(activation)
-        self.normalize_before = normalize_before
-
-        self._reset_parameters()
-
-    def _reset_parameters(self):
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
-
-    def with_pos_embed(self, tensor, pos):
-        return tensor if pos is None else tensor + pos
-
-    def forward_post(self, indentify, tgt, memory,
-                     memory_mask=None,
-                     memory_key_padding_mask=None,
-                     pos=None,
-                     query_pos=None):
-        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt, query_pos),
-                                   key=self.with_pos_embed(memory, pos),
-                                   value=memory, attn_mask=memory_mask,
-                                   key_padding_mask=memory_key_padding_mask)[0]
-        tgt = indentify + self.dropout(tgt2)
-        tgt = self.norm(tgt)
-
-        return tgt
-
-    def forward_pre(self, indentify, tgt, memory,
-                    memory_mask=None,
-                    memory_key_padding_mask=None,
-                    pos=None,
-                    query_pos=None):
-        tgt2 = self.norm(tgt)
-        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt2, query_pos),
-                                   key=self.with_pos_embed(memory, pos),
-                                   value=memory, attn_mask=memory_mask,
-                                   key_padding_mask=memory_key_padding_mask)[0]
-        tgt = indentify + self.dropout(tgt2)
-
-        return tgt
-
-    def forward(self, indentify, tgt, memory,
+        for i in range(self.num_layers):
+            output = output.permute(2, 0, 3, 1) #(t, b, q, c)
+            output = output.flatten(1, 2) # (t, bq, c)
+            output = self.transformer_self_attention_layers[i](
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=None
+            )
+            output = output.permute(1, 2, 0)  # (bq, c, t)
+            output = self.conv_norms[i]((self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)).transpose(1, 2)
+            output = output.reshape(n_batch, n_instance, n_channel, n_frames).permute(1, 0, 3, 2).flatten(1, 2) # (q, bt, c)
+            output = self.transformer_cross_attention_layers[i](
+                output, frame_embeds,
                 memory_mask=None,
                 memory_key_padding_mask=None,
-                pos=None,
-                query_pos=None):
-        if self.normalize_before:
-            return self.forward_pre(indentify, tgt, memory, memory_mask,
-                                    memory_key_padding_mask, pos, query_pos)
-        return self.forward_post(indentify, tgt, memory, memory_mask,
-                                 memory_key_padding_mask, pos, query_pos)
-
-class QueryTracker_mine(torch.nn.Module):
-    def __init__(self,
-                 hidden_channel=256,
-                 feedforward_channel=2048,
-                 num_head=8,
-                 decoder_layer_num=6,
-                 mask_dim=256,
-                 class_num=25,):
-        super(QueryTracker_mine, self).__init__()
-
-        # init transformer layers
-        self.num_heads = num_head
-        self.num_layers = decoder_layer_num
-        self.transformer_self_attention_layers = nn.ModuleList()
-        self.transformer_cross_attention_layers = nn.ModuleList()
-        self.transformer_ffn_layers = nn.ModuleList()
-
-        for _ in range(self.num_layers):
-            self.transformer_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
+                pos=None, query_pos=None
             )
-
-            self.transformer_cross_attention_layers.append(
-                CrossAttentionLayer_mine(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
+            output = self.transformer_ffn_layers[i](
+                output
             )
+            output = output.reshape(n_instance, n_batch, n_frames, n_channel).permute(1, 3, 2, 0) # (b, c, t, q)
+            outputs.append(output)
 
-            self.transformer_ffn_layers.append(
-                FFNLayer(
-                    d_model=hidden_channel,
-                    dim_feedforward=feedforward_channel,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-        self.decoder_norm = nn.LayerNorm(hidden_channel)
-
-        # init heads
-        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
-        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
-
-        # self.mask_feature_proj = nn.Conv2d(
-        #     mask_dim,
-        #     mask_dim,
-        #     kernel_size=1,
-        #     stride=1,
-        #     padding=0,
-        # )
-
-        self.last_outputs = None
-        self.last_frame_embeds = None
-
-    def _clear_memory(self):
-        del self.last_outputs
-        self.last_outputs = None
-        return
-
-    def forward(self, frame_embeds, mask_features, resume=False):
-        # mask_features_shape = mask_features.shape
-        # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
-        # init_query (q, b, c)
-        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
-        n_frame, n_q, bs, _ = frame_embeds.size()
-        outputs = []
-
-        for i in range(n_frame):
-            ms_output = []
-            single_frame_embeds = frame_embeds[i]  # q b c
-            # the first frame of a video
-            if i == 0 and resume is False:
-                self._clear_memory()
-                self.last_frame_embeds = single_frame_embeds
-                for j in range(self.num_layers):
-                    if j == 0:
-                        ms_output.append(single_frame_embeds)
-                        output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds, single_frame_embeds, single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], ms_output[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-            else:
-                for j in range(self.num_layers):
-                    if j == 0:
-                        ms_output.append(single_frame_embeds)
-                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-            ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
-            self.last_outputs = ms_output
-            outputs.append(ms_output[1:])
-        outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
+        outputs = torch.stack(outputs, dim=0).permute(3, 0, 4, 1, 2) # (l, b, c, t, q) -> (frame, decoder_layer, q, b, c)
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
         outputs = self.decoder_norm(outputs)
         out = {
@@ -914,21 +660,6 @@ class QueryTracker_mine(torch.nn.Module):
         # pred_masks (bs, nq, t, h, w)
         return out
 
-    def match_embds(self, ref_embds, cur_embds):
-        # embds (q, b, c)
-        ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
-        ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
-        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-        cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
-        C = 1 - cos_sim
-
-        C = C.cpu()
-        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
-
-        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
-        indices = indices[1]  # permutation that makes current aligns to target
-        return indices
-
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_seg_masks):
         # this is a workaround to make torchscript happy, as torchscript
@@ -938,12 +669,34 @@ class QueryTracker_mine(torch.nn.Module):
                 for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
                 ]
 
+    def windows_prediction(self, outputs, mask_features, windows=5):
+        iters = outputs.size(0) // windows
+        if outputs.size(0) % windows != 0:
+            iters += 1
+        outputs_classes = []
+        outputs_masks = []
+        for i in range(iters):
+            start_idx = i * windows
+            end_idx = (i + 1) * windows
+            clip_outputs = outputs[start_idx:end_idx]
+            decoder_output = self.decoder_norm(clip_outputs)
+            decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
+            outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (L, B, q, T, Cls+1)
+            mask_embed = self.mask_embed(decoder_output)
+            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed[:, start_idx:end_idx], mask_features)
+            outputs_classes.append(outputs_class.cpu())
+            outputs_masks.append(outputs_mask.cpu())
+        return torch.cat(outputs_class, dim=3), torch.cat(outputs_masks,dim=3)
+
     def prediction(self, outputs, mask_features):
         # outputs (T, L, q, b, c)
         # mask_features (b, T, C, H, W)
-        decoder_output = self.decoder_norm(outputs)
-        decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
-        outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
-        mask_embed = self.mask_embed(decoder_output)
-        outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
+        if self.training:
+            decoder_output = self.decoder_norm(outputs)
+            decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
+            outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
+            mask_embed = self.mask_embed(decoder_output)
+            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
+        else:
+            outputs_class, outputs_mask = self.windows_prediction(outputs, mask_features, windows=5)
         return outputs_class, outputs_mask

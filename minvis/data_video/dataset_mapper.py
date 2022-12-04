@@ -215,7 +215,13 @@ class YTVISDatasetMapper:
                     end_idx = start_idx + self.sampling_frame_num
                 if end_idx == video_length:
                     start_idx = video_length - self.sampling_frame_num
-                selected_idx = np.arange(start_idx, end_idx).tolist()
+                selected_idx = np.arange(start_idx, end_idx)
+                if end_idx - start_idx < self.sampling_frame_num:
+                    selected_idx_ = np.random.choice(selected_idx, self.sampling_frame_num - len(selected_idx))
+                    selected_idx = selected_idx.tolist() + selected_idx_.tolist()
+                    sorted(selected_idx)
+                else:
+                    selected_idx = selected_idx.tolist()
                 return selected_idx
             ref_frame = random.randrange(video_length)
 
