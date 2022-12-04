@@ -623,7 +623,7 @@ class QueryTracker_offline(torch.nn.Module):
 
         frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
 
-        time_embds = self.pe_layer(instance_embeds.permute(2, 0, 3, 1).flatten(1, 2))
+        #time_embds = self.pe_layer(instance_embeds.permute(2, 0, 3, 1).flatten(1, 2))
 
         output = instance_embeds
 
@@ -633,7 +633,7 @@ class QueryTracker_offline(torch.nn.Module):
             output = self.transformer_time_self_attention_layers[i](
                 output, tgt_mask=None,
                 tgt_key_padding_mask=None,
-                query_pos=time_embds
+                query_pos=None
             )
 
             output = output.reshape(n_frames, n_batch, n_instance, n_channel)
@@ -707,7 +707,8 @@ class QueryTracker_offline(torch.nn.Module):
         T = decoder_output.size(2)
         activation = self.activation_proj(decoder_output).softmax(dim=2)
         class_output = (decoder_output * activation).sum(dim=2, keepdim=True) # (L, B, 1, q, c)
-        class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
+        # class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
+        class_output = class_output.repeat(1, 1, T, 1, 1)
         outputs_class = self.class_embed(class_output).transpose(2, 3)
         return outputs_class
 
