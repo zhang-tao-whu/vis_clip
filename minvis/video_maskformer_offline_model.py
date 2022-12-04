@@ -683,7 +683,8 @@ class QueryTracker_offline(torch.nn.Module):
             decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
             outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (L, B, q, T, Cls+1)
             mask_embed = self.mask_embed(decoder_output)
-            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed[:, start_idx:end_idx], mask_features)
+            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed[:, start_idx:end_idx],
+                                        mask_features[:, start_idx:end_idx])
             outputs_classes.append(outputs_class.cpu())
             outputs_masks.append(outputs_mask.cpu())
         return torch.cat(outputs_class, dim=3), torch.cat(outputs_masks,dim=3)
