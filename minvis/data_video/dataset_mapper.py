@@ -258,7 +258,7 @@ class YTVISDatasetMapper:
 
         video_annos = dataset_dict.pop("annotations", None)
         file_names = dataset_dict.pop("file_names", None)
-
+        print(selected_idx, '   ', video_length)
         if self.is_train:
             _ids = set()
             for frame_idx in selected_idx:
