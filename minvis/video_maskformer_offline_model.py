@@ -138,7 +138,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             cost_class=class_weight,
             cost_mask=mask_weight,
             cost_dice=dice_weight,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS * cfg.INPUT.SAMPLING_FRAME_NUM,
         )
 
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight,
@@ -159,7 +159,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             weight_dict=weight_dict,
             eos_coef=no_object_weight,
             losses=losses,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS * cfg.INPUT.SAMPLING_FRAME_NUM,
             oversample_ratio=cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
@@ -343,7 +343,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         for i in range(1, len(pred_logits)):
             # indices = self.match_from_embds_(out_embds[-3:], pred_embds[i], scores=out_scores[-3:])
-            indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
+            # indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
 
             # out_logits.append(pred_logits[i][indices, :])
             # out_masks.append(pred_masks[i][indices, :, :])
