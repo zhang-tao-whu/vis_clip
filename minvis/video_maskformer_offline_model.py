@@ -19,6 +19,7 @@ from mask2former_video.modeling.criterion import VideoSetCriterion
 from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from mask2former_video.modeling.transformer_decoder.video_mask2former_transformer_decoder import SelfAttentionLayer, CrossAttentionLayer, FFNLayer, MLP, _get_activation_fn
+from mask2former_video.modeling.transformer_decoder.position_encoding import PositionEmbeddingSineTime
 from .video_maskformer_model import QueryTracker_mine
 
 from scipy.optimize import linear_sum_assignment
@@ -231,13 +232,14 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # b c t q
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
-                outputs = self.tracker(frame_embds, mask_features)
-                instance_embeds = outputs['pred_embds'].clone().detach()
-                del outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
-                for j in range(len(outputs['aux_outputs'])):
-                    del outputs['aux_outputs'][j]['pred_masks'], outputs['aux_outputs'][j]['pred_logits']
+                image_outputs = self.tracker(frame_embds, mask_features)
+                del frame_embds
+                instance_embeds = image_outputs['pred_embds'].clone().detach()
+                del image_outputs['pred_embds']
+                for j in range(len(image_outputs['aux_outputs'])):
+                    del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
                 torch.cuda.empty_cache()
-            outputs = self.offline_tracker(instance_embeds, frame_embds, mask_features)
+            outputs = self.offline_tracker(instance_embeds, mask_features)
 
         # outputs['pred_embds'] = self.embed_proj(outputs['pred_embds'].detach().permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
         #outputs['pred_embds'] = outputs['pred_embds']
@@ -460,7 +462,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             frame_embds = out['pred_embds']  # b c t q
             mask_features = out['mask_features'].unsqueeze(0)
 
-            overall_mask_features.append(mask_features)
+            overall_mask_features.append(mask_features.cpu())
             overall_frame_embds.append(frame_embds)
 
             if i != 0:
@@ -480,7 +482,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         overall_mask_features = torch.cat(overall_mask_features, dim=1)
 
         # merge outputs
-        outputs = self.offline_tracker(overall_instance_embds, overall_frame_embds, overall_mask_features)
+        outputs = self.offline_tracker(overall_instance_embds, overall_mask_features)
         return outputs
 
     def prepare_targets(self, targets, images):
@@ -562,14 +564,13 @@ class QueryTracker_offline(torch.nn.Module):
         # init transformer layers
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
-        self.transformer_self_attention_layers = nn.ModuleList()
-        self.conv_short_aggregate_layers = nn.ModuleList()
-        self.conv_norms = nn.ModuleList()
+        self.transformer_obj_self_attention_layers = nn.ModuleList()
+        self.transformer_time_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
         for _ in range(self.num_layers):
-            self.transformer_self_attention_layers.append(
+            self.transformer_time_self_attention_layers.append(
                 SelfAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
@@ -578,15 +579,14 @@ class QueryTracker_offline(torch.nn.Module):
                 )
             )
 
-            self.conv_short_aggregate_layers.append(
-                nn.Sequential(
-                    nn.Conv1d(hidden_channel, hidden_channel, kernel_size=5, stride=1,
-                            padding='same', padding_mode='replicate'),
-                    nn.ReLU(inplace=True),
+            self.transformer_obj_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
                 )
             )
-
-            self.conv_norms.append(nn.LayerNorm(hidden_channel))
 
             self.transformer_cross_attention_layers.append(
                 CrossAttentionLayer(
@@ -607,34 +607,44 @@ class QueryTracker_offline(torch.nn.Module):
             )
 
         self.decoder_norm = nn.LayerNorm(hidden_channel)
+        N_steps = hidden_channel // 2
+        self.pe_layer = PositionEmbeddingSineTime(N_steps, normalize=True)
 
         # init heads
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
-    def forward(self, instance_embeds, frame_embeds, mask_features):
+        self.activation_proj = nn.Linear(hidden_channel, 1)
+
+    def forward(self, instance_embeds, mask_features):
         # instance_embds (b, c, t, q)
         # frame_embds (b, c, t, q)
         n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
         outputs = []
-
-        frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+        #time_embds = self.pe_layer(instance_embeds.permute(2, 0, 3, 1).flatten(1, 2))
 
         output = instance_embeds
+        instance_embeds = instance_embeds.permute(3, 0, 2, 1).flatten(1, 2)
 
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1) #(t, b, q, c)
             output = output.flatten(1, 2) # (t, bq, c)
-            output = self.transformer_self_attention_layers[i](
+            output = self.transformer_time_self_attention_layers[i](
                 output, tgt_mask=None,
                 tgt_key_padding_mask=None,
                 query_pos=None
             )
-            output = output.permute(1, 2, 0)  # (bq, c, t)
-            output = self.conv_norms[i]((self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)).transpose(1, 2)
-            output = output.reshape(n_batch, n_instance, n_channel, n_frames).permute(1, 0, 3, 2).flatten(1, 2) # (q, bt, c)
+
+            output = output.reshape(n_frames, n_batch, n_instance, n_channel)
+            output = output.permute(2, 0, 1, 3).flatten(1, 2) # (q, tb, c)
+            output = self.transformer_obj_self_attention_layers[i](
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=None
+            )
+
             output = self.transformer_cross_attention_layers[i](
-                output, frame_embeds,
+                output, instance_embeds,
                 memory_mask=None,
                 memory_key_padding_mask=None,
                 pos=None, query_pos=None
@@ -642,6 +652,7 @@ class QueryTracker_offline(torch.nn.Module):
             output = self.transformer_ffn_layers[i](
                 output
             )
+
             output = output.reshape(n_instance, n_batch, n_frames, n_channel).permute(1, 3, 2, 0) # (b, c, t, q)
             outputs.append(output)
 
@@ -681,12 +692,24 @@ class QueryTracker_offline(torch.nn.Module):
             clip_outputs = outputs[start_idx:end_idx]
             decoder_output = self.decoder_norm(clip_outputs)
             decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
-            outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (L, B, q, T, Cls+1)
             mask_embed = self.mask_embed(decoder_output)
-            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed[:, start_idx:end_idx], mask_features)
-            outputs_classes.append(outputs_class.cpu())
-            outputs_masks.append(outputs_mask.cpu())
-        return torch.cat(outputs_class, dim=3), torch.cat(outputs_masks,dim=3)
+            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed,
+                                        mask_features[:, start_idx:end_idx].to(mask_embed.device))
+            outputs_classes.append(decoder_output)
+            outputs_masks.append(outputs_mask.cpu().to(torch.float32))
+        outputs_classes = torch.cat(outputs_classes, dim=2)
+        outputs_classes = self.pred_class(outputs_classes)
+        return outputs_classes.cpu().to(torch.float32), torch.cat(outputs_masks, dim=3)
+
+    def pred_class(self, decoder_output):
+        # decoder_output  (L, B, T, q, c)
+        T = decoder_output.size(2)
+        activation = self.activation_proj(decoder_output).softmax(dim=2)
+        class_output = (decoder_output * activation).sum(dim=2, keepdim=True) # (L, B, 1, q, c)
+        # class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
+        class_output = class_output.repeat(1, 1, T, 1, 1)
+        outputs_class = self.class_embed(class_output).transpose(2, 3)
+        return outputs_class
 
     def prediction(self, outputs, mask_features):
         # outputs (T, L, q, b, c)
@@ -694,7 +717,7 @@ class QueryTracker_offline(torch.nn.Module):
         if self.training:
             decoder_output = self.decoder_norm(outputs)
             decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
-            outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
+            outputs_class = self.pred_class(decoder_output) # (L, B, q, T, Cls+1)
             mask_embed = self.mask_embed(decoder_output)
             outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         else:
