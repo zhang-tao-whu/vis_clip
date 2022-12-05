@@ -134,12 +134,11 @@ class VideoMaskFormer_frame_offline(nn.Module):
         #     cost_dice=dice_weight,
         #     num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
         # )
-        matcher = VideoHungarianMatcher_Consistent(
+        matcher = VideoHungarianMatcher(
             cost_class=class_weight,
             cost_mask=mask_weight,
             cost_dice=dice_weight,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-            frames=21
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS * cfg.INPUT.SAMPLING_FRAME_NUM,
         )
 
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight,
@@ -160,7 +159,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             weight_dict=weight_dict,
             eos_coef=no_object_weight,
             losses=losses,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS * cfg.INPUT.SAMPLING_FRAME_NUM,
             oversample_ratio=cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
@@ -282,114 +281,41 @@ class VideoMaskFormer_frame_offline(nn.Module):
             return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size)
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
-        outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-        outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+        outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> b q () (t h) w')
+        #outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+        outputs['pred_logits'] = outputs['pred_logits'][:, 0, :, :]
         if image_outputs is not None:
-            image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-            image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
+            image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> b q () (t h) w')
+            #image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
+            image_outputs['pred_logits'] = image_outputs['pred_logits'].mean(dim=1)
         if 'aux_outputs' in outputs:
             for i in range(len(outputs['aux_outputs'])):
                 outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
+                    outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> b q () (t h) w'
                 )
-                outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
-                )
+                # outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
+                #     outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
+                # )
+                outputs['aux_outputs'][i]['pred_logits'] = outputs['aux_outputs'][i]['pred_logits'][:, 0, :, :]
 
         gt_instances = []
         for targets_per_video in targets:
-            # labels: N (num instances)
-            # ids: N, num_labeled_frames
-            # masks: N, num_labeled_frames, H, W
-            num_labeled_frames = targets_per_video['ids'].shape[1]
-            for f in range(num_labeled_frames):
-                labels = targets_per_video['labels']
-                ids = targets_per_video['ids'][:, [f]]
-                masks = targets_per_video['masks'][:, [f], :, :]
-                gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
-        # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
-        # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
+            targets_per_video['masks'] = einops.rearrange(
+                targets_per_video['masks'], 'q t h w -> q () (t h) w'
+                )
+            gt_instances.append(targets_per_video)
+        #     # labels: N (num instances)
+        #     # ids: N, num_labeled_frames
+        #     # masks: N, num_labeled_frames, H, W
+        #     num_labeled_frames = targets_per_video['ids'].shape[1]
+        #     for f in range(num_labeled_frames):
+        #         labels = targets_per_video['labels']
+        #         ids = targets_per_video['ids'][:, [f]]
+        #         masks = targets_per_video['masks'][:, [f], :, :]
+        #         gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
+        # # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
+        # # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
         return image_outputs, outputs, gt_instances
-
-    def match_from_embds(self, tgt_embds, cur_embds):
-
-        cur_embds = cur_embds / cur_embds.norm(dim=1)[:, None]
-        tgt_embds = tgt_embds / tgt_embds.norm(dim=1)[:, None]
-        cos_sim = torch.mm(cur_embds, tgt_embds.transpose(0,1))
-
-        cost_embd = 1 - cos_sim
-
-        C = 1.0 * cost_embd
-        C = C.cpu()
-
-        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
-        indices = indices[1]  # permutation that makes current aligns to target
-
-        return indices
-
-    def match_from_embds_(self, tgt_embds, cur_embds, scores=None):
-
-        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-        tgt_embds = [tgt_embd / (tgt_embd.norm(dim=1)[:, None] + 1e-6) for tgt_embd in tgt_embds]
-        C = 0
-        weights = [0.1, 0.3, 0.6]
-        #weights = [0.05, 0.15, 0.8]
-        for i, (weight, tgt_embd) in enumerate(zip(weights, tgt_embds)):
-            cos_sim = torch.mm(cur_embds, tgt_embd.transpose(0,1))
-            cost_embd = 1 - cos_sim
-            if scores is None:
-                C = C + cost_embd * weight
-            else:
-                C = C + cost_embd * scores[i].unsqueeze(0) * weight
-
-        if scores is not None:
-            score_average = torch.stack(scores, dim=0).sum(dim=0)
-            C = C / (score_average + 1e-6).unsqueeze(0)
-        C = C.cpu()
-        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
-
-        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
-        indices = indices[1]  # permutation that makes current aligns to target
-
-        return indices
-
-    def post_processing(self, outputs):
-        pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
-
-        # pred_logits: 1 t q c
-        # pred_masks: 1 q t h w
-        pred_logits = pred_logits[0]
-        pred_masks = einops.rearrange(pred_masks[0], 'q t h w -> t q h w')
-        pred_embds = einops.rearrange(pred_embds[0], 'c t q -> t q c')
-
-        pred_logits = list(torch.unbind(pred_logits))
-        pred_masks = list(torch.unbind(pred_masks))
-        pred_embds = list(torch.unbind(pred_embds))
-
-        out_logits = []
-        out_masks = []
-        out_embds = []
-        out_logits.append(pred_logits[0])
-        out_masks.append(pred_masks[0])
-        out_embds.append(pred_embds[0])
-
-        for i in range(1, len(pred_logits)):
-            indices = self.match_from_embds(out_embds[-1], pred_embds[i])
-
-            out_logits.append(pred_logits[i][indices, :])
-            out_masks.append(pred_masks[i][indices, :, :])
-            out_embds.append(pred_embds[i][indices, :])
-
-        out_logits = sum(out_logits)/len(out_logits)
-        out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
-
-        out_logits = out_logits.unsqueeze(0)
-        out_masks = out_masks.unsqueeze(0)
-
-        outputs['pred_logits'] = out_logits
-        outputs['pred_masks'] = out_masks
-
-        return outputs
 
     def post_processing_(self, outputs):
         pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
@@ -417,7 +343,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         for i in range(1, len(pred_logits)):
             # indices = self.match_from_embds_(out_embds[-3:], pred_embds[i], scores=out_scores[-3:])
-            indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
+            # indices = self.match_from_embds_(out_embds[-3:], pred_embds[i])
 
             # out_logits.append(pred_logits[i][indices, :])
             # out_masks.append(pred_masks[i][indices, :, :])

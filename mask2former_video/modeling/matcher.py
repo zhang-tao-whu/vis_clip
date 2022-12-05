@@ -139,7 +139,6 @@ class VideoHungarianMatcher(nn.Module):
 
                 # Compute the dice loss betwen masks
                 cost_dice = batch_dice_loss_jit(out_mask, tgt_mask)
-            
             # Final cost matrix
             C = (
                 self.cost_mask * cost_mask
