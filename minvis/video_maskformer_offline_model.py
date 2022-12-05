@@ -248,7 +248,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
 
-            #image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets, image_outputs=image_outputs)
+            image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets, image_outputs=image_outputs)
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
@@ -281,34 +281,37 @@ class VideoMaskFormer_frame_offline(nn.Module):
             return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size)
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
-        outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-        outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+        # outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
+        #outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+        outputs['pred_logits'] = outputs['pred_logits'][:, 0, :, :]
         if image_outputs is not None:
-            image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-            image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
+            #image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
+            #image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
+            image_outputs['pred_logits'] = image_outputs['pred_logits'].mean(dim=1)
         if 'aux_outputs' in outputs:
             for i in range(len(outputs['aux_outputs'])):
-                outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
-                )
-                outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
-                )
+                # outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
+                #     outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
+                # )
+                # outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
+                #     outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
+                # )
+                outputs['aux_outputs'][i]['pred_logits'] = outputs['aux_outputs'][i]['pred_logits'][:, 0, :, :]
 
-        gt_instances = []
-        for targets_per_video in targets:
-            # labels: N (num instances)
-            # ids: N, num_labeled_frames
-            # masks: N, num_labeled_frames, H, W
-            num_labeled_frames = targets_per_video['ids'].shape[1]
-            for f in range(num_labeled_frames):
-                labels = targets_per_video['labels']
-                ids = targets_per_video['ids'][:, [f]]
-                masks = targets_per_video['masks'][:, [f], :, :]
-                gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
-        # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
-        # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
-        return image_outputs, outputs, gt_instances
+        # gt_instances = []
+        # for targets_per_video in targets:
+        #     # labels: N (num instances)
+        #     # ids: N, num_labeled_frames
+        #     # masks: N, num_labeled_frames, H, W
+        #     num_labeled_frames = targets_per_video['ids'].shape[1]
+        #     for f in range(num_labeled_frames):
+        #         labels = targets_per_video['labels']
+        #         ids = targets_per_video['ids'][:, [f]]
+        #         masks = targets_per_video['masks'][:, [f], :, :]
+        #         gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
+        # # outputs -> {'masks': (bt, q, h, w), 'logits': (bt, 1, c)}
+        # # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
+        return image_outputs, outputs, targets
 
     def post_processing_(self, outputs):
         pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
