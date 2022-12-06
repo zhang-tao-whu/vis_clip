@@ -568,7 +568,7 @@ class QueryTracker_offline(torch.nn.Module):
 
         output = instance_embeds
         #instance_embeds = instance_embeds.permute(3, 0, 2, 1).flatten(1, 2)
-        frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+        frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2).to(instance_embeds.dtype)
 
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1) #(t, b, q, c)
