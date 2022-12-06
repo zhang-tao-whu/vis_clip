@@ -550,8 +550,8 @@ class QueryTracker_offline(torch.nn.Module):
         #time_embds = self.pe_layer(instance_embeds.permute(2, 0, 3, 1).flatten(1, 2))
 
         output = instance_embeds
-        instance_embeds = instance_embeds.permute(3, 0, 2, 1).flatten(1, 2)
-        #frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2) #(q, bt, c)
+        #instance_embeds = instance_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+        frame_embds = frame_embds.permute(3, 0, 2, 1).flatten(1, 2) #(q, bt, c)
 
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1) #(t, b, q, c)
@@ -571,7 +571,7 @@ class QueryTracker_offline(torch.nn.Module):
             )
 
             output = self.transformer_cross_attention_layers[i](
-                output, instance_embeds,
+                output, frame_embds,
                 memory_mask=None,
                 memory_key_padding_mask=None,
                 pos=None, query_pos=None
