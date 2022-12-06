@@ -846,7 +846,7 @@ class QueryTracker_mine(torch.nn.Module):
                 output = self.transformer_ffn_layers[j](
                     output
                 )
-
+        output = self.decoder_norm(output)
         output = output.reshape(n_q, bs, n_frame, n_channel).permute(1, 3, 2, 0)
         return output
 
