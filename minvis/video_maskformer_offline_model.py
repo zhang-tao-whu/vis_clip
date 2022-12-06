@@ -495,6 +495,9 @@ class QueryTracker_offline(torch.nn.Module):
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
+        self.conv_short_aggregate_layers = nn.ModuleList()
+        self.conv_norms = nn.ModuleList()
+
         for _ in range(self.num_layers):
             self.transformer_time_self_attention_layers.append(
                 SelfAttentionLayer(
@@ -504,6 +507,16 @@ class QueryTracker_offline(torch.nn.Module):
                     normalize_before=False,
                 )
             )
+
+            self.conv_short_aggregate_layers.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channel, hidden_channel, kernel_size=5, stride=1,
+                              padding='same', padding_mode='replicate'),
+                    nn.ReLU(inplace=True),
+                )
+            )
+
+            self.conv_norms.append(nn.LayerNorm(hidden_channel))
 
             self.transformer_obj_self_attention_layers.append(
                 SelfAttentionLayer(
@@ -561,8 +574,14 @@ class QueryTracker_offline(torch.nn.Module):
                 query_pos=time_embds
             )
 
-            output = output.reshape(n_frames, n_batch, n_instance, n_channel)
-            output = output.permute(2, 1, 0, 3).flatten(1, 2) # (q, bt, c)
+            output = output.permute(1, 2, 0)  # (bq, c, t)
+            output = self.conv_norms[i](
+                (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)).transpose(1, 2)
+            output = output.reshape(n_batch, n_instance, n_channel,
+                                    n_frames).permute(1, 0, 3, 2).flatten(1, 2)  # (q, bt, c)
+
+            # output = output.reshape(n_frames, n_batch, n_instance, n_channel)
+            # output = output.permute(2, 1, 0, 3).flatten(1, 2) # (q, bt, c)
             output = self.transformer_obj_self_attention_layers[i](
                 output, tgt_mask=None,
                 tgt_key_padding_mask=None,
