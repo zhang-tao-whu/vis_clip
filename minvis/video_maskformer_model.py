@@ -847,8 +847,8 @@ class QueryTracker_mine(torch.nn.Module):
                     output
                 )
         output = self.decoder_norm(output)
-        output = output.reshape(n_q, bs, n_frame, n_channel).permute(1, 3, 2, 0)
-        return output
+        output = output.reshape(n_q, bs, n_frame, n_channel)
+        return output.permute(1, 3, 2, 0)
 
     def forward(self, frame_embeds, mask_features, resume=False):
         # mask_features_shape = mask_features.shape
