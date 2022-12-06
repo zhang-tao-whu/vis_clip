@@ -809,7 +809,7 @@ class QueryTracker_mine(torch.nn.Module):
     def frame_forward(self, frame_embeds):
         # only used for offline tracker to process frame_embds
         # frame_embds (b, c, t, q)
-        n_frame, n_q, bs, n_channel = frame_embeds.size()
+        bs, n_channel, n_frame, n_q = frame_embeds.size()
         frame_embeds = frame_embeds.permute(3, 0, 2, 1)  # (q, b, t, c)
         frame_embeds = frame_embeds.flatten(1, 2)  # (q, bt, c)
 

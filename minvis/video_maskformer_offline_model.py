@@ -233,7 +233,6 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 del image_outputs['mask_features']
                 image_outputs = self.tracker(frame_embds, mask_features)
                 frame_embds_ = self.tracker.frame_forward(frame_embds)
-                print(frame_embds.shape, frame_embds_.shape)
                 del frame_embds
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
                 del image_outputs['pred_embds']
@@ -563,7 +562,6 @@ class QueryTracker_offline(torch.nn.Module):
     def forward(self, instance_embeds, frame_embeds, mask_features):
         # instance_embds (b, c, t, q)
         # frame_embds (b, c, t, q)
-        print(frame_embeds.shape)
         n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
         outputs = []
         time_embds = self.pe_layer(instance_embeds.permute(2, 0, 3, 1).flatten(1, 2))
