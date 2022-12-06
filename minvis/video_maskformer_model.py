@@ -806,6 +806,50 @@ class QueryTracker_mine(torch.nn.Module):
         self.last_outputs = None
         return
 
+    def frame_forward(self, frame_embeds):
+        # only used for offline tracker to process frame_embds
+        # frame_embds (b, c, t, q)
+        n_frame, n_q, bs, n_channel = frame_embeds.size()
+        frame_embeds = frame_embeds.permute(3, 0, 2, 1)  # (q, b, t, c)
+        frame_embeds = frame_embeds.flatten(1, 2)  # (q, bt, c)
+
+        for j in range(self.num_layers):
+            if j == 0:
+                output = self.transformer_cross_attention_layers[j](
+                    frame_embeds, frame_embeds, frame_embeds,
+                    memory_mask=None,
+                    memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                    pos=None, query_pos=None
+                )
+                output = self.transformer_self_attention_layers[j](
+                    output, tgt_mask=None,
+                    tgt_key_padding_mask=None,
+                    query_pos=None
+                )
+                # FFN
+                output = self.transformer_ffn_layers[j](
+                    output
+                )
+            else:
+                output = self.transformer_cross_attention_layers[j](
+                    output, output, frame_embeds,
+                    memory_mask=None,
+                    memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                    pos=None, query_pos=None
+                )
+                output = self.transformer_self_attention_layers[j](
+                    output, tgt_mask=None,
+                    tgt_key_padding_mask=None,
+                    query_pos=None
+                )
+                # FFN
+                output = self.transformer_ffn_layers[j](
+                    output
+                )
+
+        output = output.reshape(n_q, bs, n_frame, n_channel).permute(1, 3, 2, 0)
+        return output
+
     def forward(self, frame_embeds, mask_features, resume=False):
         # mask_features_shape = mask_features.shape
         # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)

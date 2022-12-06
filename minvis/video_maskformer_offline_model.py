@@ -232,13 +232,14 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 image_outputs = self.tracker(frame_embds, mask_features)
+                frame_embds_ = self.tracker.frame_forward(frame_embds)
                 del frame_embds
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
                 del image_outputs['pred_embds']
                 for j in range(len(image_outputs['aux_outputs'])):
                     del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
                 torch.cuda.empty_cache()
-            outputs = self.offline_tracker(instance_embeds, mask_features)
+            outputs = self.offline_tracker(instance_embeds, frame_embds_, mask_features)
 
         # outputs['pred_embds'] = self.embed_proj(outputs['pred_embds'].detach().permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
         #outputs['pred_embds'] = outputs['pred_embds']
@@ -407,8 +408,11 @@ class VideoMaskFormer_frame_offline(nn.Module):
         overall_instance_embds = torch.cat(overall_instance_embds, dim=2)
         overall_mask_features = torch.cat(overall_mask_features, dim=1)
 
+        overall_frame_embds_ = self.tracker.frame_forward(overall_frame_embds)
+        del overall_frame_embds
+
         # merge outputs
-        outputs = self.offline_tracker(overall_instance_embds, overall_mask_features)
+        outputs = self.offline_tracker(overall_instance_embds, overall_frame_embds_, overall_mask_features)
         return outputs
 
     def prepare_targets(self, targets, images):
@@ -555,7 +559,7 @@ class QueryTracker_offline(torch.nn.Module):
 
         self.activation_proj = nn.Linear(hidden_channel, 1)
 
-    def forward(self, instance_embeds, mask_features):
+    def forward(self, instance_embeds, frame_embeds, mask_features):
         # instance_embds (b, c, t, q)
         # frame_embds (b, c, t, q)
         n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
@@ -563,7 +567,8 @@ class QueryTracker_offline(torch.nn.Module):
         time_embds = self.pe_layer(instance_embeds.permute(2, 0, 3, 1).flatten(1, 2))
 
         output = instance_embeds
-        instance_embeds = instance_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+        #instance_embeds = instance_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+        frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
 
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1) #(t, b, q, c)
@@ -589,7 +594,7 @@ class QueryTracker_offline(torch.nn.Module):
             )
 
             output = self.transformer_cross_attention_layers[i](
-                output, instance_embeds,
+                output, frame_embeds,
                 memory_mask=None,
                 memory_key_padding_mask=None,
                 pos=None, query_pos=None
