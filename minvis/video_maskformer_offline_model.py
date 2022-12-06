@@ -490,9 +490,10 @@ class QueryTracker_offline(torch.nn.Module):
         # init transformer layers
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
-        self.transformer_obj_self_attention_layers = nn.ModuleList()
+        # self.transformer_obj_self_attention_layers = nn.ModuleList()
         self.transformer_time_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
+        self.transformer_frame_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
         for _ in range(self.num_layers):
@@ -505,8 +506,17 @@ class QueryTracker_offline(torch.nn.Module):
                 )
             )
 
-            self.transformer_obj_self_attention_layers.append(
-                SelfAttentionLayer(
+            # self.transformer_obj_self_attention_layers.append(
+            #     SelfAttentionLayer(
+            #         d_model=hidden_channel,
+            #         nhead=num_head,
+            #         dropout=0.0,
+            #         normalize_before=False,
+            #     )
+            # )
+
+            self.transformer_cross_attention_layers.append(
+                CrossAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
                     dropout=0.0,
@@ -514,7 +524,7 @@ class QueryTracker_offline(torch.nn.Module):
                 )
             )
 
-            self.transformer_cross_attention_layers.append(
+            self.transformer_frame_cross_attention_layers.append(
                 CrossAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
@@ -576,6 +586,14 @@ class QueryTracker_offline(torch.nn.Module):
                 memory_key_padding_mask=None,
                 pos=None, query_pos=None
             )
+
+            output = self.transformer_frame_cross_attention_layers[i](
+                output, frame_embds,
+                memory_mask=None,
+                memory_key_padding_mask=None,
+                pos=None, query_pos=None
+            )
+
             output = self.transformer_ffn_layers[i](
                 output
             )
