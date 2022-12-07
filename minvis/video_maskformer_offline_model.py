@@ -392,8 +392,9 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
             frame_embds = out['pred_embds']  # b c t q
             mask_features = out['mask_features'].unsqueeze(0)
+            mask_features_wo_proj = out['mask_features_wo_proj'].unsqueeze(0)
 
-            overall_mask_features.append(mask_features.cpu())
+            overall_mask_features.append(mask_features_wo_proj)
             overall_frame_embds.append(frame_embds)
 
             if i != 0:
@@ -562,7 +563,7 @@ class QueryTracker_offline(torch.nn.Module):
 
         mask_features_shape = mask_features.shape
         mask_features = self.mask_feature_proj(mask_features.flatten(0, 1))
-        mask_features = mask_features.reshape(*mask_features_shape[:2], *mask_features.shape[1:]).half()
+        mask_features = mask_features.reshape(*mask_features_shape[:2], *mask_features.shape[1:])
 
         n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
         outputs = []
