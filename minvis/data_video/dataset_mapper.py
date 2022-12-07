@@ -147,7 +147,6 @@ class YTVISDatasetMapper:
         """
         # fmt: off
         self.is_train               = is_train
-        print(augmentations)
         self.augmentations          = T.AugmentationList(augmentations)
         self.image_format           = image_format
         self.use_instance_mask      = use_instance_mask
@@ -300,7 +299,6 @@ class YTVISDatasetMapper:
             image = aug_input.image
 
             image_shape = image.shape[:2]  # h, w
-            print(image_shape)
             # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
             # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
             # Therefore it's important to use torch.Tensor.
