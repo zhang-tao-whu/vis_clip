@@ -1,4 +1,4 @@
-_BASE_: ../video_maskformer2_R50_bs32_8ep_frame_contrast.yaml
+_BASE_: ../video_maskformer2_R50_bs32_8ep_frame_online.yaml
 MODEL:
   BACKBONE:
     NAME: "D2SwinTransformer"
