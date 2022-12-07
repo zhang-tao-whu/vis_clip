@@ -51,13 +51,13 @@ SOLVER:
 INPUT:
   SAMPLING_FRAME_NUM: 1
   MIN_SIZE_TRAIN_SAMPLING: "choice_by_clip"
-    RANDOM_FLIP: "flip_by_clip"
-    AUGMENTATIONS: []
-    MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)
-    MIN_SIZE_TEST: 720
-    CROP:
-      ENABLED: True
-      TYPE: "absolute_range"
-      SIZE: (384, 600)
-    FORMAT: "RGB"
+  RANDOM_FLIP: "flip_by_clip"
+  AUGMENTATIONS: []
+  MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)
+  MIN_SIZE_TEST: 720
+  CROP:
+    ENABLED: True
+    TYPE: "absolute_range"
+    SIZE: (384, 600)
+  FORMAT: "RGB"
 
