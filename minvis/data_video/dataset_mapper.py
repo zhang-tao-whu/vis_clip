@@ -147,6 +147,7 @@ class YTVISDatasetMapper:
         """
         # fmt: off
         self.is_train               = is_train
+        print(augmentations)
         self.augmentations          = T.AugmentationList(augmentations)
         self.image_format           = image_format
         self.use_instance_mask      = use_instance_mask
