@@ -355,4 +355,4 @@ class MSDeformAttnPixelDecoder(nn.Module):
                 multi_scale_features.append(o)
                 num_cur_levels += 1
 
-        return self.mask_features(out[-1]), out[-1], out[0], multi_scale_features
+        return self.mask_features(out[-1]), out[0], multi_scale_features

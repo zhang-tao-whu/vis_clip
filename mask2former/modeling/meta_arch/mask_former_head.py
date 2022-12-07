@@ -112,12 +112,11 @@ class MaskFormerHead(nn.Module):
             ),
         }
 
-    def forward(self, features, mask=None, return_wo_proj_feats=False):
-        return self.layers(features, mask, return_wo_proj_feats=return_wo_proj_feats)
+    def forward(self, features, mask=None):
+        return self.layers(features, mask)
 
-    def layers(self, features, mask=None, return_wo_proj_feats=False):
-        mask_features, mask_features_no_proj, transformer_encoder_features, multi_scale_features =\
-            self.pixel_decoder.forward_features(features)
+    def layers(self, features, mask=None):
+        mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(features)
         if self.transformer_in_feature == "multi_scale_pixel_decoder":
             predictions = self.predictor(multi_scale_features, mask_features, mask)
         else:
@@ -130,6 +129,4 @@ class MaskFormerHead(nn.Module):
                 predictions = self.predictor(mask_features, mask_features, mask)
             else:
                 predictions = self.predictor(features[self.transformer_in_feature], mask_features, mask)
-        if return_wo_proj_feats:
-            predictions.update({'mask_features_wo_proj': mask_features_no_proj})
         return predictions
