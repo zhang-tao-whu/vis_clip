@@ -692,8 +692,6 @@ class CrossAttentionLayer_mine(nn.Module):
 
         self._reset_parameters()
 
-        self.fuse = nn.Linear(d_model * 2, d_model)
-
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -707,8 +705,7 @@ class CrossAttentionLayer_mine(nn.Module):
                      memory_key_padding_mask=None,
                      pos=None,
                      query_pos=None):
-        fused_query = self.fuse(torch.cat([indentify, tgt], dim=2))
-        tgt2 = self.multihead_attn(query=self.with_pos_embed(fused_query, query_pos),
+        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt, query_pos),
                                    key=self.with_pos_embed(memory, pos),
                                    value=memory, attn_mask=memory_mask,
                                    key_padding_mask=memory_key_padding_mask)[0]
