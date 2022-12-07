@@ -562,7 +562,7 @@ class QueryTracker_offline(torch.nn.Module):
 
         mask_features_shape = mask_features.shape
         mask_features = self.mask_feature_proj(mask_features.flatten(0, 1))
-        mask_features = mask_features.reshape(*mask_features_shape[:2], *mask_features.shape[1:])
+        mask_features = mask_features.reshape(*mask_features_shape[:2], *mask_features.shape[1:]).to(instance_embeds.dtype)
 
         n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
         outputs = []
