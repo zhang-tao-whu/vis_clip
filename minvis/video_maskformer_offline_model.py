@@ -384,7 +384,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             end_idx = (i+1) * window_size
 
             features = self.backbone(images_tensor[start_idx:end_idx])
-            out = self.sem_seg_head(features)
+            out = self.sem_seg_head(features, return_wo_proj_feats=True)
             del features['res2'], features['res3'], features['res4'], features['res5']
             del out['pred_masks'], out['pred_logits']
             for j in range(len(out['aux_outputs'])):
