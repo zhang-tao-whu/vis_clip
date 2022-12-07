@@ -692,6 +692,8 @@ class CrossAttentionLayer_mine(nn.Module):
 
         self._reset_parameters()
 
+        self.fuse = nn.Linear(d_model * 2, d_model)
+
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -705,7 +707,8 @@ class CrossAttentionLayer_mine(nn.Module):
                      memory_key_padding_mask=None,
                      pos=None,
                      query_pos=None):
-        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt, query_pos),
+        fused_query = self.fuse(torch.cat([indentify, tgt], dim=2))
+        tgt2 = self.multihead_attn(query=self.with_pos_embed(fused_query, query_pos),
                                    key=self.with_pos_embed(memory, pos),
                                    value=memory, attn_mask=memory_mask,
                                    key_padding_mask=memory_key_padding_mask)[0]
@@ -906,9 +909,14 @@ class QueryTracker_mine(torch.nn.Module):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
                         indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        self.last_frame_embeds = single_frame_embeds[indices]
+                        single_frame_embeds = single_frame_embeds[indices]
+                        self.last_frame_embeds = single_frame_embeds
+                        # if self.training:
+                        #     init_single_frame_embeds = self.add_noisy(single_frame_embeds)
+                        # else:
+                        #     init_single_frame_embeds = single_frame_embeds
                         output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
+                            single_frame_embeds, self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -957,6 +965,10 @@ class QueryTracker_mine(torch.nn.Module):
         # pred_logits (bs, t, nq, c)
         # pred_masks (bs, nq, t, h, w)
         return out
+
+    def add_noisy(self, single_frame_embeds):
+        # single frame_embds (q, b, c)
+        return
 
     def match_embds(self, ref_embds, cur_embds):
         # embds (q, b, c)
