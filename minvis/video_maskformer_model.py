@@ -906,14 +906,9 @@ class QueryTracker_mine(torch.nn.Module):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
                         indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        single_frame_embeds = single_frame_embeds[indices]
-                        self.last_frame_embeds = single_frame_embeds
-                        # if self.training:
-                        #     init_single_frame_embeds = self.add_noisy(single_frame_embeds)
-                        # else:
-                        #     init_single_frame_embeds = single_frame_embeds
+                        self.last_frame_embeds = single_frame_embeds[indices]
                         output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds, self.last_outputs[-1], single_frame_embeds,
+                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -962,10 +957,6 @@ class QueryTracker_mine(torch.nn.Module):
         # pred_logits (bs, t, nq, c)
         # pred_masks (bs, nq, t, h, w)
         return out
-
-    def add_noisy(self, single_frame_embeds):
-        # single frame_embds (q, b, c)
-        return
 
     def match_embds(self, ref_embds, cur_embds):
         # embds (q, b, c)
