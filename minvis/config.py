@@ -13,4 +13,6 @@ def add_minvis_config(cfg):
     cfg.INPUT.SAMPLING_FRAME_RATIO = 1.0
     cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE = False
 
+    cfg.MODEL.ONLY_TRAIN_TRACKER = False
+
 

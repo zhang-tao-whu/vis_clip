@@ -133,7 +133,7 @@ class Trainer(DefaultTrainer):
         params: List[Dict[str, Any]] = []
         memo: Set[torch.nn.parameter.Parameter] = set()
         for module_name, module in model.named_modules():
-            if 'tracker' not in module_name:
+            if 'tracker' not in module_name and cfg.MODEL.ONLY_TRAIN_TRACKER:
                 continue
             for module_param_name, value in module.named_parameters(recurse=False):
                 if not value.requires_grad:
