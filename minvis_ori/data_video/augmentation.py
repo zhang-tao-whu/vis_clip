@@ -12,6 +12,7 @@ from fvcore.transforms.transform import (
 from PIL import Image
 
 from detectron2.data import transforms as T
+from fvcore.transforms.transform import CropTransform
 
 
 class ResizeShortestEdge(T.Augmentation):
@@ -111,6 +112,76 @@ class RandomFlip(T.Augmentation):
         else:
             return NoOpTransform()
 
+class ClipRandomCrop(T.Augmentation):
+    """
+    Randomly crop a rectangle region out of an image.
+    """
+
+    def __init__(self, crop_type: str, crop_size, clip_length):
+        """
+        Args:
+            crop_type (str): one of "relative_range", "relative", "absolute", "absolute_range".
+            crop_size (tuple[float, float]): two floats, explained below.
+
+        - "relative": crop a (H * crop_size[0], W * crop_size[1]) region from an input image of
+          size (H, W). crop size should be in (0, 1]
+        - "relative_range": uniformly sample two values from [crop_size[0], 1]
+          and [crop_size[1]], 1], and use them as in "relative" crop type.
+        - "absolute" crop a (crop_size[0], crop_size[1]) region from input image.
+          crop_size must be smaller than the input image size.
+        - "absolute_range", for an input of size (H, W), uniformly sample H_crop in
+          [crop_size[0], min(H, crop_size[1])] and W_crop in [crop_size[0], min(W, crop_size[1])].
+          Then crop a region (H_crop, W_crop).
+        """
+        # TODO style of relative_range and absolute_range are not consistent:
+        # one takes (h, w) but another takes (min, max)
+        super().__init__()
+        self.clip_length = clip_length
+        self._cnt = 0
+        self.transform_temp = None
+        assert crop_type in ["relative_range", "relative", "absolute", "absolute_range"]
+        self._init(locals())
+
+    def get_transform(self, image):
+        if self._cnt % self.clip_length == 0:
+            h, w = image.shape[:2]
+            croph, cropw = self.get_crop_size((h, w))
+            assert h >= croph and w >= cropw, "Shape computation in {} has bugs.".format(self)
+            h0 = np.random.randint(h - croph + 1)
+            w0 = np.random.randint(w - cropw + 1)
+            self.transform_temp = CropTransform(w0, h0, cropw, croph)
+            self._cnt = 0
+            self._cnt += 1
+            return self.transform_temp
+        else:
+            self._cnt += 1
+            return self.transform_temp
+
+    def get_crop_size(self, image_size):
+        """
+        Args:
+            image_size (tuple): height, width
+
+        Returns:
+            crop_size (tuple): height, width in absolute pixels
+        """
+        h, w = image_size
+        if self.crop_type == "relative":
+            ch, cw = self.crop_size
+            return int(h * ch + 0.5), int(w * cw + 0.5)
+        elif self.crop_type == "relative_range":
+            crop_size = np.asarray(self.crop_size, dtype=np.float32)
+            ch, cw = crop_size + np.random.rand(2) * (1 - crop_size)
+            return int(h * ch + 0.5), int(w * cw + 0.5)
+        elif self.crop_type == "absolute":
+            return (min(self.crop_size[0], h), min(self.crop_size[1], w))
+        elif self.crop_type == "absolute_range":
+            assert self.crop_size[0] <= self.crop_size[1]
+            ch = np.random.randint(min(h, self.crop_size[0]), min(h, self.crop_size[1]) + 1)
+            cw = np.random.randint(min(w, self.crop_size[0]), min(w, self.crop_size[1]) + 1)
+            return ch, cw
+        else:
+            raise NotImplementedError("Unknown crop type {}".format(self.crop_type))
 
 def build_augmentation(cfg, is_train):
     logger = logging.getLogger(__name__)
@@ -118,7 +189,8 @@ def build_augmentation(cfg, is_train):
     if is_train:
         # Crop
         if cfg.INPUT.CROP.ENABLED:
-            aug_list.append(T.RandomCrop(cfg.INPUT.CROP.TYPE, cfg.INPUT.CROP.SIZE))
+            # aug_list.append(T.RandomCrop(cfg.INPUT.CROP.TYPE, cfg.INPUT.CROP.SIZE))
+            aug_list.append(ClipRandomCrop(cfg.INPUT.CROP.TYPE, cfg.INPUT.CROP.SIZE))
 
         # Resize
         min_size = cfg.INPUT.MIN_SIZE_TRAIN

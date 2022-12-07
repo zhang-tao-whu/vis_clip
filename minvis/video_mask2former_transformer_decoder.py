@@ -20,7 +20,7 @@ import einops
 
 
 @TRANSFORMER_DECODER_REGISTRY.register()
-class VideoMultiScaleMaskedTransformerDecoder_frame(VideoMultiScaleMaskedTransformerDecoder):
+class VideoMultiScaleMaskedTransformerDecoder_frame_(VideoMultiScaleMaskedTransformerDecoder):
 
     @configurable
     def __init__(

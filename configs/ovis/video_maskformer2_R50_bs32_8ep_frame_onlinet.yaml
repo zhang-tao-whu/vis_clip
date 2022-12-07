@@ -1,7 +1,7 @@
 _BASE_: Base-OVIS-VideoInstanceSegmentation.yaml
 MODEL:
   WEIGHTS: "model_final_3c8ec9.pkl"
-  META_ARCHITECTURE: "VideoMaskFormer_frame"
+  META_ARCHITECTURE: "VideoMaskFormer_online"
   SEM_SEG_HEAD:
     NAME: "MaskFormerHead"
     IGNORE_VALUE: 255
@@ -17,7 +17,7 @@ MODEL:
     COMMON_STRIDE: 4
     TRANSFORMER_ENC_LAYERS: 6
   MASK_FORMER:
-    TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_frame"
+    TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_frame_"
     TRANSFORMER_IN_FEATURE: "multi_scale_pixel_decoder"
     DEEP_SUPERVISION: True
     NO_OBJECT_WEIGHT: 0.1

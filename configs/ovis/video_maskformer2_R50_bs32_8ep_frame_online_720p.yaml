@@ -1,7 +1,7 @@
 _BASE_: Base-OVIS-VideoInstanceSegmentation.yaml
 MODEL:
   WEIGHTS: "model_final_3c8ec9.pkl"
-  META_ARCHITECTURE: "VideoMaskFormer_frame_offline"
+  META_ARCHITECTURE: "VideoMaskFormer_online"
   SEM_SEG_HEAD:
     NAME: "MaskFormerHead"
     IGNORE_VALUE: 255
@@ -50,6 +50,17 @@ SOLVER:
   STEPS: (14000,)
   MAX_ITER: 20000
 INPUT:
-  SAMPLING_FRAME_NUM: 21
-  SAMPLING_FRAME_RANGE: 10
+  SAMPLING_FRAME_NUM: 5
+  SAMPLING_FRAME_RANGE: 2
+
+  MIN_SIZE_TRAIN_SAMPLING: "choice_by_clip"
+  RANDOM_FLIP: "flip_by_clip"
+  AUGMENTATIONS: []
+  MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)
+  MIN_SIZE_TEST: 720
+  CROP:
+    ENABLED: True
+    TYPE: "absolute_range"
+    SIZE: (384, 600)
+  FORMAT: "RGB"
 
