@@ -9,6 +9,10 @@
 # config
 from .config import add_minvis_config
 
+# ori minvis models
+from .video_mask2former_transformer_decoder_minvis import VideoMultiScaleMaskedTransformerDecoder_frame
+from .video_maskformer_model_minvis import VideoMaskFormer_frame
+
 # models
 from .video_maskformer_model import VideoMaskFormer_online
 from .video_mask2former_transformer_decoder import VideoMultiScaleMaskedTransformerDecoder_frame_
