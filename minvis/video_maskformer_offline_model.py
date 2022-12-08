@@ -185,6 +185,31 @@ class VideoMaskFormer_frame_offline(nn.Module):
     def device(self):
         return self.pixel_mean.device
 
+    def segmentor_windows_inference(self, images_tensor, window_size=5):
+        image_outputs = {}
+        iters = len(images_tensor) // window_size
+        if len(images_tensor) % window_size != 0:
+            iters += 1
+
+        outs_list = []
+        for i in range(iters):
+            start_idx = i * window_size
+            end_idx = (i + 1) * window_size
+
+            features = self.backbone(images_tensor[start_idx:end_idx])
+            out = self.sem_seg_head(features)
+
+            del features['res2'], features['res3'], features['res4'], features['res5']
+            for j in range(len(out['aux_outputs'])):
+                del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
+            outs_list.append(out)
+
+        image_outputs['pred_logits'] = torch.cat([x['pred_logits'].detach() for x in outs_list], dim=1)
+        image_outputs['pred_masks'] = torch.cat([x['pred_masks'].detach() for x in out_list], dim=2)
+        image_outputs['pred_embds'] = torch.cat([x['pred_embds'].detach() for x in out_list], dim=2)
+        image_outputs['mask_features'] = torch.cat([x['mask_features'].detach() for x in out_list], dim=0)
+        return image_outputs
+
     def forward(self, batched_inputs):
         """
         Args:
@@ -225,9 +250,10 @@ class VideoMaskFormer_frame_offline(nn.Module):
             outputs = self.run_window_inference(images.tensor, window_size=3)
         else:
             with torch.no_grad():
-                features = self.backbone(images.tensor)
-                image_outputs = self.sem_seg_head(features)
-                del features['res2'], features['res3'], features['res4'], features['res5']
+                # features = self.backbone(images.tensor)
+                # image_outputs = self.sem_seg_head(features)
+                # del features['res2'], features['res3'], features['res4'], features['res5']
+                image_outputs = self.segmentor_windows_inference(images.tensor)
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # b c t q
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
