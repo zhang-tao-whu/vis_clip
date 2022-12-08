@@ -257,6 +257,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features'], image_outputs['pred_embds']
                 image_outputs = self.tracker(frame_embds, mask_features)
+                image_outputs['pred_masks'] = image_outputs['pred_masks'].detach().cpu().to(torch.float32)
                 frame_embds_ = self.tracker.frame_forward(frame_embds)
                 del frame_embds
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
