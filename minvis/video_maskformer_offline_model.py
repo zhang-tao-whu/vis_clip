@@ -251,16 +251,12 @@ class VideoMaskFormer_frame_offline(nn.Module):
             with torch.no_grad():
                 # features = self.backbone(images.tensor)
                 # image_outputs = self.sem_seg_head(features)
-                # del features['res2'], features['res3'], features['res4'], features['res5']
                 image_outputs = self.segmentor_windows_inference(images.tensor)
+                del features['res2'], features['res3'], features['res4'], features['res5']
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # b c t q
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features'], image_outputs['pred_embds']
                 image_outputs = self.tracker(frame_embds, mask_features)
-
-                image_outputs['pred_logits'] = image_outputs['pred_logits'].detach().cpu().to(torch.float32)
-                image_outputs['pred_masks'] = image_outputs['pred_masks'].detach().cpu().to(torch.float32)
-                
                 frame_embds_ = self.tracker.frame_forward(frame_embds)
                 del frame_embds
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
