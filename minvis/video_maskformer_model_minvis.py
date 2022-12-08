@@ -330,6 +330,7 @@ class VideoMaskFormer_frame(nn.Module):
             del features['res2'], features['res3'], features['res4'], features['res5']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
+            out['pred_masks'] = out['pred_masks'].detach().cpu().to(torch.float32)
             out_list.append(out)
 
         # merge outputs
