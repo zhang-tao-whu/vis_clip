@@ -200,12 +200,11 @@ class VideoMaskFormer_frame_offline(nn.Module):
             out = self.sem_seg_head(features)
 
             del features['res2'], features['res3'], features['res4'], features['res5']
+            del out['pred_masks'], out['pred_logits']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
             outs_list.append(out)
 
-        image_outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in outs_list], dim=1).detach()
-        image_outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in outs_list], dim=2).detach()
         image_outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in outs_list], dim=2).detach()
         image_outputs['mask_features'] = torch.cat([x['mask_features'] for x in outs_list], dim=0).detach()
         return image_outputs
@@ -256,14 +255,14 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 image_outputs = self.segmentor_windows_inference(images.tensor)
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # b c t q
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
-                del image_outputs['mask_features']
+                del image_outputs['mask_features'], image_outputs['pred_embds']
                 image_outputs = self.tracker(frame_embds, mask_features)
                 frame_embds_ = self.tracker.frame_forward(frame_embds)
                 del frame_embds
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
                 del image_outputs['pred_embds']
-                # for j in range(len(image_outputs['aux_outputs'])):
-                #     del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
+                for j in range(len(image_outputs['aux_outputs'])):
+                    del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
                 torch.cuda.empty_cache()
             outputs = self.offline_tracker(instance_embeds, frame_embds_, mask_features)
 
