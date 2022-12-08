@@ -205,9 +205,9 @@ class VideoMaskFormer_frame_offline(nn.Module):
             outs_list.append(out)
 
         image_outputs['pred_logits'] = torch.cat([x['pred_logits'].detach() for x in outs_list], dim=1)
-        image_outputs['pred_masks'] = torch.cat([x['pred_masks'].detach() for x in out_list], dim=2)
-        image_outputs['pred_embds'] = torch.cat([x['pred_embds'].detach() for x in out_list], dim=2)
-        image_outputs['mask_features'] = torch.cat([x['mask_features'].detach() for x in out_list], dim=0)
+        image_outputs['pred_masks'] = torch.cat([x['pred_masks'].detach() for x in outs_list], dim=2)
+        image_outputs['pred_embds'] = torch.cat([x['pred_embds'].detach() for x in outs_list], dim=2)
+        image_outputs['mask_features'] = torch.cat([x['mask_features'].detach() for x in outs_list], dim=0)
         return image_outputs
 
     def forward(self, batched_inputs):
