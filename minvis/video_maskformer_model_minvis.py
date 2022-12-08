@@ -197,7 +197,7 @@ class VideoMaskFormer_frame(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor)
+            outputs = self.run_window_inference(images.tensor, window_size=5)
         else:
             features = self.backbone(images.tensor)
             outputs = self.sem_seg_head(features)
