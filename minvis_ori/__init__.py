@@ -14,10 +14,10 @@ from .video_maskformer_model import VideoMaskFormer_frame
 from .video_mask2former_transformer_decoder import VideoMultiScaleMaskedTransformerDecoder_frame
 
 # video
-from .data_video import (
-    YTVISDatasetMapper,
-    YTVISEvaluator,
-    build_detection_train_loader,
-    build_detection_test_loader,
-    get_detection_dataset_dicts,
-)
+# from .data_video import (
+#     YTVISDatasetMapper,
+#     YTVISEvaluator,
+#     build_detection_train_loader,
+#     build_detection_test_loader,
+#     get_detection_dataset_dicts,
+# )

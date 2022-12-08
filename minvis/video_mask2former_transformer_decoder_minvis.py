@@ -20,7 +20,7 @@ import einops
 
 
 @TRANSFORMER_DECODER_REGISTRY.register()
-class VideoMultiScaleMaskedTransformerDecoder_frame_(VideoMultiScaleMaskedTransformerDecoder):
+class VideoMultiScaleMaskedTransformerDecoder_frame(VideoMultiScaleMaskedTransformerDecoder):
 
     @configurable
     def __init__(
@@ -140,7 +140,6 @@ class VideoMultiScaleMaskedTransformerDecoder_frame_(VideoMultiScaleMaskedTransf
                 predictions_class if self.mask_classification else None, predictions_mask
             ),
             'pred_embds': pred_embds,
-            'mask_features': mask_features
         }
         
         return out

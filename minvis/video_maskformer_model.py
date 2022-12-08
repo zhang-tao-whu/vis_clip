@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 @META_ARCH_REGISTRY.register()
-class VideoMaskFormer_frame(nn.Module):
+class VideoMaskFormer_online(nn.Module):
     """
     Main class for mask classification semantic segmentation architectures.
     """
