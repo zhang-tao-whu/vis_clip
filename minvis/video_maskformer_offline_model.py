@@ -517,6 +517,8 @@ class QueryTracker_offline(torch.nn.Module):
                     nn.Conv1d(hidden_channel, hidden_channel, kernel_size=5, stride=1,
                               padding='same', padding_mode='replicate'),
                     nn.ReLU(inplace=True),
+                    nn.Conv1d(hidden_channel, hidden_channel, kernel_size=3, stride=1,
+                              padding='same', padding_mode='replicate'),
                 )
             )
 
