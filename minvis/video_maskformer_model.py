@@ -218,7 +218,7 @@ class VideoMaskFormer_online(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=1)
+            outputs = self.run_window_inference(images.tensor, window_size=3)
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
