@@ -51,6 +51,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         # video
         num_frames,
         window_inference,
+        num_class,
     ):
         """
         Args:
@@ -101,7 +102,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             num_head=8,
             decoder_layer_num=6,
             mask_dim=256,
-            class_num=25,)
+            class_num=num_class,)
 
         self.offline_tracker = QueryTracker_offline(
             hidden_channel=256,
@@ -109,7 +110,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             num_head=8,
             decoder_layer_num=6,
             mask_dim=256,
-            class_num=25,
+            class_num=num_class,
         )
 
     @classmethod
@@ -178,7 +179,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
             "pixel_std": cfg.MODEL.PIXEL_STD,
             # video
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
-            "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE
+            "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
+            "num_class": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES
         }
 
     @property

@@ -55,6 +55,7 @@ class VideoMaskFormer_online(nn.Module):
         # video
         num_frames,
         window_inference,
+        num_class,
     ):
         """
         Args:
@@ -105,7 +106,7 @@ class VideoMaskFormer_online(nn.Module):
             num_head=8,
             decoder_layer_num=6,
             mask_dim=256,
-            class_num=25,)
+            class_num=num_class,)
 
     @classmethod
     def from_config(cls, cfg):
@@ -175,7 +176,8 @@ class VideoMaskFormer_online(nn.Module):
             "pixel_std": cfg.MODEL.PIXEL_STD,
             # video
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
-            "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE
+            "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
+            "num_class": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES
         }
 
     @property
