@@ -56,6 +56,7 @@ class VideoMaskFormer_online(nn.Module):
         num_frames,
         window_inference,
         num_class,
+        max_num,
     ):
         """
         Args:
@@ -99,6 +100,8 @@ class VideoMaskFormer_online(nn.Module):
 
         self.num_frames = num_frames
         self.window_inference = window_inference
+
+        self.max_num = max_num
 
         self.tracker = QueryTracker_mine(
             hidden_channel=256,
@@ -177,7 +180,8 @@ class VideoMaskFormer_online(nn.Module):
             # video
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
             "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
-            "num_class": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES
+            "num_class": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
+            "max_num": cfg.MODEL.MASK_FORMER.TEST.MAX_NUM
         }
 
     @property
@@ -496,12 +500,12 @@ class VideoMaskFormer_online(nn.Module):
         #gt_instances -> [per video instance], per video instance {'labels': (N, ), 'ids': (N, f), 'masks': (N, f, H, W)}
         return gt_instances
 
-    def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, max_num=20):
+    def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):
         if len(pred_cls) > 0:
             scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             labels = torch.arange(self.sem_seg_head.num_classes, device=self.device).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-10 predictions
-            scores_per_image, topk_indices = scores.flatten(0, 1).topk(max_num, sorted=False)
+            scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
             labels_per_image = labels[topk_indices]
             topk_indices = topk_indices // self.sem_seg_head.num_classes
             pred_masks = pred_masks[topk_indices]

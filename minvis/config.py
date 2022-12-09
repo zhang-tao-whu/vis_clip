@@ -15,4 +15,6 @@ def add_minvis_config(cfg):
 
     cfg.MODEL.ONLY_TRAIN_TRACKER = False
 
+    cfg.MODEL.MASK_FORMER.TEST.MAX_NUM = 20
+
 
