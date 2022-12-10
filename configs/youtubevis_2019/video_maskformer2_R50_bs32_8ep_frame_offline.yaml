@@ -1,7 +1,7 @@
 _BASE_: Base-YouTubeVIS-VideoInstanceSegmentation.yaml
 MODEL:
   WEIGHTS: "model_final_3c8ec9.pkl"
-  META_ARCHITECTURE: "VideoMaskFormer_offline"
+  META_ARCHITECTURE: "VideoMaskFormer_frame_offline"
   ONLY_TRAIN_TRACKER: True
   SEM_SEG_HEAD:
     NAME: "MaskFormerHead"
