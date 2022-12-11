@@ -111,10 +111,10 @@ def get_detection_dataset_dicts(
     return dataset_dicts
 
 
-def _train_loader_from_config(cfg, mapper, *, dataset=None, sampler=None):
+def _train_loader_from_config(cfg, mapper, dataset_name=None, *, dataset=None, sampler=None):
     if dataset is None:
         dataset = get_detection_dataset_dicts(
-            cfg.DATASETS.TRAIN,
+            dataset_name,
             filter_empty=cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
             proposal_files=cfg.DATASETS.PROPOSAL_FILES_TRAIN if cfg.MODEL.LOAD_PROPOSALS else None,
         )
