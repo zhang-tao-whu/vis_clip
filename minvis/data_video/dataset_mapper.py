@@ -21,11 +21,13 @@ from detectron2.structures import (
     BoxMode,
     Instances,
 )
-
+from detectron2.data import MetadataCatalog
 from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
 
 from .augmentation import build_augmentation
+
+from .datasets.ytvis import COCO_TO_YTVIS_2019, COCO_TO_YTVIS_2021, COCO_TO_OVIS
 
 __all__ = ["YTVISDatasetMapper", "CocoClipDatasetMapper"]
 
@@ -350,11 +352,14 @@ class CocoClipDatasetMapper:
     def __init__(
         self,
         is_train: bool,
+        is_tgt: bool,
         *,
         augmentations: List[Union[T.Augmentation, T.Transform]],
         image_format: str,
-        use_instance_mask: bool = False,
         sampling_frame_num: int = 2,
+        sampling_frame_range: int = 5,
+        src_dataset_name: str = "",
+        tgt_dataset_name: str = "",
     ):
         """
         NOTE: this interface is experimental.
@@ -362,31 +367,56 @@ class CocoClipDatasetMapper:
             is_train: whether it's used in training or inference
             augmentations: a list of augmentations or deterministic transforms to apply
             image_format: an image format supported by :func:`detection_utils.read_image`.
-            use_instance_mask: whether to process instance segmentation annotations, if available
         """
         # fmt: off
         self.is_train               = is_train
+        self.is_tgt                 = is_tgt
         self.augmentations          = T.AugmentationList(augmentations)
         self.image_format           = image_format
-        self.use_instance_mask      = use_instance_mask
         self.sampling_frame_num     = sampling_frame_num
+        self.sampling_frame_range   = sampling_frame_range
+
+        if not is_tgt:
+            self.src_metadata = MetadataCatalog.get(src_dataset_name)
+            self.tgt_metadata = MetadataCatalog.get(tgt_dataset_name)
+            if tgt_dataset_name.startswith("ytvis_2019"):
+                src2tgt = COCO_TO_YTVIS_2019
+            elif tgt_dataset_name.startswith("ytvis_2021"):
+                src2tgt = COCO_TO_YTVIS_2021
+            elif tgt_dataset_name.startswith("ovis"):
+                src2tgt = COCO_TO_OVIS
+            else:
+                raise NotImplementedError
+
+            self.src2tgt = {}
+            for k, v in src2tgt.items():
+                self.src2tgt[
+                    self.src_metadata.thing_dataset_id_to_contiguous_id[k]
+                ] = self.tgt_metadata.thing_dataset_id_to_contiguous_id[v]
+
         # fmt: on
         logger = logging.getLogger(__name__)
         mode = "training" if is_train else "inference"
         logger.info(f"[DatasetMapper] Augmentations used in {mode}: {augmentations}")
 
     @classmethod
-    def from_config(cls, cfg, is_train: bool = True):
-        augs = build_augmentation(cfg, is_train)
+    def from_config(cls, cfg, is_train: bool = True, is_tgt: bool = True):
+        if is_tgt:
+            augs = build_augmentation(cfg, is_train)
+        else:
+            augs = build_pseudo_augmentation(cfg, is_train)
 
         sampling_frame_num = cfg.INPUT.SAMPLING_FRAME_NUM
+        sampling_frame_range = cfg.INPUT.SAMPLING_FRAME_RANGE
 
         ret = {
             "is_train": is_train,
+            "is_tgt": is_tgt,
             "augmentations": augs,
             "image_format": cfg.INPUT.FORMAT,
-            "use_instance_mask": cfg.MODEL.MASK_ON,
             "sampling_frame_num": sampling_frame_num,
+            "sampling_frame_range": sampling_frame_range,
+            "tgt_dataset_name": cfg.DATASETS.TRAIN[-1],
         }
 
         return ret
@@ -395,7 +425,6 @@ class CocoClipDatasetMapper:
         """
         Args:
             dataset_dict (dict): Metadata of one image, in Detectron2 Dataset format.
-
         Returns:
             dict: a format that builtin models in detectron2 accept
         """
@@ -405,6 +434,25 @@ class CocoClipDatasetMapper:
         file_name = dataset_dict.pop("file_name", None)
         original_image = utils.read_image(file_name, format=self.image_format)
 
+        if self.is_train:
+            video_length = random.randrange(16, 49)
+            ref_frame = random.randrange(video_length)
+
+            start_idx = max(0, ref_frame-self.sampling_frame_range)
+            end_idx = min(video_length, ref_frame+self.sampling_frame_range + 1)
+
+            selected_idx = np.random.choice(
+                np.array(list(range(start_idx, ref_frame)) + list(range(ref_frame+1, end_idx))),
+                self.sampling_frame_num - 1,
+            )
+            selected_idx = selected_idx.tolist() + [ref_frame]
+            selected_idx = sorted(selected_idx)
+        else:
+            video_length = self.sampling_frame_num
+            selected_idx = list(range(self.sampling_frame_num))
+
+        dataset_dict["video_len"] = video_length
+        dataset_dict["frame_idx"] = selected_idx
         dataset_dict["image"] = []
         dataset_dict["instances"] = []
         dataset_dict["file_names"] = [file_name] * self.sampling_frame_num
@@ -442,13 +490,21 @@ class CocoClipDatasetMapper:
                 if len(annos[idx]["segmentation"]) == 0:
                     annos[idx]["segmentation"] = [np.array([0.0] * 6)]
 
-            instances = utils.annotations_to_instances(annos, image_shape, mask_format="bitmask")
+            instances = utils.annotations_to_instances(annos, image_shape)
+            if not self.is_tgt:
+                instances.gt_classes = torch.tensor(
+                    [self.src2tgt[c] if c in self.src2tgt else -1 for c in instances.gt_classes.tolist()]
+                )
             instances.gt_ids = torch.tensor(_gt_ids)
-            if instances.has("gt_masks"):
-                instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
-                instances = filter_empty_instances(instances)
+            # instances.gt_boxes = instances.gt_masks.get_bounding_boxes()  # NOTE we don't need boxes
+            instances = filter_empty_instances(instances)
+            h, w = instances.image_size
+            if hasattr(instances, 'gt_masks'):
+                gt_masks = instances.gt_masks
+                gt_masks = convert_coco_poly_to_mask(gt_masks.polygons, h, w)
+                instances.gt_masks = gt_masks
             else:
-                instances.gt_masks = BitMasks(torch.empty((0, *image_shape)))
+                instances.gt_masks = torch.zeros((0, h, w), dtype=torch.uint8)
             dataset_dict["instances"].append(instances)
 
         return dataset_dict
