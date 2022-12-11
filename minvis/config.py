@@ -18,7 +18,7 @@ def add_minvis_config(cfg):
     cfg.MODEL.MASK_FORMER.TEST.MAX_NUM = 20
 
     cfg.DATASETS.DATASET_RATIO: 1.0
-    
+
     # Pseudo Data Use
     cfg.INPUT.PSEUDO = CN()
     cfg.INPUT.PSEUDO.AUGMENTATIONS = ['rotation']
