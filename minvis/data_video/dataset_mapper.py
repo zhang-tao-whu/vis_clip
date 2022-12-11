@@ -25,7 +25,7 @@ from detectron2.data import MetadataCatalog
 from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
 
-from .augmentation import build_augmentation
+from .augmentation import build_augmentation, build_pseudo_augmentation
 
 from .datasets.ytvis import COCO_TO_YTVIS_2019, COCO_TO_YTVIS_2021, COCO_TO_OVIS
 
