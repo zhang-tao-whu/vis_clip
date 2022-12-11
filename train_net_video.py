@@ -53,6 +53,7 @@ from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
 from minvis import (
     YTVISDatasetMapper,
+    CocoClipDatasetMapper,
     YTVISEvaluator,
     add_minvis_config,
     build_detection_train_loader,

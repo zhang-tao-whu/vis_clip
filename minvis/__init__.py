@@ -20,6 +20,7 @@ from .video_maskformer_offline_model import VideoMaskFormer_frame_offline
 # video
 from .data_video import (
     YTVISDatasetMapper,
+    CocoClipDatasetMapper,
     YTVISEvaluator,
     build_detection_train_loader,
     build_detection_test_loader,
