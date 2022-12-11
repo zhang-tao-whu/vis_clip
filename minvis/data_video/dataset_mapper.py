@@ -158,6 +158,7 @@ class YTVISDatasetMapper:
         self.sampling_frame_range   = sampling_frame_range
         self.sampling_frame_shuffle = sampling_frame_shuffle
         self.num_classes            = num_classes
+        self.sampling_frame_ratio = 1.0
 
         if not is_tgt:
             self.src_metadata = MetadataCatalog.get(src_dataset_name)
