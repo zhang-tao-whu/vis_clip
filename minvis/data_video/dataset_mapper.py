@@ -118,7 +118,6 @@ def ytvis_annotations_to_instances(annos, image_size):
 
     return target
 
-
 class YTVISDatasetMapper:
     """
     A callable which takes a dataset dict in YouTube-VIS Dataset format,
@@ -129,6 +128,7 @@ class YTVISDatasetMapper:
     def __init__(
         self,
         is_train: bool,
+        is_tgt: bool,
         *,
         augmentations: List[Union[T.Augmentation, T.Transform]],
         image_format: str,
@@ -136,8 +136,9 @@ class YTVISDatasetMapper:
         sampling_frame_num: int = 2,
         sampling_frame_range: int = 5,
         sampling_frame_shuffle: bool = False,
-        sampling_frame_ratio: float = 1.0,
         num_classes: int = 40,
+        src_dataset_name: str = "",
+        tgt_dataset_name: str = "",
     ):
         """
         NOTE: this interface is experimental.
@@ -149,38 +150,62 @@ class YTVISDatasetMapper:
         """
         # fmt: off
         self.is_train               = is_train
+        self.is_tgt                 = is_tgt
         self.augmentations          = T.AugmentationList(augmentations)
         self.image_format           = image_format
         self.use_instance_mask      = use_instance_mask
         self.sampling_frame_num     = sampling_frame_num
         self.sampling_frame_range   = sampling_frame_range
         self.sampling_frame_shuffle = sampling_frame_shuffle
-        self.sampling_frame_ratio   = sampling_frame_ratio
         self.num_classes            = num_classes
+
+        if not is_tgt:
+            self.src_metadata = MetadataCatalog.get(src_dataset_name)
+            self.tgt_metadata = MetadataCatalog.get(tgt_dataset_name)
+            if tgt_dataset_name.startswith("ytvis_2019"):
+                src2tgt = OVIS_TO_YTVIS_2019
+            elif tgt_dataset_name.startswith("ytvis_2021"):
+                src2tgt = OVIS_TO_YTVIS_2021
+            elif tgt_dataset_name.startswith("ovis"):
+                if src_dataset_name.startswith("ytvis_2019"):
+                    src2tgt = YTVIS_2019_TO_OVIS
+                elif src_dataset_name.startswith("ytvis_2021"):
+                    src2tgt = YTVIS_2021_TO_OVIS
+                else:
+                    raise NotImplementedError
+            else:
+                raise NotImplementedError
+
+            self.src2tgt = {}
+            for k, v in src2tgt.items():
+                self.src2tgt[
+                    self.src_metadata.thing_dataset_id_to_contiguous_id[k]
+                ] = self.tgt_metadata.thing_dataset_id_to_contiguous_id[v]
+
         # fmt: on
         logger = logging.getLogger(__name__)
         mode = "training" if is_train else "inference"
         logger.info(f"[DatasetMapper] Augmentations used in {mode}: {augmentations}")
 
     @classmethod
-    def from_config(cls, cfg, is_train: bool = True):
+    def from_config(cls, cfg, is_train: bool = True, is_tgt: bool = True):
         augs = build_augmentation(cfg, is_train)
 
         sampling_frame_num = cfg.INPUT.SAMPLING_FRAME_NUM
         sampling_frame_range = cfg.INPUT.SAMPLING_FRAME_RANGE
         sampling_frame_shuffle = cfg.INPUT.SAMPLING_FRAME_SHUFFLE
-        sampling_frame_ratio = cfg.INPUT.SAMPLING_FRAME_RATIO
 
         ret = {
             "is_train": is_train,
+            "is_tgt": is_tgt,
             "augmentations": augs,
             "image_format": cfg.INPUT.FORMAT,
             "use_instance_mask": cfg.MODEL.MASK_ON,
             "sampling_frame_num": sampling_frame_num,
             "sampling_frame_range": sampling_frame_range,
             "sampling_frame_shuffle": sampling_frame_shuffle,
-            "sampling_frame_ratio": sampling_frame_ratio,
             "num_classes": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
+            "tgt_dataset_name": cfg.DATASETS.TRAIN[-1],
         }
 
         return ret
@@ -273,19 +298,17 @@ class YTVISDatasetMapper:
 
         video_annos = dataset_dict.pop("annotations", None)
         file_names = dataset_dict.pop("file_names", None)
-        for i in range(1, len(selected_idx)):
-            if selected_idx[i] >= len(video_annos):
-                selected_idx[i] = selected_idx[i - 1]
+
         if self.is_train:
             _ids = set()
             for frame_idx in selected_idx:
                 _ids.update([anno["id"] for anno in video_annos[frame_idx]])
-            #get all the instance ids, some instance may only appear in some frames
             ids = dict()
             for i, _id in enumerate(_ids):
                 ids[_id] = i
-            #get continous id
 
+        dataset_dict["video_len"] = len(video_annos)
+        dataset_dict["frame_idx"] = list(selected_idx)
         dataset_dict["image"] = []
         dataset_dict["instances"] = []
         dataset_dict["file_names"] = []
@@ -323,7 +346,7 @@ class YTVISDatasetMapper:
                 for obj in _frame_annos
                 if obj.get("iscrowd", 0) == 0
             ]
-            sorted_annos = [_get_dummy_anno(self.num_classes) for _ in range(len(ids))]
+            sorted_annos = [_get_dummy_anno() for _ in range(len(ids))]
 
             for _anno in annos:
                 idx = ids[_anno["id"]]
@@ -331,16 +354,20 @@ class YTVISDatasetMapper:
             _gt_ids = [_anno["id"] for _anno in sorted_annos]
 
             instances = utils.annotations_to_instances(sorted_annos, image_shape, mask_format="bitmask")
+            if not self.is_tgt:
+                instances.gt_classes = torch.tensor(
+                    [self.src2tgt[c] if c in self.src2tgt else -1 for c in instances.gt_classes.tolist()]
+                )
             instances.gt_ids = torch.tensor(_gt_ids)
-            if instances.has("gt_masks"):
-                instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
-                instances = filter_empty_instances(instances)
-            else:
+            instances = filter_empty_instances(instances)
+            # if instances.has("gt_masks"):
+            #     instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
+            #     instances = filter_empty_instances(instances)
+            if not instances.has("gt_masks"):
                 instances.gt_masks = BitMasks(torch.empty((0, *image_shape)))
             dataset_dict["instances"].append(instances)
 
         return dataset_dict
-
 
 class CocoClipDatasetMapper:
     """
@@ -421,6 +448,73 @@ class CocoClipDatasetMapper:
 
         return ret
 
+    def select_frames(self, video_length):
+        """
+        Args:
+            video_length (int): length of the video
+
+        Returns:
+            selected_idx (list[int]): a list of selected frame indices
+        """
+        if self.sampling_frame_ratio < 1.0: #minvis sampling frame ratio set as 1.0
+            assert self.sampling_frame_num == 1, "only support subsampling for a single frame"
+            #sampling a single frame from ratio 0.0->sampling_frame_ratio of the video
+            subsampled_frames = max(int(np.round(video_length * self.sampling_frame_ratio)), 1)
+            if subsampled_frames > 1:
+                # deterministic uniform subsampling given video length
+                subsampled_idx = np.linspace(0, video_length, num=subsampled_frames, endpoint=False, dtype=int)
+                ref_idx = random.randrange(subsampled_frames)
+                ref_frame = subsampled_idx[ref_idx]
+            else:
+                ref_frame = video_length // 2  # middle frame
+
+            selected_idx = [ref_frame]
+        else:
+            #select sampling_num from [ref_frame-frame_range, ref_frame+frame_range]
+            if self.sampling_frame_range * 2 + 1 == self.sampling_frame_num:
+                # if self.sampling_frame_num > video_length:
+                #     selected_idx = range(video_length)
+                #     selected_idx = list(selected_idx) + np.random.choice(np.array(selected_idx),
+                #         self.sampling_frame_num - video_length, ).tolist()
+                #     sorted(selected_idx)
+                #     return selected_idx
+                #
+                # elif self.sampling_frame_num == video_length:
+                #     selected_idx = list(range(video_length))
+                #     return selected_idx
+                # else:
+                #     start = random.randrange(video_length - self.sampling_frame_num)
+                #     selected_idx = list(range(start, start + self.sampling_frame_num))
+                #     return selected_idx
+                ref_frame = random.randrange(video_length)
+                start_idx = max(0, ref_frame - self.sampling_frame_range)
+                end_idx = min(video_length, ref_frame + self.sampling_frame_range + 1)
+                if start_idx == 0:
+                    end_idx = start_idx + self.sampling_frame_num
+                if end_idx == video_length:
+                    start_idx = video_length - self.sampling_frame_num
+                selected_idx = np.arange(start_idx, end_idx)
+                if end_idx - start_idx < self.sampling_frame_num:
+                    selected_idx_ = np.random.choice(selected_idx, self.sampling_frame_num - len(selected_idx))
+                    selected_idx = selected_idx.tolist() + selected_idx_.tolist()
+                    sorted(selected_idx)
+                else:
+                    selected_idx = selected_idx.tolist()
+                return selected_idx
+            ref_frame = random.randrange(video_length)
+
+            start_idx = max(0, ref_frame-self.sampling_frame_range)
+            end_idx = min(video_length, ref_frame+self.sampling_frame_range + 1)
+
+            selected_idx = np.random.choice(
+                np.array(list(range(start_idx, ref_frame)) + list(range(ref_frame+1, end_idx))),
+                self.sampling_frame_num - 1,
+            )
+            selected_idx = selected_idx.tolist() + [ref_frame]
+            selected_idx = sorted(selected_idx)
+
+        return selected_idx
+
     def __call__(self, dataset_dict):
         """
         Args:
@@ -436,20 +530,12 @@ class CocoClipDatasetMapper:
 
         if self.is_train:
             video_length = random.randrange(16, 49)
-            ref_frame = random.randrange(video_length)
-
-            start_idx = max(0, ref_frame-self.sampling_frame_range)
-            end_idx = min(video_length, ref_frame+self.sampling_frame_range + 1)
-
-            selected_idx = np.random.choice(
-                np.array(list(range(start_idx, ref_frame)) + list(range(ref_frame+1, end_idx))),
-                self.sampling_frame_num - 1,
-            )
-            selected_idx = selected_idx.tolist() + [ref_frame]
-            selected_idx = sorted(selected_idx)
+            selected_idx = self.select_frames(video_length)
+            if self.sampling_frame_shuffle:
+                random.shuffle(selected_idx)
         else:
             video_length = self.sampling_frame_num
-            selected_idx = list(range(self.sampling_frame_num))
+            selected_idx = range(video_length)
 
         dataset_dict["video_len"] = video_length
         dataset_dict["frame_idx"] = selected_idx
