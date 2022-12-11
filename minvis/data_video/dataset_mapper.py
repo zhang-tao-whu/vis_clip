@@ -24,6 +24,7 @@ from detectron2.structures import (
 from detectron2.data import MetadataCatalog
 from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
+from pycocotools import mask as coco_mask
 
 from .augmentation import build_augmentation, build_pseudo_augmentation
 
@@ -72,6 +73,21 @@ def _get_dummy_anno(num_classes):
         "segmentation": [np.array([0.0] * 6)]
     }
 
+def convert_coco_poly_to_mask(segmentations, height, width):
+    masks = []
+    for polygons in segmentations:
+        rles = coco_mask.frPyObjects(polygons, height, width)
+        mask = coco_mask.decode(rles)
+        if len(mask.shape) < 3:
+            mask = mask[..., None]
+        mask = torch.as_tensor(mask, dtype=torch.uint8)
+        mask = mask.any(dim=2)
+        masks.append(mask)
+    if masks:
+        masks = torch.stack(masks, dim=0)
+    else:
+        masks = torch.zeros((0, height, width), dtype=torch.uint8)
+    return masks
 
 def ytvis_annotations_to_instances(annos, image_size):
     """
@@ -533,8 +549,6 @@ class CocoClipDatasetMapper:
         if self.is_train:
             video_length = random.randrange(16, 49)
             selected_idx = self.select_frames(video_length)
-            if self.sampling_frame_shuffle:
-                random.shuffle(selected_idx)
         else:
             video_length = self.sampling_frame_num
             selected_idx = range(video_length)
