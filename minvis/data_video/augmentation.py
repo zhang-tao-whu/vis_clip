@@ -276,7 +276,7 @@ class FixedSizeCropClip(T.Augmentation):
     it returns the smaller image.
     """
 
-    def __init__(self, crop_size: tuple[int], pad: bool = True, pad_value: float = 128.0, clip_frame_cnt=1):
+    def __init__(self, crop_size, pad=True, pad_value=128.0, clip_frame_cnt=1):
         """
         Args:
             crop_size: target image (height, width).
