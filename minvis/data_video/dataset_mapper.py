@@ -402,6 +402,7 @@ class CocoClipDatasetMapper:
         self.image_format           = image_format
         self.sampling_frame_num     = sampling_frame_num
         self.sampling_frame_range   = sampling_frame_range
+        self.sampling_frame_ratio   = 1.0
 
         if not is_tgt:
             self.src_metadata = MetadataCatalog.get(src_dataset_name)
