@@ -347,7 +347,7 @@ class YTVISDatasetMapper:
                 for obj in _frame_annos
                 if obj.get("iscrowd", 0) == 0
             ]
-            sorted_annos = [_get_dummy_anno() for _ in range(len(ids))]
+            sorted_annos = [_get_dummy_anno(self.num_classes) for _ in range(len(ids))]
 
             for _anno in annos:
                 idx = ids[_anno["id"]]
