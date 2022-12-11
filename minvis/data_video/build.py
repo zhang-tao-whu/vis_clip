@@ -16,7 +16,7 @@ from detectron2.data.common import DatasetFromList, MapDataset
 from detectron2.data.dataset_mapper import DatasetMapper
 from detectron2.data.samplers import InferenceSampler, TrainingSampler
 from detectron2.utils.comm import get_world_size
-
+from .combined_loader import CombinedDataLoader, Loader
 
 def _compute_num_images_per_worker(cfg: CfgNode):
     num_workers = get_world_size()
@@ -110,6 +110,9 @@ def get_detection_dataset_dicts(
     assert len(dataset_dicts), "No valid data found in {}.".format(",".join(dataset_names))
     return dataset_dicts
 
+def build_combined_loader(cfg: CfgNode, loaders, ratios):
+    images_per_worker = _compute_num_images_per_worker(cfg)
+    return CombinedDataLoader(loaders, images_per_worker, ratios)
 
 def _train_loader_from_config(cfg, mapper, dataset_name=None, *, dataset=None, sampler=None):
     if dataset is None:
