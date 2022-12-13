@@ -48,10 +48,45 @@ MODEL:
       MAX_NUM: 10
 SOLVER:
   IMS_PER_BATCH: 8
-  STEPS: (14000,)
-  MAX_ITER: 20000
+  BASE_LR: 0.0001
+  STEPS: (28000,)
+  MAX_ITER: 40000
+  WARMUP_FACTOR: 1.0
+  WARMUP_ITERS: 10
+  WEIGHT_DECAY: 0.05
 INPUT:
-  MIN_SIZE_TRAIN: (360, )
+  MIN_SIZE_TRAIN: (240, 360, 480)
+  MAX_SIZE_TRAIN: 768
   MIN_SIZE_TEST: 360
-  SAMPLING_FRAME_NUM: 15
-  SAMPLING_FRAME_RANGE: 7
+  SAMPLING_FRAME_NUM: 21
+  SAMPLING_FRAME_RANGE: 10
+
+  SAMPLING_FRAME_SHUFFLE: False
+  # MIN_SIZE_TRAIN_SAMPLING : ["range", "choice", "range_by_clip", "choice_by_clip"]
+  MIN_SIZE_TRAIN_SAMPLING: "choice_by_clip"
+  # RANDOM_FLIP : ["none", "horizontal", "flip_by_clip"]. "horizontal" is set by default.
+  RANDOM_FLIP: "flip_by_clip"
+  AUGMENTATIONS: []
+  CROP:
+    ENABLED: True
+    TYPE: "absolute_range"
+    SIZE: (384, 600)
+  # For pseudo videos
+  PSEUDO:
+    AUGMENTATIONS: ['rotation']
+    MIN_SIZE_TRAIN: (240, 360, 480)
+    MAX_SIZE_TRAIN: 768
+    CROP:
+      ENABLED: True
+      TYPE: "absolute_range"
+      SIZE: (384, 600)
+  LSJ_AUG:
+    ENABLED: False
+    IMAGE_SIZE: 768
+    MIN_SCALE: 0.1
+    MAX_SCALE: 2.0
+
+DATASETS:
+  DATASET_RATIO: [1.0, 0.75]
+  TRAIN: ("coco2ytvis2019_train", "ytvis_2019_train")
+  TEST: ("ytvis_2019_val",)
