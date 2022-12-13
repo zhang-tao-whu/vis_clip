@@ -268,10 +268,10 @@ class YTVISDatasetMapper:
                 ref_frame = random.randrange(video_length)
                 start_idx = max(0, ref_frame - self.sampling_frame_range)
                 end_idx = min(video_length, ref_frame + self.sampling_frame_range + 1)
-                if start_idx == 0:
-                    end_idx = start_idx + self.sampling_frame_num
-                if end_idx == video_length:
-                    start_idx = video_length - self.sampling_frame_num
+                # if start_idx == 0:
+                #     end_idx = start_idx + self.sampling_frame_num
+                # if end_idx == video_length:
+                #     start_idx = video_length - self.sampling_frame_num
                 selected_idx = np.arange(start_idx, end_idx)
                 if end_idx - start_idx < self.sampling_frame_num:
                     selected_idx_ = np.random.choice(selected_idx, self.sampling_frame_num - len(selected_idx))
@@ -507,10 +507,10 @@ class CocoClipDatasetMapper:
                 ref_frame = random.randrange(video_length)
                 start_idx = max(0, ref_frame - self.sampling_frame_range)
                 end_idx = min(video_length, ref_frame + self.sampling_frame_range + 1)
-                if start_idx == 0:
-                    end_idx = start_idx + self.sampling_frame_num
-                if end_idx == video_length:
-                    start_idx = video_length - self.sampling_frame_num
+                # if start_idx == 0:
+                #     end_idx = start_idx + self.sampling_frame_num
+                # if end_idx == video_length:
+                #     start_idx = video_length - self.sampling_frame_num
                 selected_idx = np.arange(start_idx, end_idx)
                 if end_idx - start_idx < self.sampling_frame_num:
                     selected_idx_ = np.random.choice(selected_idx, self.sampling_frame_num - len(selected_idx))
