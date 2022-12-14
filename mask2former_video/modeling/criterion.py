@@ -158,7 +158,7 @@ class VideoSetCriterion(nn.Module):
         with torch.no_grad():
             # sample point_coords
             point_coords = get_uncertain_point_coords_with_randomness(
-                src_masks,
+                src_masks.to(torch.float32),
                 lambda logits: calculate_uncertainty(logits),
                 self.num_points,
                 self.oversample_ratio,
@@ -167,13 +167,13 @@ class VideoSetCriterion(nn.Module):
             # get gt labels
             point_labels = point_sample(
                 target_masks,
-                point_coords.to(target_masks),
+                point_coords,
                 align_corners=False,
             ).squeeze(1)
 
         point_logits = point_sample(
             src_masks,
-            point_coords.to(src_masks),
+            point_coords,
             align_corners=False,
         ).squeeze(1)
 
