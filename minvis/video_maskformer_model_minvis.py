@@ -355,7 +355,10 @@ class VideoMaskFormer_frame(nn.Module):
                 h, w = targets_per_frame.image_size
 
                 gt_ids_per_video.append(targets_per_frame.gt_ids[:, None])
-                gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks.tensor
+                if isinstance(targets_per_frame.gt_masks, BitMasks):
+                    gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks.tensor
+                else:  # polygon
+                    gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks
 
             gt_ids_per_video = torch.cat(gt_ids_per_video, dim=1)
             valid_idx = (gt_ids_per_video != -1).any(dim=-1)
