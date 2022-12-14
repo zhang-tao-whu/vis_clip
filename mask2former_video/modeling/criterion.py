@@ -167,13 +167,13 @@ class VideoSetCriterion(nn.Module):
             # get gt labels
             point_labels = point_sample(
                 target_masks,
-                point_coords,
+                point_coords.to(target_masks),
                 align_corners=False,
             ).squeeze(1)
 
         point_logits = point_sample(
             src_masks,
-            point_coords,
+            point_coords.to(src_masks),
             align_corners=False,
         ).squeeze(1)
 
