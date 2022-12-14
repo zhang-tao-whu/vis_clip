@@ -121,13 +121,13 @@ class VideoHungarianMatcher(nn.Module):
             # get gt labels
             tgt_mask = point_sample(
                 tgt_mask,
-                point_coords.repeat(tgt_mask.shape[0], 1, 1),
+                point_coords.repeat(tgt_mask.shape[0], 1, 1).to(tgt_mask),
                 align_corners=False,
             ).flatten(1)
 
             out_mask = point_sample(
                 out_mask,
-                point_coords.repeat(out_mask.shape[0], 1, 1),
+                point_coords.repeat(out_mask.shape[0], 1, 1).to(out_mask),
                 align_corners=False,
             ).flatten(1)
 
