@@ -251,35 +251,48 @@ class YTVISDatasetMapper:
         else:
             #select sampling_num from [ref_frame-frame_range, ref_frame+frame_range]
             if self.sampling_frame_range * 2 + 1 == self.sampling_frame_num:
-                # if self.sampling_frame_num > video_length:
-                #     selected_idx = range(video_length)
-                #     selected_idx = list(selected_idx) + np.random.choice(np.array(selected_idx),
-                #         self.sampling_frame_num - video_length, ).tolist()
+                # # if self.sampling_frame_num > video_length:
+                # #     selected_idx = range(video_length)
+                # #     selected_idx = list(selected_idx) + np.random.choice(np.array(selected_idx),
+                # #         self.sampling_frame_num - video_length, ).tolist()
+                # #     sorted(selected_idx)
+                # #     return selected_idx
+                # #
+                # # elif self.sampling_frame_num == video_length:
+                # #     selected_idx = list(range(video_length))
+                # #     return selected_idx
+                # # else:
+                # #     start = random.randrange(video_length - self.sampling_frame_num)
+                # #     selected_idx = list(range(start, start + self.sampling_frame_num))
+                # #     return selected_idx
+                # ref_frame = random.randrange(video_length)
+                # start_idx = max(0, ref_frame - self.sampling_frame_range)
+                # end_idx = min(video_length, ref_frame + self.sampling_frame_range + 1)
+                # # if start_idx == 0:
+                # #     end_idx = start_idx + self.sampling_frame_num
+                # # if end_idx == video_length:
+                # #     start_idx = video_length - self.sampling_frame_num
+                # selected_idx = np.arange(start_idx, end_idx)
+                # if end_idx - start_idx < self.sampling_frame_num:
+                #     selected_idx_ = np.random.choice(selected_idx, self.sampling_frame_num - len(selected_idx))
+                #     selected_idx = selected_idx.tolist() + selected_idx_.tolist()
                 #     sorted(selected_idx)
-                #     return selected_idx
-                #
-                # elif self.sampling_frame_num == video_length:
-                #     selected_idx = list(range(video_length))
-                #     return selected_idx
                 # else:
-                #     start = random.randrange(video_length - self.sampling_frame_num)
-                #     selected_idx = list(range(start, start + self.sampling_frame_num))
-                #     return selected_idx
-                ref_frame = random.randrange(video_length)
-                start_idx = max(0, ref_frame - self.sampling_frame_range)
-                end_idx = min(video_length, ref_frame + self.sampling_frame_range + 1)
-                # if start_idx == 0:
-                #     end_idx = start_idx + self.sampling_frame_num
-                # if end_idx == video_length:
-                #     start_idx = video_length - self.sampling_frame_num
-                selected_idx = np.arange(start_idx, end_idx)
-                if end_idx - start_idx < self.sampling_frame_num:
+                #     selected_idx = selected_idx.tolist()
+                # return selected_idx
+                if self.sampling_frame_num > video_length:
+                    selected_idx = np.arange(0, video_length)
                     selected_idx_ = np.random.choice(selected_idx, self.sampling_frame_num - len(selected_idx))
                     selected_idx = selected_idx.tolist() + selected_idx_.tolist()
                     sorted(selected_idx)
                 else:
-                    selected_idx = selected_idx.tolist()
+                    start_idx = random.randrange(video_length - self.sampling_frame_num)
+                    end_idx = start_idx + self.sampling_frame_num
+                    selected_idx = np.arange(start_idx, end_idx).tolist()
+                if random.random() < 0.5:
+                    selected_idx = selected_idx[::-1]
                 return selected_idx
+
             ref_frame = random.randrange(video_length)
 
             start_idx = max(0, ref_frame-self.sampling_frame_range)
@@ -490,35 +503,49 @@ class CocoClipDatasetMapper:
         else:
             #select sampling_num from [ref_frame-frame_range, ref_frame+frame_range]
             if self.sampling_frame_range * 2 + 1 == self.sampling_frame_num:
-                # if self.sampling_frame_num > video_length:
-                #     selected_idx = range(video_length)
-                #     selected_idx = list(selected_idx) + np.random.choice(np.array(selected_idx),
-                #         self.sampling_frame_num - video_length, ).tolist()
+                # # if self.sampling_frame_num > video_length:
+                # #     selected_idx = range(video_length)
+                # #     selected_idx = list(selected_idx) + np.random.choice(np.array(selected_idx),
+                # #         self.sampling_frame_num - video_length, ).tolist()
+                # #     sorted(selected_idx)
+                # #     return selected_idx
+                # #
+                # # elif self.sampling_frame_num == video_length:
+                # #     selected_idx = list(range(video_length))
+                # #     return selected_idx
+                # # else:
+                # #     start = random.randrange(video_length - self.sampling_frame_num)
+                # #     selected_idx = list(range(start, start + self.sampling_frame_num))
+                # #     return selected_idx
+                # ref_frame = random.randrange(video_length)
+                # start_idx = max(0, ref_frame - self.sampling_frame_range)
+                # end_idx = min(video_length, ref_frame + self.sampling_frame_range + 1)
+                # # if start_idx == 0:
+                # #     end_idx = start_idx + self.sampling_frame_num
+                # # if end_idx == video_length:
+                # #     start_idx = video_length - self.sampling_frame_num
+                # selected_idx = np.arange(start_idx, end_idx)
+                # if end_idx - start_idx < self.sampling_frame_num:
+                #     selected_idx_ = np.random.choice(selected_idx, self.sampling_frame_num - len(selected_idx))
+                #     selected_idx = selected_idx.tolist() + selected_idx_.tolist()
                 #     sorted(selected_idx)
-                #     return selected_idx
-                #
-                # elif self.sampling_frame_num == video_length:
-                #     selected_idx = list(range(video_length))
-                #     return selected_idx
                 # else:
-                #     start = random.randrange(video_length - self.sampling_frame_num)
-                #     selected_idx = list(range(start, start + self.sampling_frame_num))
-                #     return selected_idx
-                ref_frame = random.randrange(video_length)
-                start_idx = max(0, ref_frame - self.sampling_frame_range)
-                end_idx = min(video_length, ref_frame + self.sampling_frame_range + 1)
-                # if start_idx == 0:
-                #     end_idx = start_idx + self.sampling_frame_num
-                # if end_idx == video_length:
-                #     start_idx = video_length - self.sampling_frame_num
-                selected_idx = np.arange(start_idx, end_idx)
-                if end_idx - start_idx < self.sampling_frame_num:
+                #     selected_idx = selected_idx.tolist()
+                # return selected_idx
+
+                if self.sampling_frame_num > video_length:
+                    selected_idx = np.arange(0, video_length)
                     selected_idx_ = np.random.choice(selected_idx, self.sampling_frame_num - len(selected_idx))
                     selected_idx = selected_idx.tolist() + selected_idx_.tolist()
                     sorted(selected_idx)
                 else:
-                    selected_idx = selected_idx.tolist()
+                    start_idx = random.randrange(video_length - self.sampling_frame_num)
+                    end_idx = start_idx + self.sampling_frame_num
+                    selected_idx = np.arange(start_idx, end_idx).tolist()
+                if random.random() < 0.5:
+                    selected_idx = selected_idx[::-1]
                 return selected_idx
+
             ref_frame = random.randrange(video_length)
 
             start_idx = max(0, ref_frame-self.sampling_frame_range)
