@@ -615,7 +615,7 @@ class QueryTracker_offline(torch.nn.Module):
             )
 
             output = output.permute(1, 2, 0)  # (bq, c, t)
-            print(output.shape)
+            print(self.conv_short_aggregate_layers[i](output).shape)
             output = self.conv_norms[i](
                 (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)).transpose(1, 2)
             output = output.reshape(n_batch, n_instance, n_channel,
