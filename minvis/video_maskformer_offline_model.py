@@ -597,6 +597,7 @@ class QueryTracker_offline(torch.nn.Module):
     def forward(self, instance_embeds, frame_embeds, mask_features):
         # instance_embds (b, c, t, q)
         # frame_embds (b, c, t, q)
+        print(instance_embeds.shape)
         n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
         outputs = []
         time_embds = self.pe_layer(instance_embeds.permute(2, 0, 3, 1).flatten(1, 2))
