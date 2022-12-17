@@ -91,3 +91,6 @@ DATASETS:
   DATASET_RATIO: [1.0, 1.0]
   TRAIN: ("coco2ovis_train", "ovis_train")
   TEST: ("ovis_val",)
+
+DATALOADER:
+  FILTER_EMPTY_ANNOTATIONS: True
