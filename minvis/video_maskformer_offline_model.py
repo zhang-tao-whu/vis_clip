@@ -548,10 +548,10 @@ class QueryTracker_offline(torch.nn.Module):
             self.conv_short_aggregate_layers.append(
                 nn.Sequential(
                     nn.Conv1d(hidden_channel, hidden_channel, kernel_size=5, stride=1,
-                              padding='same', padding_mode='replicate'),
+                              padding=2, padding_mode='replicate'),
                     nn.ReLU(inplace=True),
                     nn.Conv1d(hidden_channel, hidden_channel, kernel_size=3, stride=1,
-                              padding='same', padding_mode='replicate'),
+                              padding=1, padding_mode='replicate'),
                 )
             )
 

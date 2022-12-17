@@ -292,7 +292,6 @@ class YTVISDatasetMapper:
                         start_idx = random.randrange(video_length - self.sampling_frame_num)
                     end_idx = start_idx + self.sampling_frame_num
                     selected_idx = np.arange(start_idx, end_idx).tolist()
-                print(selected_idx)
                 return selected_idx
 
             ref_frame = random.randrange(video_length)
@@ -547,7 +546,6 @@ class CocoClipDatasetMapper:
                         start_idx = random.randrange(video_length - self.sampling_frame_num)
                     end_idx = start_idx + self.sampling_frame_num
                     selected_idx = np.arange(start_idx, end_idx).tolist()
-                print(selected_idx)
                 return selected_idx
 
             ref_frame = random.randrange(video_length)
