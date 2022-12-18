@@ -189,11 +189,12 @@ class RandomCropClip(T.Augmentation):
     Randomly crop a rectangle region out of an image.
     """
 
-    def __init__(self, crop_type: str, crop_size, clip_frame_cnt=1):
+    def __init__(self, crop_type: str, crop_size, clip_length):
         """
         Args:
             crop_type (str): one of "relative_range", "relative", "absolute", "absolute_range".
             crop_size (tuple[float, float]): two floats, explained below.
+
         - "relative": crop a (H * crop_size[0], W * crop_size[1]) region from an input image of
           size (H, W). crop size should be in (0, 1]
         - "relative_range": uniformly sample two values from [crop_size[0], 1]
@@ -207,45 +208,32 @@ class RandomCropClip(T.Augmentation):
         # TODO style of relative_range and absolute_range are not consistent:
         # one takes (h, w) but another takes (min, max)
         super().__init__()
+        self.clip_length = clip_length
+        self._cnt = 0
+        self.transform_temp = None
         assert crop_type in ["relative_range", "relative", "absolute", "absolute_range"]
         self._init(locals())
-        self._cnt = 0
 
     def get_transform(self, image):
-        h, w = image.shape[:2]  # 667, 500
-        if self._cnt % self.clip_frame_cnt == 0:
+        if self._cnt % self.clip_length == 0:
+            h, w = image.shape[:2]
             croph, cropw = self.get_crop_size((h, w))
             assert h >= croph and w >= cropw, "Shape computation in {} has bugs.".format(self)
-
-            h0 = np.random.randint(h - croph + 1)  # rand(124) -> 5
-            w0 = np.random.randint(w - cropw + 1)  # rand(111) -> 634
-
-            h1 = np.random.randint(h0, h - croph + 1)
-            w1 = np.random.randint(w0, w - cropw + 1)
-
-            x = np.sort(np.random.rand(self.clip_frame_cnt))
-
-            h = h0 * x + h1 * (1 - x)
-            w = w0 * x + w1 * (1 - x)
-            h = np.round_(h).astype(np.int)
-            w = np.round_(w).astype(np.int)
-
-            if self._rand_range() < 0.5:
-                h = h[::-1]
-                w = w[::-1]
-
-            self.hw_save = (h, w)
-            self.crop_h_save, self.crop_w_save = croph, cropw
-            self._cnt = 0  # avoiding overflow
-        _h, _w = self.hw_save[0][self._cnt], self.hw_save[1][self._cnt]
-        self._cnt += 1
-
-        return T.CropTransform(_w, _h, self.crop_w_save, self.crop_h_save)
+            h0 = np.random.randint(h - croph + 1)
+            w0 = np.random.randint(w - cropw + 1)
+            self.transform_temp = CropTransform(w0, h0, cropw, croph)
+            self._cnt = 0
+            self._cnt += 1
+            return self.transform_temp
+        else:
+            self._cnt += 1
+            return self.transform_temp
 
     def get_crop_size(self, image_size):
         """
         Args:
             image_size (tuple): height, width
+
         Returns:
             crop_size (tuple): height, width in absolute pixels
         """
@@ -467,7 +455,7 @@ def build_augmentation(cfg, is_train):
                 crop_aug = RandomApplyClip(
                     T.AugmentationList([
                         ResizeShortestEdge([400, 500, 600], 1333, sample_style, clip_frame_cnt=clip_frame_cnt),
-                        RandomCropClip(cfg.INPUT.PSEUDO.CROP.TYPE, cfg.INPUT.PSEUDO.CROP.SIZE, clip_frame_cnt=clip_frame_cnt)
+                        RandomCropClip(cfg.INPUT.PSEUDO.CROP.TYPE, cfg.INPUT.PSEUDO.CROP.SIZE, clip_length=clip_frame_cnt)
                     ]),
                     clip_frame_cnt=clip_frame_cnt
                 )
@@ -574,7 +562,7 @@ def build_pseudo_augmentation(cfg, is_train):
                 crop_aug = RandomApplyClip(
                     T.AugmentationList([
                         ResizeShortestEdge([400, 500, 600], 1333, sample_style, clip_frame_cnt=clip_frame_cnt),
-                        RandomCropClip(cfg.INPUT.PSEUDO.CROP.TYPE, cfg.INPUT.PSEUDO.CROP.SIZE, clip_frame_cnt=clip_frame_cnt)
+                        RandomCropClip(cfg.INPUT.PSEUDO.CROP.TYPE, cfg.INPUT.PSEUDO.CROP.SIZE, clip_length=clip_frame_cnt)
                     ]),
                     clip_frame_cnt=clip_frame_cnt
                 )
