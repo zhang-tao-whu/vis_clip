@@ -69,7 +69,7 @@ INPUT:
   RANDOM_FLIP: "flip_by_clip"
   AUGMENTATIONS: []
   CROP:
-    ENABLED: True
+    ENABLED: False
     TYPE: "absolute_range"
     SIZE: (384, 600)
   # For pseudo videos
@@ -78,7 +78,7 @@ INPUT:
     MIN_SIZE_TRAIN: (240, 360, 480)
     MAX_SIZE_TRAIN: 768
     CROP:
-      ENABLED: True
+      ENABLED: False
       TYPE: "absolute_range"
       SIZE: (384, 600)
   LSJ_AUG:
@@ -88,6 +88,6 @@ INPUT:
     MAX_SCALE: 2.0
 
 DATASETS:
-  DATASET_RATIO: [1.0, 1.0]
+  DATASET_RATIO: [1.0, ]
   TRAIN: ("ovis_train", )
   TEST: ("ovis_val",)
