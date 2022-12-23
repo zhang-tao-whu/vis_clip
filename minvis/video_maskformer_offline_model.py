@@ -257,7 +257,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 # features = self.backbone(images.tensor)
                 # image_outputs = self.sem_seg_head(features)
                 # del features['res2'], features['res3'], features['res4'], features['res5']
-                image_outputs = self.segmentor_windows_inference(images.tensor)
+                image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # b c t q
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
