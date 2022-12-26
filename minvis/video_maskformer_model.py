@@ -256,8 +256,7 @@ class VideoMaskFormer_online(nn.Module):
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
-            # losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
-            losses = self.criterion(outputs, targets, matcher_outputs=None)
+            losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
