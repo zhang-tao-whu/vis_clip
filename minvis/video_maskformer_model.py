@@ -111,6 +111,8 @@ class VideoMaskFormer_online(nn.Module):
             mask_dim=256,
             class_num=num_class,)
 
+        self.iter = 0
+
     @classmethod
     def from_config(cls, cfg):
         backbone = build_backbone(cfg)
@@ -252,7 +254,13 @@ class VideoMaskFormer_online(nn.Module):
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
 
-            image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets, image_outputs=image_outputs)
+            if self.iter < 10000:
+                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
+                                                                                  image_outputs=image_outputs)
+            else:
+                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
+                                                                                  image_outputs=None)
+            self.iter += 1
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
