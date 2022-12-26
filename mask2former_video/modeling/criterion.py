@@ -343,7 +343,7 @@ class VideoSetCriterion(nn.Module):
         if "aux_outputs" in outputs:
             for i, aux_outputs in enumerate(outputs["aux_outputs"]):
                 #if matcher_outputs is None:
-                indices = self.matcher(aux_outputs, targets)
+                #indices = self.matcher(aux_outputs, targets)
                 for loss in self.losses:
                     if loss == 'contrast':
                         continue
