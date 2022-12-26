@@ -191,7 +191,7 @@ class VideoMaskFormer_online(nn.Module):
     def reset_image_output_order(self, output, indices):
         # 'pred_masks (b q t h w)', 'pred_logits' (b t q c)
         indices = torch.Tensor(indices).to(torch.int64) # (t, q)
-        frame_indices = torch.range(indices.shape[0]).to(indices).unsqueeze(1).repeat(1, indices.shape[1])
+        frame_indices = torch.range(0, indices.shape[0]).to(indices).unsqueeze(1).repeat(1, indices.shape[1])
         output['pred_masks'][0] = output['pred_masks'][0][indices, frame_indices].transpose(0, 1)
         output['pred_logits'][0] = output['pred_logits'][0][frame_indices, indices]
         return output
