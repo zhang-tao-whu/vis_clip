@@ -23,3 +23,5 @@ INPUT:
   PSEUDO:
     MIN_SIZE_TRAIN: (360, 480, 600)
   MIN_SIZE_TEST: 480
+
+OUTPUT_DIR: './output_8gpu'
