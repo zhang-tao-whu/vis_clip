@@ -938,7 +938,7 @@ class QueryTracker_mine(torch.nn.Module):
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
                             # single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
-                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
+                            single_frame_embeds[indices], single_frame_embeds[indices], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
@@ -955,7 +955,8 @@ class QueryTracker_mine(torch.nn.Module):
                         ms_output.append(output)
                     else:
                         output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
+                            # ms_output[-1], self.last_outputs[-1], single_frame_embeds,
+                            ms_output[-1], ms_output[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,  # here we do not apply masking on padded region
                             pos=None, query_pos=None
