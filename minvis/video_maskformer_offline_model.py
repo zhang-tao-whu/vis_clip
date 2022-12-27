@@ -114,6 +114,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             mask_dim=256,
             class_num=num_class,
         )
+        self.iter = 0
 
     @classmethod
     def from_config(cls, cfg):
@@ -279,7 +280,13 @@ class VideoMaskFormer_frame_offline(nn.Module):
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
 
-            image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets, image_outputs=image_outputs)
+            if self.iter < 10000:
+                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
+                                                                                  image_outputs=image_outputs)
+            else:
+                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
+                                                                                  image_outputs=None)
+            self.iter += 1
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
@@ -686,14 +693,20 @@ class QueryTracker_offline(torch.nn.Module):
         outputs_classes = self.pred_class(outputs_classes)
         return outputs_classes.cpu().to(torch.float32), torch.cat(outputs_masks, dim=3)
 
+    # def pred_class(self, decoder_output):
+    #     # decoder_output  (L, B, T, q, c)
+    #     T = decoder_output.size(2)
+    #     activation = self.activation_proj(decoder_output).softmax(dim=2)
+    #     class_output = (decoder_output * activation).sum(dim=2, keepdim=True) # (L, B, 1, q, c)
+    #     # class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
+    #     class_output = class_output.repeat(1, 1, T, 1, 1)
+    #     outputs_class = self.class_embed(class_output).transpose(2, 3)
+    #     return outputs_class
+
     def pred_class(self, decoder_output):
         # decoder_output  (L, B, T, q, c)
         T = decoder_output.size(2)
-        activation = self.activation_proj(decoder_output).softmax(dim=2)
-        class_output = (decoder_output * activation).sum(dim=2, keepdim=True) # (L, B, 1, q, c)
-        # class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
-        class_output = class_output.repeat(1, 1, T, 1, 1)
-        outputs_class = self.class_embed(class_output).transpose(2, 3)
+        outputs_class = self.class_embed(decoder_output).mean(dim=2, keepdim=True).repeat(1, 1, T, 1, 1).transpose(2, 3)
         return outputs_class
 
     def prediction(self, outputs, mask_features):
