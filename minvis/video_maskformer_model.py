@@ -57,6 +57,7 @@ class VideoMaskFormer_online(nn.Module):
         window_inference,
         num_class,
         max_num,
+        max_iter_num
     ):
         """
         Args:
@@ -112,6 +113,7 @@ class VideoMaskFormer_online(nn.Module):
             class_num=num_class,)
 
         self.iter = 0
+        self.max_iter_num = max_iter_num
 
     @classmethod
     def from_config(cls, cfg):
@@ -167,6 +169,8 @@ class VideoMaskFormer_online(nn.Module):
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
 
+        max_iter_num = cfg.SOLVER.MAX_ITER
+
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
@@ -183,7 +187,8 @@ class VideoMaskFormer_online(nn.Module):
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
             "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
             "num_class": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
-            "max_num": cfg.MODEL.MASK_FORMER.TEST.MAX_NUM
+            "max_num": cfg.MODEL.MASK_FORMER.TEST.MAX_NUM,
+            "max_iter_num": max_iter_num
         }
 
     @property
@@ -254,7 +259,7 @@ class VideoMaskFormer_online(nn.Module):
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
 
-            if self.iter < 10000:
+            if self.iter < self.max_iter_num // 2:
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
                                                                                   image_outputs=image_outputs)
             else:

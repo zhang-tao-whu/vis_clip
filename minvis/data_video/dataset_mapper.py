@@ -152,6 +152,7 @@ class YTVISDatasetMapper:
         sampling_frame_num: int = 2,
         sampling_frame_range: int = 5,
         sampling_frame_shuffle: bool = False,
+        reverse_agu: bool = False,
         num_classes: int = 40,
         src_dataset_name: str = "",
         tgt_dataset_name: str = "",
@@ -175,6 +176,7 @@ class YTVISDatasetMapper:
         self.sampling_frame_shuffle = sampling_frame_shuffle
         self.num_classes            = num_classes
         self.sampling_frame_ratio = 1.0
+        self.reverse_agu = reverse_agu
 
         if not is_tgt:
             self.src_metadata = MetadataCatalog.get(src_dataset_name)
@@ -211,6 +213,7 @@ class YTVISDatasetMapper:
         sampling_frame_num = cfg.INPUT.SAMPLING_FRAME_NUM
         sampling_frame_range = cfg.INPUT.SAMPLING_FRAME_RANGE
         sampling_frame_shuffle = cfg.INPUT.SAMPLING_FRAME_SHUFFLE
+        reverse_agu = cfg.INPUT.REVERSE_AGU
 
         ret = {
             "is_train": is_train,
@@ -221,6 +224,7 @@ class YTVISDatasetMapper:
             "sampling_frame_num": sampling_frame_num,
             "sampling_frame_range": sampling_frame_range,
             "sampling_frame_shuffle": sampling_frame_shuffle,
+            "reverse_agu": reverse_agu,
             "num_classes": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
             "tgt_dataset_name": cfg.DATASETS.TRAIN[-1],
         }
@@ -292,6 +296,8 @@ class YTVISDatasetMapper:
                         start_idx = random.randrange(video_length - self.sampling_frame_num)
                     end_idx = start_idx + self.sampling_frame_num
                     selected_idx = np.arange(start_idx, end_idx).tolist()
+                if self.reverse_agu and random.random() < 0.5:
+                    selected_idx = selected_idx[::-1]
                 return selected_idx
 
             ref_frame = random.randrange(video_length)

@@ -62,6 +62,7 @@ INPUT:
   SAMPLING_FRAME_RANGE: 10
 
   SAMPLING_FRAME_SHUFFLE: False
+  REVERSE_AGU: True
   # MIN_SIZE_TRAIN_SAMPLING : ["range", "choice", "range_by_clip", "choice_by_clip"]
   MIN_SIZE_TRAIN_SAMPLING: "choice_by_clip"
   # RANDOM_FLIP : ["none", "horizontal", "flip_by_clip"]. "horizontal" is set by default.
