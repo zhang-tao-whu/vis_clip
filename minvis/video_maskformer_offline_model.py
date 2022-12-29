@@ -620,11 +620,11 @@ class QueryTracker_offline(torch.nn.Module):
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1) #(t, b, q, c)
             output = output.flatten(1, 2) # (t, bq, c)
-            output = self.transformer_time_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=time_embds
-            )
+            #output = self.transformer_time_self_attention_layers[i](
+            #    output, tgt_mask=None,
+            #    tgt_key_padding_mask=None,
+            #    query_pos=time_embds
+            #)
 
             output = output.permute(1, 2, 0)  # (bq, c, t)
             output = self.conv_norms[i](
