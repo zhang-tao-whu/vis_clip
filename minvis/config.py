@@ -39,4 +39,6 @@ def add_minvis_config(cfg):
     cfg.INPUT.LSJ_AUG.MIN_SCALE = 0.1
     cfg.INPUT.LSJ_AUG.MAX_SCALE = 2.0
 
+    cfg.SEED = 42
+
 
