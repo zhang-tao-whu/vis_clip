@@ -641,12 +641,12 @@ class QueryTracker_offline(torch.nn.Module):
                 query_pos=None
             )
 
-            # output = self.transformer_cross_attention_layers[i](
-            #     output, frame_embeds,
-            #     memory_mask=None,
-            #     memory_key_padding_mask=None,
-            #     pos=None, query_pos=None
-            # )
+            output = self.transformer_cross_attention_layers[i](
+                output, frame_embeds,
+                memory_mask=None,
+                memory_key_padding_mask=None,
+                pos=None, query_pos=None
+            )
             output = self.transformer_ffn_layers[i](
                 output
             )
