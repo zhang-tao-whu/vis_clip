@@ -635,18 +635,18 @@ class QueryTracker_offline(torch.nn.Module):
             # output = output.reshape(n_frames, n_batch, n_instance, n_channel)
             # output = output.permute(2, 1, 0, 3).flatten(1, 2) # (q, bt, c)
 
-            # output = self.transformer_obj_self_attention_layers[i](
-            #     output, tgt_mask=None,
-            #     tgt_key_padding_mask=None,
-            #     query_pos=None
-            # )
-
-            output = self.transformer_cross_attention_layers[i](
-                output, frame_embeds,
-                memory_mask=None,
-                memory_key_padding_mask=None,
-                pos=None, query_pos=None
+            output = self.transformer_obj_self_attention_layers[i](
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=None
             )
+
+            # output = self.transformer_cross_attention_layers[i](
+            #     output, frame_embeds,
+            #     memory_mask=None,
+            #     memory_key_padding_mask=None,
+            #     pos=None, query_pos=None
+            # )
             output = self.transformer_ffn_layers[i](
                 output
             )
