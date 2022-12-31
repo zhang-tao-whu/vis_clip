@@ -621,10 +621,10 @@ class QueryTracker_offline(torch.nn.Module):
             output = output.permute(2, 0, 3, 1) #(t, b, q, c)
             output = output.flatten(1, 2) # (t, bq, c)
             output = self.transformer_time_self_attention_layers[i](
-               output, tgt_mask=None,
-               tgt_key_padding_mask=None,
-               # query_pos=time_embds
-               query_pos=None
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                #query_pos=time_embds
+                query_pos=None
             )
 
             output = output.permute(1, 2, 0)  # (bq, c, t)
@@ -704,6 +704,8 @@ class QueryTracker_offline(torch.nn.Module):
         # decoder_output  (L, B, T, q, c)
         T = decoder_output.size(2)
         activation = self.activation_proj(decoder_output).softmax(dim=2)
+        for i in range(T):
+            print(activation[-1, 0, i, :, 0])
         class_output = (decoder_output * activation).sum(dim=2, keepdim=True) # (L, B, 1, q, c)
         # class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
         class_output = class_output.repeat(1, 1, T, 1, 1)
