@@ -709,6 +709,7 @@ class QueryTracker_offline(torch.nn.Module):
         # class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
         fg = class_output[-1, 0, 0].softmax(dim=-1)
         fg = torch.max(fg, dim=-1)
+        print(fg[0])
         fg = torch.logical_and(fg[0] > 0.3, fg[1] != class_output.size(4) - 1)
         print(act_val[fg], act_idx[fg])
         class_output = class_output.repeat(1, 1, T, 1, 1)
