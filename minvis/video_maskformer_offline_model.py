@@ -704,8 +704,7 @@ class QueryTracker_offline(torch.nn.Module):
         # decoder_output  (L, B, T, q, c)
         T = decoder_output.size(2)
         activation = self.activation_proj(decoder_output).softmax(dim=2)
-        for i in range(T):
-            print(activation[-1, 0, i, :, 0])
+        print(torch.max(activation[-1, 0], dim=0))
         class_output = (decoder_output * activation).sum(dim=2, keepdim=True) # (L, B, 1, q, c)
         # class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
         class_output = class_output.repeat(1, 1, T, 1, 1)
