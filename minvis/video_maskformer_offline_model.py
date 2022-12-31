@@ -623,7 +623,8 @@ class QueryTracker_offline(torch.nn.Module):
             output = self.transformer_time_self_attention_layers[i](
                output, tgt_mask=None,
                tgt_key_padding_mask=None,
-               query_pos=time_embds
+               # query_pos=time_embds
+               query_pos=None
             )
 
             output = output.permute(1, 2, 0)  # (bq, c, t)
