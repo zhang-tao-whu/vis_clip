@@ -136,18 +136,6 @@ class VideoSetCriterion(nn.Module):
 
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
         losses = {"loss_ce": loss_ce}
-
-        # for activation supervision
-        if 'activation' not in outputs:
-            return losses
-        activation = outputs['activation'] # (L, B, Q, T)
-        activation = activation.permute(1, 2, 3, 0) # (B, Q, T, L)
-        activation = activation[idx] # (N, T, L)
-        target_ids = torch.cat([t["ids"][J] for t, (_, J) in zip(targets, indices)], dim=0) # (N, T)
-        activation_neg = activation[target_ids == -1] # (N, L)
-        if activation_neg.size(0) != 0:
-            loss_activation = torch.sum(activation_neg)
-            losses['loss_ce'] = losses['loss_ce'] + loss_activation
         return losses
     
     def loss_masks(self, outputs, targets, indices, num_masks):

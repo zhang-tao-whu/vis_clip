@@ -656,10 +656,7 @@ class QueryTracker_offline(torch.nn.Module):
             outputs.append(output)
 
         outputs = torch.stack(outputs, dim=0).permute(3, 0, 4, 1, 2) # (l, b, c, t, q) -> (frame, decoder_layer, q, b, c)
-        if self.training:
-            outputs_class, outputs_masks, activation = self.prediction(outputs, mask_features, return_activation=True)
-        else:
-            outputs_class, outputs_masks = self.prediction(outputs, mask_features)
+        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
         outputs = self.decoder_norm(outputs)
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),
@@ -669,8 +666,6 @@ class QueryTracker_offline(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
         }
-        if self.training:
-            out.update({'activation': activation})
         # pred_logits (bs, t, nq, c)
         # pred_masks (bs, nq, t, h, w)
         return out
@@ -705,7 +700,7 @@ class QueryTracker_offline(torch.nn.Module):
         outputs_classes = self.pred_class(outputs_classes)
         return outputs_classes.cpu().to(torch.float32), torch.cat(outputs_masks, dim=3)
 
-    def pred_class(self, decoder_output, return_activation=False):
+    def pred_class(self, decoder_output):
         # decoder_output  (L, B, T, q, c)
         T = decoder_output.size(2)
         activation = self.activation_proj(decoder_output).softmax(dim=2) # (L, B, T, q, 1)
@@ -724,25 +719,18 @@ class QueryTracker_offline(torch.nn.Module):
 
         class_output = class_output.repeat(1, 1, T, 1, 1)
         outputs_class = self.class_embed(class_output).transpose(2, 3)
-        if return_activation:
-            return outputs_class, activation
-        else:
-            return outputs_class
+        return outputs_class
 
-    def prediction(self, outputs, mask_features, return_activation=False):
+    def prediction(self, outputs, mask_features):
         # outputs (T, L, q, b, c)
         # mask_features (b, T, C, H, W)
         if self.training:
             decoder_output = self.decoder_norm(outputs)
             decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
-            outputs_class, activation = self.pred_class(decoder_output, return_activation=return_activation)
+            outputs_class = self.pred_class(decoder_output)
             # output_class (L, B, q, T, Cls+1), activation (L, B, T, q, 1)
-            activation = activation.permute(0, 1, 3, 2, 4)[:, :, :, :, 0] # (L, B, Q, T)
             mask_embed = self.mask_embed(decoder_output)
             outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         else:
             outputs_class, outputs_mask = self.windows_prediction(outputs, mask_features, windows=5)
-        if return_activation:
-            return outputs_class, outputs_mask, activation
-        else:
-            return outputs_class, outputs_mask
+        return outputs_class, outputs_mask
