@@ -720,7 +720,7 @@ class QueryTracker_offline(torch.nn.Module):
             print(fg[0])
             print(fg[1])
             fg = torch.logical_and(fg[0] > 0.3, fg[1] != temp.size(1) - 1)
-            print(activation[-1, 0].transpose(0, 1)[fg])
+            print(activation[-1, 0].transpose(0, 1)[fg] * 100)
 
         class_output = class_output.repeat(1, 1, T, 1, 1)
         outputs_class = self.class_embed(class_output).transpose(2, 3)
