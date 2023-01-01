@@ -146,7 +146,7 @@ class VideoSetCriterion(nn.Module):
         target_ids = torch.cat([t["ids"][J] for t, (_, J) in zip(targets, indices)], dim=0) # (N, T)
         activation_neg = activation[target_ids == -1] # (N, L)
         if activation_neg.size(0) != 0:
-            loss_activation = torch.mean(activation_neg)
+            loss_activation = torch.sum(activation_neg)
             losses['loss_ce'] = losses['loss_ce'] + loss_activation
         return losses
     
