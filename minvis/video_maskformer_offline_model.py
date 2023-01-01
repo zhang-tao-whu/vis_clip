@@ -712,7 +712,7 @@ class QueryTracker_offline(torch.nn.Module):
 
         class_output = (decoder_output * activation).sum(dim=2, keepdim=True) # (L, B, 1, q, c)
         # class_output = torch.cat([class_output, class_output.detach().repeat(1, 1, T - 1, 1, 1)], dim=2)
-        debug = False
+        debug = True
         if debug:
             temp = class_output[-1, 0, 0]
             temp = self.class_embed(temp).softmax(-1)
