@@ -818,7 +818,7 @@ class QueryTracker_offline_transCls(torch.nn.Module):
         self.transformer_class_mix_ffn_layers = nn.ModuleList()
         for _ in range(3):
             self.transformer_class_mix_self_attention_layers.append(
-                SelfAttentionLayer(
+                CrossAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
                     dropout=0.0,
@@ -833,6 +833,8 @@ class QueryTracker_offline_transCls(torch.nn.Module):
                     normalize_before=False,
                 )
             )
+
+        self.cls_token = nn.Embedding(1, hidden_channel)
 
 
     def forward(self, instance_embeds, frame_embeds, mask_features):
@@ -932,23 +934,23 @@ class QueryTracker_offline_transCls(torch.nn.Module):
         # decoder_output  (L, B, T, q, c)
         L, B, T, Q, C = decoder_output.size()
         class_output = decoder_output.permute(2, 0, 1, 3, 4).flatten(1, 3) # (T, LBQ, C)
-        class_token = torch.mean(class_output, dim=0, keepdim=True)
+        class_token = self.cls_token.weight.unsqueeze(1).repeat(1, L * B * Q, 1)
 
-        outputs = torch.cat([class_token, class_output], dim=0) # (1+T, LBQ, C)
 
         for i in range(3):
-            outputs = self.transformer_class_mix_self_attention_layers[i](
-                outputs, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=None
+            class_token = self.transformer_class_mix_self_attention_layers[i](
+                class_token, class_output,
+                memory_mask=None,
+                memory_key_padding_mask=None,
+                pos=None, query_pos=None
             )
 
-            outputs = self.transformer_class_mix_ffn_layers[i](
-                outputs
+            class_token = self.transformer_class_mix_ffn_layers[i](
+                class_token
             )
-        outputs = outputs[:1]
-        outputs = outputs.reshape(1, L, B, Q, C).permute(1, 2, 0, 3, 4) # (L, B, 1, Q, C)
-        outputs_class = self.class_embed(outputs).repeat(1, 1, T, 1, 1).transpose(2, 3)
+
+        class_token = class_token.reshape(1, L, B, Q, C).permute(1, 2, 0, 3, 4) # (L, B, 1, Q, C)
+        outputs_class = self.class_embed(class_token).repeat(1, 1, T, 1, 1).transpose(2, 3)
         return outputs_class
 
     def prediction(self, outputs, mask_features):
