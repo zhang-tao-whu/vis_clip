@@ -323,7 +323,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
             height = input_per_image.get("height", image_size[0])  # raw image size before data augmentation
             width = input_per_image.get("width", image_size[1])
 
-            return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size)
+            return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size, height,
+                                                           width, first_resize_size, online_pred_cls=online_pred_logits)
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> b q () (t h) w')
