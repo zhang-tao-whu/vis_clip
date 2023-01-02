@@ -258,7 +258,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         self.tracker.eval()
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=3)
+            outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=3)
         else:
             with torch.no_grad():
                 # features = self.backbone(images.tensor)
@@ -269,6 +269,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 image_outputs = self.tracker(frame_embds, mask_features)
+                online_pred_logits = image_outputs['pred_logits'] # (b, t, q, c)
                 frame_embds_ = self.tracker.frame_forward(frame_embds)
                 del frame_embds
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
@@ -307,7 +308,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             return losses
         else:
             #outputs = self.post_processing(outputs)
-            outputs = self.post_processing_(outputs)
+            outputs, online_pred_logits = self.post_processing_(outputs, online_logits=online_pred_logits)
 
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
@@ -361,13 +362,15 @@ class VideoMaskFormer_frame_offline(nn.Module):
         # # gt_instances -> [per image gt * bt], per image gt -> {'labels': (N, ), 'ids': (N, ), 'masks': (N, H, W)}
         return image_outputs, outputs, gt_instances
 
-    def post_processing_(self, outputs):
+    def post_processing_(self, outputs, online_logits=None):
         pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
 
         # pred_logits: 1 t q c
         # pred_masks: 1 q t h w
         # pred_embeds: 1 c t q
         pred_logits = pred_logits[0]
+        if online_logits is not None:
+            online_logits = online_logits[0] # (t, q, c)
         pred_scores = torch.max(F.softmax(pred_logits, dim=-1)[..., :-1], dim=-1)[0]
         pred_masks = einops.rearrange(pred_masks[0], 'q t h w -> t q h w')
         pred_embds = einops.rearrange(pred_embds[0], 'c t q -> t q c')
@@ -402,13 +405,16 @@ class VideoMaskFormer_frame_offline(nn.Module):
         out_logits = sum(out_logits)/len(out_logits)
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
 
+        if online_logits is not None:
+            online_logits = torch.mean(online_logits, dim=0) # (q, c)
+
         out_logits = out_logits.unsqueeze(0)
         out_masks = out_masks.unsqueeze(0)
 
         outputs['pred_logits'] = out_logits
         outputs['pred_masks'] = out_masks
 
-        return outputs
+        return outputs, online_logits
 
     def run_window_inference(self, images_tensor, window_size=30):
         iters = len(images_tensor) // window_size
@@ -418,6 +424,9 @@ class VideoMaskFormer_frame_offline(nn.Module):
         overall_mask_features = []
         overall_frame_embds = []
         overall_instance_embds = []
+
+        online_pred_logits = []
+
         for i in range(iters):
             start_idx = i * window_size
             end_idx = (i+1) * window_size
@@ -440,6 +449,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             else:
                 track_out = self.tracker(frame_embds, mask_features)
 
+            online_pred_logits.append(track_out['pred_logits'].clone())
             del track_out['pred_masks'], track_out['pred_logits']
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
@@ -451,12 +461,14 @@ class VideoMaskFormer_frame_offline(nn.Module):
         overall_instance_embds = torch.cat(overall_instance_embds, dim=2)
         overall_mask_features = torch.cat(overall_mask_features, dim=1)
 
+        online_pred_logits = torch.cat(online_pred_logits, dim=1)
+
         overall_frame_embds_ = self.tracker.frame_forward(overall_frame_embds)
         del overall_frame_embds
 
         # merge outputs
         outputs = self.offline_tracker(overall_instance_embds, overall_frame_embds_, overall_mask_features)
-        return outputs
+        return outputs, online_pred_logits
 
     def prepare_targets(self, targets, images):
         h_pad, w_pad = images.tensor.shape[-2:]
@@ -489,9 +501,12 @@ class VideoMaskFormer_frame_offline(nn.Module):
         #gt_instances -> [per video instance], per video instance {'labels': (N, ), 'ids': (N, f), 'masks': (N, f, H, W)}
         return gt_instances
 
-    def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):
+    def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, online_pred_cls=None):
         if len(pred_cls) > 0:
             scores = F.softmax(pred_cls, dim=-1)[:, :-1]
+            if online_pred_cls is not None:
+                online_pred_cls = F.softmax(online_pred_cls, dim=-1)[:, :-1]
+                scores = torch.maximum(scores, online_pred_cls)
             labels = torch.arange(self.sem_seg_head.num_classes, device=self.device).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-10 predictions
             scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
