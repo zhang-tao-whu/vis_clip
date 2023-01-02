@@ -107,7 +107,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
             mask_dim=256,
             class_num=num_class,)
 
-        self.offline_tracker = QueryTracker_offline(
+        # self.offline_tracker = QueryTracker_offline(
+        self.offline_tracker = QueryTracker_offline_transCls(
             hidden_channel=256,
             feedforward_channel=2048,
             num_head=8,
@@ -719,6 +720,235 @@ class QueryTracker_offline(torch.nn.Module):
 
         class_output = class_output.repeat(1, 1, T, 1, 1)
         outputs_class = self.class_embed(class_output).transpose(2, 3)
+        return outputs_class
+
+    def prediction(self, outputs, mask_features):
+        # outputs (T, L, q, b, c)
+        # mask_features (b, T, C, H, W)
+        if self.training:
+            decoder_output = self.decoder_norm(outputs)
+            decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
+            outputs_class = self.pred_class(decoder_output)
+            # output_class (L, B, q, T, Cls+1), activation (L, B, T, q, 1)
+            mask_embed = self.mask_embed(decoder_output)
+            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
+        else:
+            outputs_class, outputs_mask = self.windows_prediction(outputs, mask_features, windows=5)
+        return outputs_class, outputs_mask
+
+
+class QueryTracker_offline_transCls(torch.nn.Module):
+    def __init__(self,
+                 hidden_channel=256,
+                 feedforward_channel=2048,
+                 num_head=8,
+                 decoder_layer_num=6,
+                 mask_dim=256,
+                 class_num=25,):
+        super(QueryTracker_offline_transCls, self).__init__()
+
+        # init transformer layers
+        self.num_heads = num_head
+        self.num_layers = decoder_layer_num
+        self.transformer_obj_self_attention_layers = nn.ModuleList()
+        self.transformer_time_self_attention_layers = nn.ModuleList()
+        self.transformer_cross_attention_layers = nn.ModuleList()
+        self.transformer_ffn_layers = nn.ModuleList()
+
+        self.conv_short_aggregate_layers = nn.ModuleList()
+        self.conv_norms = nn.ModuleList()
+
+        for _ in range(self.num_layers):
+            self.transformer_time_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.conv_short_aggregate_layers.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channel, hidden_channel, kernel_size=5, stride=1,
+                              padding='same', padding_mode='replicate'),
+                    nn.ReLU(inplace=True),
+                    nn.Conv1d(hidden_channel, hidden_channel, kernel_size=3, stride=1,
+                              padding='same', padding_mode='replicate'),
+                )
+            )
+
+            self.conv_norms.append(nn.LayerNorm(hidden_channel))
+
+            self.transformer_obj_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_cross_attention_layers.append(
+                CrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+        self.decoder_norm = nn.LayerNorm(hidden_channel)
+
+        # init heads
+        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
+        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+
+        # class token generation
+        self.transformer_class_mix_self_attention_layers = nn.ModuleList()
+        self.transformer_class_mix_ffn_layers = nn.ModuleList()
+        for _ in range(3):
+            self.transformer_class_mix_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+            self.transformer_class_mix_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+
+    def forward(self, instance_embeds, frame_embeds, mask_features):
+        # instance_embds (b, c, t, q)
+        # frame_embds (b, c, t, q)
+        n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
+        outputs = []
+
+        output = instance_embeds
+        #instance_embeds = instance_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+        frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+
+        for i in range(self.num_layers):
+            output = output.permute(2, 0, 3, 1) #(t, b, q, c)
+            output = output.flatten(1, 2) # (t, bq, c)
+            output = self.transformer_time_self_attention_layers[i](
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                #query_pos=time_embds
+                query_pos=None
+            )
+
+            output = output.permute(1, 2, 0)  # (bq, c, t)
+            output = self.conv_norms[i](
+                (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)).transpose(1, 2)
+            output = output.reshape(n_batch, n_instance, n_channel,
+                                    n_frames).permute(1, 0, 3, 2).flatten(1, 2)  # (q, bt, c)
+
+            # output = output.reshape(n_frames, n_batch, n_instance, n_channel)
+            # output = output.permute(2, 1, 0, 3).flatten(1, 2) # (q, bt, c)
+
+            output = self.transformer_obj_self_attention_layers[i](
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=None
+            )
+
+            output = self.transformer_cross_attention_layers[i](
+                output, frame_embeds,
+                memory_mask=None,
+                memory_key_padding_mask=None,
+                pos=None, query_pos=None
+            )
+            output = self.transformer_ffn_layers[i](
+                output
+            )
+
+            output = output.reshape(n_instance, n_batch, n_frames, n_channel).permute(1, 3, 2, 0) # (b, c, t, q)
+            outputs.append(output)
+
+        outputs = torch.stack(outputs, dim=0).permute(3, 0, 4, 1, 2) # (l, b, c, t, q) -> (frame, decoder_layer, q, b, c)
+        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
+        outputs = self.decoder_norm(outputs)
+        out = {
+           'pred_logits': outputs_class[-1].transpose(1, 2),
+           'pred_masks': outputs_masks[-1],
+           'aux_outputs': self._set_aux_loss(
+               outputs_class, outputs_masks
+           ),
+           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
+        }
+        # pred_logits (bs, t, nq, c)
+        # pred_masks (bs, nq, t, h, w)
+        return out
+
+    @torch.jit.unused
+    def _set_aux_loss(self, outputs_class, outputs_seg_masks):
+        # this is a workaround to make torchscript happy, as torchscript
+        # doesn't support dictionary with non-homogeneous values, such
+        # as a dict having both a Tensor and a list.
+        return [{"pred_logits": a.transpose(1, 2), "pred_masks": b}
+                for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
+                ]
+
+    def windows_prediction(self, outputs, mask_features, windows=5):
+        iters = outputs.size(0) // windows
+        if outputs.size(0) % windows != 0:
+            iters += 1
+        outputs_classes = []
+        outputs_masks = []
+        for i in range(iters):
+            start_idx = i * windows
+            end_idx = (i + 1) * windows
+            clip_outputs = outputs[start_idx:end_idx]
+            decoder_output = self.decoder_norm(clip_outputs)
+            decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
+            mask_embed = self.mask_embed(decoder_output)
+            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed,
+                                        mask_features[:, start_idx:end_idx].to(mask_embed.device))
+            outputs_classes.append(decoder_output)
+            outputs_masks.append(outputs_mask.cpu().to(torch.float32))
+        outputs_classes = torch.cat(outputs_classes, dim=2)
+        outputs_classes = self.pred_class(outputs_classes)
+        return outputs_classes.cpu().to(torch.float32), torch.cat(outputs_masks, dim=3)
+
+    def pred_class(self, decoder_output):
+        # decoder_output  (L, B, T, q, c)
+        L, B, T, Q, C = decoder_output.size()
+        class_output = decoder_output.permute(2, 0, 1, 3, 4).flatten(1, 3) # (T, LBQ, C)
+        class_token = torch.mean(class_output, dim=0, keepdim=True)
+
+        outputs = torch.cat([class_token, class_output], dim=0) # (1+T, LBQ, C)
+
+        for i in range(3):
+            outputs = self.transformer_class_mix_self_attention_layers[i](
+                outputs, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=None
+            )
+
+            outputs = self.transformer_class_mix_ffn_layers[i](
+                outputs
+            )
+        outputs = outputs[:1]
+        outputs = outputs.reshape(1, L, B, Q, C).permute(1, 2, 0, 3, 4) # (L, B, 1, Q, C)
+        outputs_class = self.class_embed(outputs).repeat(1, 1, T, 1, 1).transpose(2, 3)
         return outputs_class
 
     def prediction(self, outputs, mask_features):
