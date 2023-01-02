@@ -507,7 +507,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             if online_pred_cls is not None:
                 online_pred_cls = F.softmax(online_pred_cls, dim=-1)[:, :-1]
-                scores = torch.maximum(scores, online_pred_cls)
+                scores = torch.maximum(scores, online_pred_cls.to(scores))
             labels = torch.arange(self.sem_seg_head.num_classes, device=self.device).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-10 predictions
             scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
