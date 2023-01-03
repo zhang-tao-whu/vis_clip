@@ -227,7 +227,7 @@ def _scaled_dot_product_attention(
     attn = torch.bmm(q, k.transpose(-2, -1))
     if attn_mask is not None:
         attn += attn_mask
-    attn = softmax(softmax(attn, dim=-2), dim=-1)
+    attn = softmax(softmax(attn, dim=-1), dim=-2)
     if dropout_p > 0.0:
         attn = dropout(attn, p=dropout_p)
     # (B, Nt, Ns) x (B, Ns, E) -> (B, Nt, E)
