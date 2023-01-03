@@ -107,8 +107,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
             mask_dim=256,
             class_num=num_class,)
 
-        self.offline_tracker = QueryTracker_offline(
-        # self.offline_tracker = QueryTracker_offline_transCls(
+        # self.offline_tracker = QueryTracker_offline(
+        self.offline_tracker = QueryTracker_offline_transCls(
             hidden_channel=256,
             feedforward_channel=2048,
             num_head=8,
