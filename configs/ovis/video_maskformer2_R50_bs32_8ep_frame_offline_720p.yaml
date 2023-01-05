@@ -94,3 +94,5 @@ DATASETS:
   TRAIN: ("ovis_train", )
   TEST: ("ovis_val",)
 
+OUTPUT_DIR: './output_8gpu'
+
