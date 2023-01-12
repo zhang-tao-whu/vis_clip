@@ -90,7 +90,7 @@ INPUT:
     MAX_SCALE: 2.0
 
 DATASETS:
-  DATASET_RATIO: [1.0, 1.0]
+  DATASET_RATIO: [1.0, 1.0, 1.0]
   TRAIN: ("coco2ytvis2021_train", "ytvis_2021_train", "ovis2ytvis21_train")
   TEST: ("ytvis_2021_val",)
 
