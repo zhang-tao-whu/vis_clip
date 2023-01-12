@@ -109,7 +109,7 @@ def register_all_coco_video(root):
 def register_all_ovis2ytvis(root):
     for key, (image_root, json_file) in _PREDEFINED_SPLITS_OVIS2YTVIS.items():
         # Assume pre-defined datasets live in `./datasets`.
-        register_coco_instances(
+        register_ytvis_instances(
             key,
             _get_ytvis_2021_instances_meta(),
             os.path.join(root, json_file) if "://" not in json_file else json_file,
