@@ -33,6 +33,7 @@ class CombinedDataLoader:
                 # just a buffer of indices, its size doesn't matter
                 # as long as it's a multiple of batch_size
                 k = self.batch_size * self.BATCH_COUNT
+                print(k, len(self.loaders), self.ratios)
                 indices = random.choices(range(len(self.loaders)), self.ratios, k=k)
             try:
                 batch = [_pooled_next(iters[i], pool[i]) for i in indices[: self.batch_size]]
