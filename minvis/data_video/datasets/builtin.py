@@ -50,7 +50,7 @@ _PREDEFINED_SPLITS_OVIS = {
 }
 
 _PREDEFINED_SPLITS_OVIS2YTVIS = {
-    "ovis2ytvis21_train": ("ovis/train",
+    "ytvis_2021_ovis_train": ("ovis/train",
                            "ovis/annotations/ovis2ytvis21_train.json"),
 }
 
