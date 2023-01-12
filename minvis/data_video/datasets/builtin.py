@@ -49,6 +49,11 @@ _PREDEFINED_SPLITS_OVIS = {
                         "ovis/annotations/annotations_test.json"),
 }
 
+_PREDEFINED_SPLITS_OVIS2YTVIS = {
+    "ovis2ytvis21_train": ("ovis/train",
+                           "ovis/annotations/ovis2ytvis21_train.json"),
+}
+
 _PREDEFINED_SPLITS_COCO_VIDEO = {
     "coco2ytvis2019_train": ("coco/train2017", "coco/annotations/coco2ytvis2019_train.json"),
     "coco2ytvis2019_val": ("coco/val2017", "coco/annotations/coco2ytvis2019_val.json"),
@@ -101,6 +106,16 @@ def register_all_coco_video(root):
             os.path.join(root, image_root),
         )
 
+def register_all_ovis2ytvis(root):
+    for key, (image_root, json_file) in _PREDEFINED_SPLITS_OVIS2YTVIS.items():
+        # Assume pre-defined datasets live in `./datasets`.
+        register_coco_instances(
+            key,
+            _get_ytvis_2021_instances_meta(),
+            os.path.join(root, json_file) if "://" not in json_file else json_file,
+            os.path.join(root, image_root),
+        )
+
 if __name__.endswith(".builtin"):
     # Assume pre-defined datasets live in `./datasets`.
     _root = os.getenv("DETECTRON2_DATASETS", "datasets")
@@ -108,3 +123,4 @@ if __name__.endswith(".builtin"):
     #register_all_ytvis_2021(_root)
     register_all_ovis(_root)
     register_all_coco_video(_root)
+    register_all_ovis2ytvis(_root)
