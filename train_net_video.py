@@ -100,12 +100,14 @@ class Trainer(DefaultTrainer):
         mappers = []
         for d_i, dataset_name in enumerate(cfg.DATASETS.TRAIN):
             if dataset_name.startswith('coco'):
+                print('coco--------------------{}'.format(dataset_name))
                 mappers.append(
                     CocoClipDatasetMapper(
                         cfg, is_train=True, is_tgt=(d_i == len(cfg.DATASETS.TRAIN) - 1), src_dataset_name=dataset_name
                     )
                 )
             elif dataset_name.startswith('ytvis') or dataset_name.startswith('ovis'):
+                print('video--------------------{}'.format(dataset_name))
                 mappers.append(
                     # YTVISDatasetMapper(cfg, is_train=True, is_tgt=(d_i == len(cfg.DATASETS.TRAIN) - 1),
                     YTVISDatasetMapper(cfg, is_train=True, is_tgt=True,
