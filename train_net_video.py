@@ -333,6 +333,7 @@ def main(args):
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
+    args.dist_url = 'tcp://127.0.0.1:50263'
     print("Command Line Args:", args)
     launch(
         main,
