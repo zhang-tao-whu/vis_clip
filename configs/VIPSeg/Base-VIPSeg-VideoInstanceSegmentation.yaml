@@ -36,8 +36,8 @@ SOLVER:
   AMP:
     ENABLED: True
 INPUT:
-  MIN_SIZE_TRAIN_SAMPLING: "choice_by_clip"
-  RANDOM_FLIP: "flip_by_clip"
+  MIN_SIZE_TRAIN_SAMPLING: "choice"
+  RANDOM_FLIP: "flip"
   AUGMENTATIONS: []
   MIN_SIZE_TRAIN: (360, 480)
   MIN_SIZE_TEST: 360
