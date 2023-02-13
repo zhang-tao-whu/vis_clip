@@ -165,14 +165,17 @@ class VPSEvaluator(DatasetEvaluator):
         annotations = []
         for i, image_name in enumerate(image_names):
             image_ = Image.fromarray(pan_format[i])
-            if self._metadata.name == 'panoVSPW_vps_video_train':
-                if not os.path.exists(os.path.join(self._output_dir, 'pan_pred', video_id)):
-                    os.makedirs(os.path.join(self._output_dir, 'pan_pred', video_id))
-                image_.save(os.path.join(self._output_dir, 'pan_pred', video_id, image_name.split('.')[0] + '.png'))
-            else:
-                image_.save(os.path.join(self._output_dir, 'pan_pred', '_'.join(image_name.split('_')[:-1]) + '.png'))
+            # if self._metadata.name == 'panoVSPW_vps_video_train':
+            #     if not os.path.exists(os.path.join(self._output_dir, 'pan_pred', video_id)):
+            #         os.makedirs(os.path.join(self._output_dir, 'pan_pred', video_id))
+            #     image_.save(os.path.join(self._output_dir, 'pan_pred', video_id, image_name.split('.')[0] + '.png'))
+            # else:
+            #     image_.save(os.path.join(self._output_dir, 'pan_pred', '_'.join(image_name.split('_')[:-1]) + '.png'))
+            if not os.path.exists(os.path.join(self._output_dir, 'pan_pred', video_id)):
+                os.makedirs(os.path.join(self._output_dir, 'pan_pred', video_id))
+            image_.save(os.path.join(self._output_dir, 'pan_pred', video_id, image_name.split('.')[0] + '.png'))
             annotations.append({"segments_info": segments_infos_[i], "file_name": image_name})
-        self._predictions.append(annotations)
+        self._predictions.append({'annotations': annotations, 'video_id': video_id})
 
     def evaluate(self):
         """
