@@ -428,10 +428,9 @@ class VideoMaskFormer_frame(nn.Module):
                 mask = (cur_mask_ids == k) & (cur_masks[k] >= 0.5)
 
                 if mask_area > 0 and original_area > 0 and mask.sum().item() > 0:
-                    print(isthing)
                     if mask_area / original_area < self.overlap_threshold:
                         continue
-
+                    print(isthing)
                     # merge stuff regions
                     if not isthing:
                         if int(pred_class) in stuff_memory_list.keys():
