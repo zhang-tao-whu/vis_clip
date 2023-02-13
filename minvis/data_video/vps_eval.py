@@ -199,5 +199,5 @@ class VPSEvaluator(DatasetEvaluator):
         if self._output_dir:
             file_path = os.path.join(self._output_dir, 'pred.json')
             with open(file_path, 'w') as f:
-                json.dump({'annotations': self._predictions}, f)
+                json.dump({'annotations': predictions}, f)
         return {}
