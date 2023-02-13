@@ -450,6 +450,7 @@ class VideoMaskFormer_frame(nn.Module):
                             "category_id": int(pred_class),
                         }
                     )
+            print(len(segments_infos))
 
             return {
                     "image_size": (output_height, output_width),
