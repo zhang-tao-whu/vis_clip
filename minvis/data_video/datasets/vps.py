@@ -153,9 +153,9 @@ def get_metadata(json_file):
     thing_classes_id = [k['id'] for k in json_info['categories'] if k['isthing']]
     stuff_classes_id = [k['id'] for k in json_info['categories'] if not k['isthing']]
     for i, id_ in enumerate(thing_classes_id):
-        thing_dataset_id_to_contiguous_id[id_] = i
+        thing_dataset_id_to_contiguous_id[id_] = id_
     for i, id_ in enumerate(stuff_classes_id):
-        stuff_dataset_id_to_contiguous_id[id_] = i
+        stuff_dataset_id_to_contiguous_id[id_] = id_
     meta["thing_dataset_id_to_contiguous_id"] = thing_dataset_id_to_contiguous_id
     meta["stuff_dataset_id_to_contiguous_id"] = stuff_dataset_id_to_contiguous_id
 
