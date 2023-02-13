@@ -55,6 +55,7 @@ class VisualizationDemo(object):
         if 'segments_infos' in predictions.keys():
             segments_infos = predictions['segments_infos']
             pred_scores = [1 for segments_info in segments_infos]
+            predictions["pred_scores"] = pred_scores
             pred_labels = []
             pred_masks = []
             pan_seg = predictions['pred_masks']
