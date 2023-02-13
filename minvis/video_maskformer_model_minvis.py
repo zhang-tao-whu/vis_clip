@@ -415,7 +415,11 @@ class VideoMaskFormer_frame(nn.Module):
 
         if cur_masks.shape[0] == 0:
             # We didn't detect any mask :(
-            return panoptic_seg, segments_infos
+            return {
+                "image_size": (output_height, output_width),
+                'pred_masks': panoptic_seg.cpu(),
+                'segments_infos': segments_infos
+            }
         else:
             # take argmax
             cur_mask_ids = cur_prob_masks.argmax(0) # (T, H, W)
