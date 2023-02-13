@@ -426,7 +426,7 @@ class VideoMaskFormer_frame(nn.Module):
                 mask_area = (cur_mask_ids == k).sum().item()
                 original_area = (cur_masks[k] >= 0.5).sum().item()
                 mask = (cur_mask_ids == k) & (cur_masks[k] >= 0.5)
-
+                print(pred_class)
                 if mask_area > 0 and original_area > 0 and mask.sum().item() > 0:
                     if mask_area / original_area < self.overlap_threshold:
                         continue
@@ -437,7 +437,6 @@ class VideoMaskFormer_frame(nn.Module):
                             continue
                         else:
                             stuff_memory_list[int(pred_class)] = current_segment_id + 1
-                    print(isthing)
                     current_segment_id += 1
                     panoptic_seg[mask] = current_segment_id
 
