@@ -61,7 +61,7 @@ class VisualizationDemo(object):
             for segments_info in segments_infos:
                 id = segments_info['id']
                 pred_masks.append(pan_seg == id)
-                pred_labels.append('category_id')
+                pred_labels.append(segments_info['category_id'])
         else:
             pred_scores = predictions["pred_scores"]
             pred_labels = predictions["pred_labels"]
