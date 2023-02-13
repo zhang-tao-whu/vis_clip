@@ -19,6 +19,8 @@ def add_minvis_config(cfg):
 
     cfg.MODEL.MASK_FORMER.TEST.MAX_NUM = 20
 
+    cfg.MODEL.PANOPTIC_ON = False
+
     cfg.DATASETS.DATASET_RATIO = [1.0, ]
 
     # Pseudo Data Use
@@ -40,5 +42,6 @@ def add_minvis_config(cfg):
     cfg.INPUT.LSJ_AUG.MAX_SCALE = 2.0
 
     cfg.SEED = 42
+
 
 

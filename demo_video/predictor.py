@@ -52,23 +52,32 @@ class VisualizationDemo(object):
         predictions = self.predictor(frames)
 
         image_size = predictions["image_size"]
-        pred_scores = predictions["pred_scores"]
-        pred_labels = predictions["pred_labels"]
-        pred_masks = predictions["pred_masks"]
+        if 'segments_infos' in predictions.keys():
+            pred_scores = None
+            pred_labels = None
+            pred_masks = []
+            segments_infos = predictions['segments_infos']
+            pan_seg = predictions['pred_masks']
+            for segments_info in segments_infos:
+                id = segments_info['id']
+                pred_masks.append(pan_seg == id)
+        else:
+            pred_scores = predictions["pred_scores"]
+            pred_labels = predictions["pred_labels"]
+            pred_masks = predictions["pred_masks"]
 
-        pred_scores_ = []
-        pred_labels_ = []
-        pred_masks_ = []
-        for i, score in enumerate(pred_scores):
-            if score < 0.3:
-                continue
-            pred_scores_.append(pred_scores[i])
-            pred_labels_.append(pred_labels[i])
-            pred_masks_.append(pred_masks[i])
-        pred_scores = pred_scores_
-        pred_masks = pred_masks_
-        pred_labels = pred_labels_
-
+            pred_scores_ = []
+            pred_labels_ = []
+            pred_masks_ = []
+            for i, score in enumerate(pred_scores):
+                if score < 0.3:
+                    continue
+                pred_scores_.append(pred_scores[i])
+                pred_labels_.append(pred_labels[i])
+                pred_masks_.append(pred_masks[i])
+            pred_scores = pred_scores_
+            pred_masks = pred_masks_
+            pred_labels = pred_labels_
         frame_masks = list(zip(*pred_masks))
         total_vis_output = []
         for frame_idx in range(len(frames)):

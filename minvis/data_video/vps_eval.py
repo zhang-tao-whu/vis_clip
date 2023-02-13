@@ -1,0 +1,202 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+# Modified by Bowen Cheng from https://github.com/sukjunhwang/IFC
+
+import contextlib
+import copy
+import io
+import itertools
+import json
+import logging
+import numpy as np
+import os
+from collections import OrderedDict
+import pycocotools.mask as mask_util
+import torch
+from .datasets.ytvis_api.ytvos import YTVOS
+from .datasets.ytvis_api.ytvoseval import YTVOSeval
+from tabulate import tabulate
+
+import detectron2.utils.comm as comm
+from detectron2.config import CfgNode
+from detectron2.data import MetadataCatalog
+from detectron2.evaluation import DatasetEvaluator
+from detectron2.utils.file_io import PathManager
+from detectron2.utils.logger import create_small_table
+
+from PIL import Image
+from panopticapi.utils import rgb2id
+from panopticapi.utils import IdGenerator
+
+
+class VPSEvaluator(DatasetEvaluator):
+    """
+    Evaluate AR for object proposals, AP for instance detection/segmentation, AP
+    for keypoint detection outputs using COCO's metrics.
+    See http://cocodataset.org/#detection-eval and
+    http://cocodataset.org/#keypoints-eval to understand its metrics.
+
+    In addition to COCO, this evaluator is able to support any bounding box detection,
+    instance segmentation, or keypoint detection dataset.
+    """
+
+    def __init__(
+        self,
+        dataset_name,
+        tasks=None,
+        distributed=True,
+        output_dir=None,
+        *,
+        use_fast_impl=True,
+    ):
+        """
+        Args:
+            dataset_name (str): name of the dataset to be evaluated.
+                It must have either the following corresponding metadata:
+
+                    "json_file": the path to the COCO format annotation
+
+                Or it must be in detectron2's standard dataset format
+                so it can be converted to COCO format automatically.
+            tasks (tuple[str]): tasks that can be evaluated under the given
+                configuration. A task is one of "bbox", "segm", "keypoints".
+                By default, will infer this automatically from predictions.
+            distributed (True): if True, will collect results from all ranks and run evaluation
+                in the main process.
+                Otherwise, will only evaluate the results in the current process.
+            output_dir (str): optional, an output directory to dump all
+                results predicted on the dataset. The dump contains two files:
+
+                1. "instances_predictions.pth" a file in torch serialization
+                   format that contains all the raw original predictions.
+                2. "coco_instances_results.json" a json file in COCO's result
+                   format.
+            use_fast_impl (bool): use a fast but **unofficial** implementation to compute AP.
+                Although the results should be very close to the official implementation in COCO
+                API, it is still recommended to compute results with the official API for use in
+                papers. The faster implementation also uses more RAM.
+        """
+        self._logger = logging.getLogger(__name__)
+        self._distributed = distributed
+        self._output_dir = output_dir
+        self._use_fast_impl = use_fast_impl
+
+        if tasks is not None and isinstance(tasks, CfgNode):
+            self._logger.warning(
+                "COCO Evaluator instantiated using config, this is deprecated behavior."
+                " Please pass in explicit arguments instead."
+            )
+            self._tasks = None  # Infering it from predictions should be better
+        else:
+            self._tasks = tasks
+
+        self._cpu_device = torch.device("cpu")
+
+        self._metadata = MetadataCatalog.get(dataset_name)
+        thing_dataset_id_to_contiguous_id = self._metadata["thing_dataset_id_to_contiguous_id"]
+        stuff_dataset_id_to_contiguous_id = self._metadata["stuff_dataset_id_to_contiguous_id"]
+        self.contiguous_id_to_thing_dataset_id = {}
+        self.contiguous_id_to_stuff_dataset_id = {}
+        for key in thing_dataset_id_to_contiguous_id:
+            self.contiguous_id_to_thing_dataset_id.update({thing_dataset_id_to_contiguous_id[key]: key})
+        for key in stuff_dataset_id_to_contiguous_id:
+            self.contiguous_id_to_stuff_dataset_id.update({stuff_dataset_id_to_contiguous_id[key]: key})
+
+        json_file = PathManager.get_local_path(self._metadata.json_file)
+
+        # Test set json files do not contain annotations (evaluation must be
+        # performed using the COCO evaluation server).
+        self._do_evaluation = False
+
+    def reset(self):
+        self._predictions = []
+        PathManager.mkdirs(self._output_dir)
+        if not os.path.exists(os.path.join(self._output_dir, 'pan_pred')):
+            os.makedirs(os.path.join(self._output_dir, 'pan_pred'))
+
+    def process(self, inputs, outputs):
+        """
+        Args:
+            inputs: the inputs to a COCO model (e.g., GeneralizedRCNN).
+                It is a list of dict. Each dict corresponds to an image and
+                contains keys like "height", "width", "file_name", "image_id".
+            outputs: the outputs of a COCO model. It is a list of dicts with key
+                "instances" that contains :class:`Instances`.
+        """
+        # outputs (T, W, H)
+        assert len(inputs) == 1, "More than one inputs are loaded for inference!"
+        color_generator = IdGenerator(self._metadata.categories)
+
+        video_id = inputs[0]["video_id"]
+        video_length = inputs[0]["length"]
+        image_names = [inputs[0]['file_names'][idx] for idx in inputs[0]["frame_idx"]]
+        img_shape = outputs['image_size']
+        pan_seg_result = outputs['pred_masks']
+        segments_infos = outputs['segments_infos']
+        segments_infos_ = []
+
+        pan_format = np.zeros((pan_seg_result.shape[0], img_shape[0], img_shape[1], 3), dtype=np.uint8)
+        for segments_info in segments_infos:
+            id = segments_info['id']
+            is_thing = segments_info['is_thing']
+            sem = segments_info['category_id']
+            if is_thing:
+                sem = self.contiguous_id_to_thing_dataset_id[sem]
+            else:
+                sem = self.contiguous_id_to_stuff_dataset_id[sem - len(self.contiguous_id_to_thing_dataset_id)]
+
+            mask = pan_seg_result == id
+            color = color_generator.get_color(sem)
+            pan_format[mask] = color
+
+            dts = []
+            dt_ = {"category_id": int(sem), "iscrowd": 0, "id": int(rgb2id(color))}
+            for i in range(pan_format.shape[0]):
+                index = np.where(mask[i])
+                if len(index[0]) == 0:
+                    dt = {"bbox": [0, 0, 0, 0], "area": 0}
+                else:
+                    x = index[1].min()
+                    y = index[0].min()
+                    width = index[1].max() - x
+                    height = index[0].max() - y
+                    dt = {"bbox": [x.item(), y.item(), width.item(), height.item()], "area": int(mask[i].sum())}
+                dt.update(dt_)
+                dts.append(dt)
+            segments_infos_.append(dts)
+        #### save image
+        annotations = []
+        for i, image_name in enumerate(image_names):
+            image_ = Image.fromarray(pan_format[i])
+            if self._metadata.name == 'panoVSPW_vps_video_train':
+                if not os.path.exists(os.path.join(self._output_dir, 'pan_pred', video_id)):
+                    os.makedirs(os.path.join(self._output_dir, 'pan_pred', video_id))
+                image_.save(os.path.join(self._output_dir, 'pan_pred', video_id, image_name.split('.')[0] + '.png'))
+            else:
+                image_.save(os.path.join(self._output_dir, 'pan_pred', '_'.join(image_name.split('_')[:-1]) + '.png'))
+            annotations.append({"segments_info": segments_infos_[i], "file_name": image_name})
+        self._predictions.append(annotations)
+
+    def evaluate(self):
+        """
+        Args:
+            img_ids: a list of image IDs to evaluate on. Default to None for the whole dataset
+        """
+        if self._distributed:
+            comm.synchronize()
+            predictions = comm.gather(self._predictions, dst=0)
+            predictions = list(itertools.chain(*predictions))
+
+            if not comm.is_main_process():
+                return {}
+        else:
+            predictions = self._predictions
+
+        if len(predictions) == 0:
+            self._logger.warning("[COCOEvaluator] Did not receive valid predictions.")
+            return {}
+
+        if self._output_dir:
+            file_path = os.path.join(self._output_dir, "'pred.json'")
+            with open(file_path, 'w') as f:
+                json.dump({'annotations': self._predictions}, f)
+        return {}

@@ -54,7 +54,9 @@ from mask2former_video import add_maskformer2_video_config
 from minvis import (
     YTVISDatasetMapper,
     CocoClipDatasetMapper,
+    PanopticDatasetVideoMapper,
     YTVISEvaluator,
+    VPSEvaluator,
     add_minvis_config,
     build_combined_loader,
     build_detection_train_loader,
@@ -80,20 +82,23 @@ class Trainer(DefaultTrainer):
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
             os.makedirs(output_folder, exist_ok=True)
 
+        if 'pano' in dataset_name:
+            return VPSEvaluator(dataset_name, cfg, True, output_folder)
+
         return YTVISEvaluator(dataset_name, cfg, True, output_folder)
 
-    @classmethod
-    def build_train_loader(cls, cfg):
-        dataset_name = cfg.DATASETS.TRAIN[0]
-        mapper = YTVISDatasetMapper(cfg, is_train=True)
-
-        dataset_dict = get_detection_dataset_dicts(
-            dataset_name,
-            filter_empty=cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
-            proposal_files=cfg.DATASETS.PROPOSAL_FILES_TRAIN if cfg.MODEL.LOAD_PROPOSALS else None,
-        )
-
-        return build_detection_train_loader(cfg, mapper=mapper, dataset=dataset_dict)
+    # @classmethod
+    # def build_train_loader(cls, cfg):
+    #     dataset_name = cfg.DATASETS.TRAIN[0]
+    #     mapper = YTVISDatasetMapper(cfg, is_train=True)
+    #
+    #     dataset_dict = get_detection_dataset_dicts(
+    #         dataset_name,
+    #         filter_empty=cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
+    #         proposal_files=cfg.DATASETS.PROPOSAL_FILES_TRAIN if cfg.MODEL.LOAD_PROPOSALS else None,
+    #     )
+    #
+    #     return build_detection_train_loader(cfg, mapper=mapper, dataset=dataset_dict)
 
     @classmethod
     def build_train_loader(cls, cfg):
@@ -109,6 +114,10 @@ class Trainer(DefaultTrainer):
                 mappers.append(
                     YTVISDatasetMapper(cfg, is_train=True, is_tgt=(d_i == len(cfg.DATASETS.TRAIN) - 1),
                                        src_dataset_name=dataset_name)
+                )
+            elif dataset_name.startswith('pano'):
+                mappers.append(
+                    PanopticDatasetVideoMapper(cfg, is_train=True)
                 )
             else:
                 raise NotImplementedError
@@ -128,7 +137,10 @@ class Trainer(DefaultTrainer):
     @classmethod
     def build_test_loader(cls, cfg, dataset_name):
         dataset_name = cfg.DATASETS.TEST[0]
-        mapper = YTVISDatasetMapper(cfg, is_train=False)
+        if dataset_name.startswith('pano'):
+            mapper = PanopticDatasetVideoMapper(cfg, is_train=False)
+        else:
+            mapper = YTVISDatasetMapper(cfg, is_train=False)
         return build_detection_test_loader(cfg, dataset_name, mapper=mapper)
 
     @classmethod

@@ -53,7 +53,9 @@ class VideoMaskFormer_frame_offline(nn.Module):
         window_inference,
         num_class,
         max_num,
-        max_iter_num
+        max_iter_num,
+        # type
+        panoptic_on=False,
     ):
         """
         Args:
@@ -119,6 +121,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
         self.iter = 0
         self.max_iter_num = max_iter_num
 
+        self.panoptic_on = panoptic_on
+
     @classmethod
     def from_config(cls, cfg):
         backbone = build_backbone(cfg)
@@ -172,6 +176,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER
+        panoptic_on = cfg.MODEL.PANOPTIC_ON
 
         return {
             "backbone": backbone,
@@ -190,7 +195,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
             "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
             "num_class": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
             "max_num": cfg.MODEL.MASK_FORMER.TEST.MAX_NUM,
-            "max_iter_num": max_iter_num
+            "max_iter_num": max_iter_num,
+            "panoptic_on": panoptic_on,
         }
 
     @property
@@ -322,9 +328,15 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
             height = input_per_image.get("height", image_size[0])  # raw image size before data augmentation
             width = input_per_image.get("width", image_size[1])
-
-            return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size, height,
-                                                           width, first_resize_size, online_pred_cls=online_pred_logits)
+            if self.panoptic_on:
+                return retry_if_cuda_oom(self.inference_video_pano)(mask_cls_result, mask_pred_result,
+                                                                    image_size, height, width,
+                                                                    first_resize_size,
+                                                                    online_pred_cls=online_pred_logits)
+            else:
+                return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size,
+                                                               height, width, first_resize_size,
+                                                               online_pred_cls=online_pred_logits)
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> b q () (t h) w')
@@ -501,6 +513,83 @@ class VideoMaskFormer_frame_offline(nn.Module):
             gt_instances[-1].update({"masks": gt_masks_per_video})
         #gt_instances -> [per video instance], per video instance {'labels': (N, ), 'ids': (N, f), 'masks': (N, f, H, W)}
         return gt_instances
+
+    def inference_video_pano(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, online_pred_cls=None):
+        # pred_cls (N, C)
+        # pred_masks (N, T, H, W)
+        pred_cls_ = F.softmax(pred_cls, dim=-1)
+        if online_pred_cls is not None:
+            online_pred_cls = F.softmax(online_pred_cls, dim=-1)[:, :-1]
+            pred_cls_[:, :-1] = torch.maximum(pred_cls_[:, :-1], online_pred_cls.to(pred_cls_))
+        mask_pred = pred_masks.sigmoid()
+        scores, labels = pred_cls_.max(-1)
+
+        keep = labels.ne(self.sem_seg_head.num_classes) & (scores > self.object_mask_threshold)
+        cur_scores = scores[keep]
+        cur_classes = labels[keep]
+        cur_masks = mask_pred[keep]
+        cur_mask_cls = pred_cls[keep]
+        cur_mask_cls = cur_mask_cls[:, :-1]
+
+        cur_masks = F.interpolate(
+            cur_masks, size=first_resize_size, mode="bilinear", align_corners=False
+        )
+
+        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]]
+        cur_masks = F.interpolate(
+            cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
+        )
+
+        cur_prob_masks = cur_scores.view(-1, cur_masks.size(1), 1, 1) * cur_masks
+
+        h, w = cur_masks.shape[-2:]
+        panoptic_seg = torch.zeros((cur_masks.size(1), h, w), dtype=torch.int32, device=cur_masks.device)
+        segments_infos = []
+
+        current_segment_id = 0
+
+        if cur_masks.shape[0] == 0:
+            # We didn't detect any mask :(
+            return panoptic_seg, segments_infos
+        else:
+            # take argmax
+            cur_mask_ids = cur_prob_masks.argmax(0) # (T, H, W)
+            stuff_memory_list = {}
+            for k in range(cur_classes.shape[0]):
+                pred_class = cur_classes[k].item()
+                isthing = pred_class in self.metadata.thing_dataset_id_to_contiguous_id.values()
+                mask_area = (cur_mask_ids == k).sum().item()
+                original_area = (cur_masks[k] >= 0.5).sum().item()
+                mask = (cur_mask_ids == k) & (cur_masks[k] >= 0.5)
+
+                if mask_area > 0 and original_area > 0 and mask.sum().item() > 0:
+                    if mask_area / original_area < self.overlap_threshold:
+                        continue
+
+                    # merge stuff regions
+                    if not isthing:
+                        if int(pred_class) in stuff_memory_list.keys():
+                            panoptic_seg[mask] = stuff_memory_list[int(pred_class)]
+                            continue
+                        else:
+                            stuff_memory_list[int(pred_class)] = current_segment_id + 1
+
+                    current_segment_id += 1
+                    panoptic_seg[mask] = current_segment_id
+
+                    segments_infos.append(
+                        {
+                            "id": current_segment_id,
+                            "isthing": bool(isthing),
+                            "category_id": int(pred_class),
+                        }
+                    )
+
+            return {
+                    "image_size": (output_height, output_width),
+                    'pred_masks': panoptic_seg.cpu(),
+                    'segments_infos': segments_infos
+            }
 
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, online_pred_cls=None):
         if len(pred_cls) > 0:
