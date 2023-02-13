@@ -69,8 +69,14 @@ class TrackVisualizer(Visualizer):
         if classes is None:
             return self.output
 
+        thing_colors = self.metadata.get("thing_colors", None)
+        stuff_colors = self.metadata.get("stuff_colors", None)
+        if stuff_classes is None:
+            dataset_colors = thing_colors
+        else:
+            dataset_colors = thing_colors + stuff_colors
         colors = [
-            self._jitter([x / 255 for x in self.metadata.thing_colors[c]], id) for id, c in enumerate(classes)
+            self._jitter([x / 255 for x in dataset_colors[c]], id) for id, c in enumerate(classes)
         ]
         alpha = 0.5
 
