@@ -16,7 +16,7 @@ MODEL:
     # NORM: "SyncBN"
     RES5_MULTI_GRID: [1, 1, 1]  # not used
 DATASETS:
-  TRAIN: ("panoVSPW_vps_video_train,)
+  TRAIN: ("panoVSPW_vps_video_train",)
   TEST: ("panoVSPW_vps_video_val",)
 SOLVER:
   IMS_PER_BATCH: 16

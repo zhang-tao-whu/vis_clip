@@ -90,6 +90,6 @@ INPUT:
 
 DATASETS:
   DATASET_RATIO: [1.0, ]
-  TRAIN: ("panoVSPW_vps_video_train,)
+  TRAIN: ("panoVSPW_vps_video_train",)
   TEST: ("panoVSPW_vps_video_val",)
 
