@@ -126,7 +126,6 @@ class VPSEvaluator(DatasetEvaluator):
         color_generator = IdGenerator(self._metadata.categories)
 
         video_id = inputs[0]["video_id"]
-        video_length = inputs[0]["length"]
         image_names = [inputs[0]['file_names'][idx] for idx in inputs[0]["frame_idx"]]
         img_shape = outputs['image_size']
         pan_seg_result = outputs['pred_masks']
