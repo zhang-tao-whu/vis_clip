@@ -58,6 +58,8 @@ class TrackVisualizer(Visualizer):
             dataset_classes = thing_classes + stuff_classes
         print(thing_classes)
         print(dataset_classes)
+        print(classes)
+        print(scores)
         labels = _create_text_labels(classes, scores, dataset_classes)
         if labels is not None:
             labels = ["[{}] ".format(_id) + l for _id, l in enumerate(labels)]
