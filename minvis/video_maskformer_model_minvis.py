@@ -405,7 +405,7 @@ class VideoMaskFormer_frame(nn.Module):
             cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
         )
 
-        cur_prob_masks = cur_scores.view(-1, cur_masks.size(1), 1, 1) * cur_masks
+        cur_prob_masks = cur_scores.view(-1, 1, 1, 1) * cur_masks
 
         h, w = cur_masks.shape[-2:]
         panoptic_seg = torch.zeros((cur_masks.size(1), h, w), dtype=torch.int32, device=cur_masks.device)
