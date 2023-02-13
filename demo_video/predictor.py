@@ -54,13 +54,14 @@ class VisualizationDemo(object):
         image_size = predictions["image_size"]
         if 'segments_infos' in predictions.keys():
             segments_infos = predictions['segments_infos']
-            pred_scores = [None for segments_info in segments_infos]
-            pred_labels = [None for segments_info in segments_infos]
+            pred_scores = [1 for segments_info in segments_infos]
+            pred_labels = []
             pred_masks = []
             pan_seg = predictions['pred_masks']
             for segments_info in segments_infos:
                 id = segments_info['id']
                 pred_masks.append(pan_seg == id)
+                pred_labels.append('category_id')
         else:
             pred_scores = predictions["pred_scores"]
             pred_labels = predictions["pred_labels"]
