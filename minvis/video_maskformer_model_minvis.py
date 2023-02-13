@@ -423,10 +423,10 @@ class VideoMaskFormer_frame(nn.Module):
             for k in range(cur_classes.shape[0]):
                 pred_class = cur_classes[k].item()
                 isthing = pred_class in self.metadata.thing_dataset_id_to_contiguous_id.values()
+                print(self.metadata.thing_dataset_id_to_contiguous_id.values())
                 mask_area = (cur_mask_ids == k).sum().item()
                 original_area = (cur_masks[k] >= 0.5).sum().item()
                 mask = (cur_mask_ids == k) & (cur_masks[k] >= 0.5)
-                print(pred_class)
                 if mask_area > 0 and original_area > 0 and mask.sum().item() > 0:
                     if mask_area / original_area < self.overlap_threshold:
                         continue
