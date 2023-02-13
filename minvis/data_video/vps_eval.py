@@ -97,9 +97,9 @@ class VPSEvaluator(DatasetEvaluator):
         self.contiguous_id_to_thing_dataset_id = {}
         self.contiguous_id_to_stuff_dataset_id = {}
         for i, key in enumerate(thing_dataset_id_to_contiguous_id.values()):
-            self.contiguous_id_to_thing_dataset_id.update({thing_dataset_id_to_contiguous_id[i]: key})
+            self.contiguous_id_to_thing_dataset_id.update({i: key})
         for i, key in enumerate(stuff_dataset_id_to_contiguous_id.values()):
-            self.contiguous_id_to_stuff_dataset_id.update({stuff_dataset_id_to_contiguous_id[i]: key})
+            self.contiguous_id_to_stuff_dataset_id.update({i: key})
         json_file = PathManager.get_local_path(self._metadata.panoptic_json)
 
         # Test set json files do not contain annotations (evaluation must be
