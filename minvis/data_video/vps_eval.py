@@ -92,16 +92,13 @@ class VPSEvaluator(DatasetEvaluator):
         self._cpu_device = torch.device("cpu")
 
         self._metadata = MetadataCatalog.get(dataset_name)
-        print(dataset_name)
-        print(MetadataCatalog.get(dataset_name))
-        thing_dataset_id_to_contiguous_id = self._metadata["thing_dataset_id_to_contiguous_id"]
-        stuff_dataset_id_to_contiguous_id = self._metadata["stuff_dataset_id_to_contiguous_id"]
-        print(thing_dataset_id_to_contiguous_id)
+        thing_dataset_id_to_contiguous_id = self._metadata.thing_dataset_id_to_contiguous_id
+        stuff_dataset_id_to_contiguous_id = self._metadata.stuff_dataset_id_to_contiguous_id
         self.contiguous_id_to_thing_dataset_id = {}
         self.contiguous_id_to_stuff_dataset_id = {}
-        for key in thing_dataset_id_to_contiguous_id:
+        for i, key in enumerate(thing_dataset_id_to_contiguous_id.keys()):
             self.contiguous_id_to_thing_dataset_id.update({thing_dataset_id_to_contiguous_id[key]: key})
-        for key in stuff_dataset_id_to_contiguous_id:
+        for i, key in enumerate(stuff_dataset_id_to_contiguous_id.keys()):
             self.contiguous_id_to_stuff_dataset_id.update({stuff_dataset_id_to_contiguous_id[key]: key})
 
         json_file = PathManager.get_local_path(self._metadata.json_file)
