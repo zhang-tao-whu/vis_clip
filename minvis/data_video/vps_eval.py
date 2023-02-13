@@ -135,7 +135,7 @@ class VPSEvaluator(DatasetEvaluator):
         pan_format = np.zeros((pan_seg_result.shape[0], img_shape[0], img_shape[1], 3), dtype=np.uint8)
         for segments_info in segments_infos:
             id = segments_info['id']
-            is_thing = segments_info['is_thing']
+            is_thing = segments_info['isthing']
             sem = segments_info['category_id']
             if is_thing:
                 sem = self.contiguous_id_to_thing_dataset_id[sem]
