@@ -129,6 +129,7 @@ def get_metadata(json_file):
     # visualization function in D2 handles thing and class classes differently
     # due to some heuristic used in Panoptic FPN. We keep the same naming to
     # enable reusing existing visualization functions.
+    meta['json_file'] = json_file
     with PathManager.open(json_file) as f:
         json_info = json.load(f)
 
