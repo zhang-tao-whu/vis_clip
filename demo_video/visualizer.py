@@ -52,8 +52,6 @@ class TrackVisualizer(Visualizer):
 
         thing_classes = self.metadata.get("thing_classes", None)
         stuff_classes = self.metadata.get("stuff_classes", None)
-        print(thing_classes)
-        print(stuff_classes)
         if stuff_classes is None:
             dataset_classes = thing_classes
         else:

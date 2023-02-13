@@ -164,7 +164,7 @@ class VPSEvaluator(DatasetEvaluator):
         #### save image
         annotations = []
         for i, image_name in enumerate(image_names):
-            image_ = Image.fromarray(pan_format[i])
+            image_ = Image.fromarray(pan_format[i][:, ::-1])
             # if self._metadata.name == 'panoVSPW_vps_video_train':
             #     if not os.path.exists(os.path.join(self._output_dir, 'pan_pred', video_id)):
             #         os.makedirs(os.path.join(self._output_dir, 'pan_pred', video_id))
