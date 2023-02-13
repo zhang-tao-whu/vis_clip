@@ -92,6 +92,8 @@ class VPSEvaluator(DatasetEvaluator):
         self._cpu_device = torch.device("cpu")
 
         self._metadata = MetadataCatalog.get(dataset_name)
+        print(dataset_name)
+        print(MetadataCatalog.get(dataset_name))
         thing_dataset_id_to_contiguous_id = self._metadata["thing_dataset_id_to_contiguous_id"]
         stuff_dataset_id_to_contiguous_id = self._metadata["stuff_dataset_id_to_contiguous_id"]
         print(thing_dataset_id_to_contiguous_id)
