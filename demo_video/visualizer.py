@@ -49,7 +49,10 @@ class TrackVisualizer(Visualizer):
         boxes = preds.pred_boxes if preds.has("pred_boxes") else None
         scores = preds.scores if preds.has("scores") else None
         classes = preds.pred_classes if preds.has("pred_classes") else None
-        labels = _create_text_labels(classes, scores, self.metadata.get("thing_classes", None))
+        if scores[0] is None:
+            labels = None
+        else:
+            labels = _create_text_labels(classes, scores, self.metadata.get("thing_classes", None))
         if labels is not None:
             labels = ["[{}] ".format(_id) + l for _id, l in enumerate(labels)]
 
