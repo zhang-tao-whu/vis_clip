@@ -158,8 +158,8 @@ class VPSEvaluator(DatasetEvaluator):
                     width = index[1].max() - x
                     height = index[0].max() - y
                     dt = {"bbox": [x.item(), y.item(), width.item(), height.item()], "area": int(mask[i].sum())}
-                dt.update(dt_)
-                dts.append(dt)
+                    dt.update(dt_)
+                    dts.append(dt)
             segments_infos_.append(dts)
         #### save image
         annotations = []

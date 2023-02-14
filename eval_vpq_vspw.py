@@ -109,8 +109,6 @@ def vpq_compute_single_core(categories, nframes, gt_pred_set):
             # predicted segments area calculation + prediction sanity checks
             pred_labels_set = set(el['id'] for el in pred_json['segments_info'])
             labels, labels_cnt = np.unique(pan_pred, return_counts=True)
-            print('lables:', labels)
-            print('pred_labels_set', pred_labels_set)
             for label, label_cnt in zip(labels, labels_cnt):
                 if label not in pred_segms:
                     if label == VOID:
