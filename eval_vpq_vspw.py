@@ -102,7 +102,6 @@ def vpq_compute_single_core(categories, nframes, gt_pred_set):
                     gt_segms[el['id']] = copy.deepcopy(el)
             pred_segms = {}
             for el in pred_json['segments_info']:
-                print(el)
                 if el['id'] in pred_segms:
                     pred_segms[el['id']]['area'] += el['area']
                 else:
