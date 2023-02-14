@@ -141,20 +141,7 @@ class PanopticDatasetVideoMapper:
         Returns:
             selected_idx (list[int]): a list of selected frame indices
         """
-        if self.sampling_frame_ratio < 1.0: #minvis sampling frame ratio set as 1.0
-            assert self.sampling_frame_num == 1, "only support subsampling for a single frame"
-            #sampling a single frame from ratio 0.0->sampling_frame_ratio of the video
-            subsampled_frames = max(int(np.round(video_length * self.sampling_frame_ratio)), 1)
-            if subsampled_frames > 1:
-                # deterministic uniform subsampling given video length
-                subsampled_idx = np.linspace(0, video_length, num=subsampled_frames, endpoint=False, dtype=int)
-                ref_idx = random.randrange(subsampled_frames)
-                ref_frame = subsampled_idx[ref_idx]
-            else:
-                ref_frame = video_length // 2  # middle frame
-
-            selected_idx = [ref_frame]
-        else:
+        if True:
             #select sampling_num from [ref_frame-frame_range, ref_frame+frame_range]
             if self.sampling_frame_range * 2 + 1 == self.sampling_frame_num:
                 # # if self.sampling_frame_num > video_length:

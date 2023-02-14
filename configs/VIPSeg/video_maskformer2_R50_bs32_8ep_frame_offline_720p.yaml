@@ -70,7 +70,7 @@ INPUT:
   RANDOM_FLIP: "flip"
   AUGMENTATIONS: []
   CROP:
-    ENABLED: True
+    ENABLED: False
     TYPE: "absolute_range"
     SIZE: (384, 600)
   # For pseudo videos
@@ -79,7 +79,7 @@ INPUT:
     MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)
     MAX_SIZE_TRAIN: 1333
     CROP:
-      ENABLED: True
+      ENABLED: False
       TYPE: "absolute_range"
       SIZE: (384, 600)
   LSJ_AUG:
