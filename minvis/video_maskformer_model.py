@@ -559,7 +559,7 @@ class VideoMaskFormer_online(nn.Module):
             cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
         )
 
-        cur_prob_masks = cur_scores.view(-1, cur_masks.size(1), 1, 1) * cur_masks
+        cur_prob_masks = cur_scores.view(-1, 1, 1, 1).to(cur_masks.device) * cur_masks
 
         h, w = cur_masks.shape[-2:]
         panoptic_seg = torch.zeros((cur_masks.size(1), h, w), dtype=torch.int32, device=cur_masks.device)
@@ -569,22 +569,24 @@ class VideoMaskFormer_online(nn.Module):
 
         if cur_masks.shape[0] == 0:
             # We didn't detect any mask :(
-            return panoptic_seg, segments_infos
+            return {
+                "image_size": (output_height, output_width),
+                'pred_masks': panoptic_seg.cpu(),
+                'segments_infos': segments_infos
+            }
         else:
             # take argmax
-            cur_mask_ids = cur_prob_masks.argmax(0) # (T, H, W)
+            cur_mask_ids = cur_prob_masks.argmax(0)  # (T, H, W)
             stuff_memory_list = {}
             for k in range(cur_classes.shape[0]):
                 pred_class = cur_classes[k].item()
-                isthing = pred_class in self.metadata.thing_dataset_id_to_contiguous_id.values()
+                isthing = pred_class < len(self.metadata.thing_dataset_id_to_contiguous_id)
                 mask_area = (cur_mask_ids == k).sum().item()
                 original_area = (cur_masks[k] >= 0.5).sum().item()
                 mask = (cur_mask_ids == k) & (cur_masks[k] >= 0.5)
-
                 if mask_area > 0 and original_area > 0 and mask.sum().item() > 0:
                     if mask_area / original_area < self.overlap_threshold:
                         continue
-
                     # merge stuff regions
                     if not isthing:
                         if int(pred_class) in stuff_memory_list.keys():
@@ -592,7 +594,6 @@ class VideoMaskFormer_online(nn.Module):
                             continue
                         else:
                             stuff_memory_list[int(pred_class)] = current_segment_id + 1
-
                     current_segment_id += 1
                     panoptic_seg[mask] = current_segment_id
 
@@ -605,9 +606,9 @@ class VideoMaskFormer_online(nn.Module):
                     )
 
             return {
-                    "image_size": (output_height, output_width),
-                    'pred_masks': panoptic_seg.cpu(),
-                    'segments_infos': segments_infos
+                "image_size": (output_height, output_width),
+                'pred_masks': panoptic_seg.cpu(),
+                'segments_infos': segments_infos
             }
 
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):
