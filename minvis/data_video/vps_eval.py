@@ -175,7 +175,7 @@ class VPSEvaluator(DatasetEvaluator):
             if not os.path.exists(os.path.join(self._output_dir, 'pan_pred', video_id)):
                 os.makedirs(os.path.join(self._output_dir, 'pan_pred', video_id))
             image_.save(os.path.join(self._output_dir, 'pan_pred', video_id, image_name.split('/')[-1].split('.')[0] + '.png'))
-            annotations.append({"segments_info": [item[i] for item in segments_infos_ if item is not None], "file_name": image_name.split('/')[-1]})
+            annotations.append({"segments_info": [item[i] for item in segments_infos_ if item[i] is not None], "file_name": image_name.split('/')[-1]})
         self._predictions.append({'annotations': annotations, 'video_id': video_id})
 
     def evaluate(self):
