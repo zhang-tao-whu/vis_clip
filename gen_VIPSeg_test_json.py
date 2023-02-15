@@ -28,6 +28,6 @@ for video in videos_infos:
     image_annotations = []
     for image in video['images']:
         image_annotations.append({'image_id': image['id'], 'file_name': image['file_name'], 'segments_info': []})
-        
+
 
 
