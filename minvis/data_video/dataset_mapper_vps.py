@@ -313,7 +313,7 @@ class PanopticDatasetVideoMapper:
                 image = utils.read_image(file_name, format=self.img_format)
                 utils.check_image_size(dataset_dict, image)
                 image = transforms.apply_image(image)
-                if pan_seg_file_name is not None:
+                if pan_seg_file_name is not None and self.is_train:
                     pan_seg_gt = utils.read_image(pan_seg_file_name, "RGB")
                 else:
                     pan_seg_gt = None
