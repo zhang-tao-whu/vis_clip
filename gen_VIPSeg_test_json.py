@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import imagesize
 
-image_root = 'datasets/VIPSeg/imgs/'
+image_root = 'datasets/VIPSeg/VIPSeg_720P/images'
 test_file = 'datasets/VIPSeg/VIPSeg_720P/test.txt'
 
 f = open(test_file, encoding='gbk')
