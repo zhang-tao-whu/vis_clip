@@ -7,6 +7,7 @@ from PIL import Image
 def check_image(seg_file, seg_infos):
     pan_seg = np.array(Image.open(seg_file))
     pan_seg = np.uint32(pan_seg)
+    pan_seg = pan_seg[:, :, 0] + pan_seg[:, :, 1] * 256 + pan_seg[:, :, 2] * 256 * 256
     unique_ids, ids_cnts = np.unique(pan_seg, return_counts=True)
     seg_ids, seg_ids_cnts = [], []
     for seg_info in seg_infos:
