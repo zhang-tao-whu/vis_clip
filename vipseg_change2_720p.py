@@ -24,7 +24,7 @@ def change(DIR,video,image):
 
 p = Pool(28)
 ori_videos = os.listdir(DIR)
-avaliable_videos = os.listdir(Target_Dir, 'images')
+avaliable_videos = os.listdir(os.path.join(Target_Dir, 'images'))
 need_convert_videos = []
 for video in ori_videos:
     if video not in avaliable_videos:
