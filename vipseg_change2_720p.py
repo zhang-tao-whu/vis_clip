@@ -3,9 +3,9 @@ from PIL import Image
 from multiprocessing import Pool
 
 
-DIR='imgs'
+DIR='datasets/VIPSeg/imgs'
 
-Target_Dir = 'VIPSeg_720P'
+Target_Dir = 'datasets/VIPSeg/VIPSeg_720P'
 
 
 def change(DIR,video,image):
