@@ -110,7 +110,7 @@ class VPSEvaluator(DatasetEvaluator):
         self._predictions = []
         PathManager.mkdirs(self._output_dir)
         if not os.path.exists(os.path.join(self._output_dir, 'pan_pred')):
-            os.makedirs(os.path.join(self._output_dir, 'pan_pred'))
+            os.makedirs(os.path.join(self._output_dir, 'pan_pred'), exist_ok=True)
 
     def process(self, inputs, outputs):
         """
