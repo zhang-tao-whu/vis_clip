@@ -152,19 +152,18 @@ class VPSEvaluator(DatasetEvaluator):
                 area = mask[i].sum()
                 index = np.where(mask[i].numpy())
                 if len(index[0]) == 0:
-                    if area != 0:
-                        print("bugs")
-                        print(kk)
-                    dt = {"bbox": [0, 0, 0, 0], "area": 0}
                     dts.append(None)
                 else:
-                    x = index[1].min()
-                    y = index[0].min()
-                    width = index[1].max() - x
-                    height = index[0].max() - y
-                    dt = {"bbox": [x.item(), y.item(), width.item(), height.item()], "area": int(mask[i].sum())}
-                    dt.update(dt_)
-                    dts.append(dt)
+                    if area == 0:
+                        dts.append(None)
+                    else:
+                        x = index[1].min()
+                        y = index[0].min()
+                        width = index[1].max() - x
+                        height = index[0].max() - y
+                        dt = {"bbox": [x.item(), y.item(), width.item(), height.item()], "area": int(area)}
+                        dt.update(dt_)
+                        dts.append(dt)
             segments_infos_.append(dts)
         #### save image
         annotations = []
