@@ -106,10 +106,6 @@ class VPSEvaluator(DatasetEvaluator):
         # performed using the COCO evaluation server).
         self._do_evaluation = False
 
-        self.reverse_png = False
-        if 'panoVSPW_vps_video_test' == dataset_name:
-            self.reverse_png = True
-
     def reset(self):
         self._predictions = []
         PathManager.mkdirs(self._output_dir)
@@ -169,11 +165,7 @@ class VPSEvaluator(DatasetEvaluator):
         #### save image
         annotations = []
         for i, image_name in enumerate(image_names):
-            if self.reverse_png:
-                # the VIPSeg's test code on codalab may using opencv read the pano seg
-                image_ = Image.fromarray(pan_format[i][:, :, ::-1])
-            else:
-                image_ = Image.fromarray(pan_format[i])
+            image_ = Image.fromarray(pan_format[i])
             # if self._metadata.name == 'panoVSPW_vps_video_train':
             #     if not os.path.exists(os.path.join(self._output_dir, 'pan_pred', video_id)):
             #         os.makedirs(os.path.join(self._output_dir, 'pan_pred', video_id))
