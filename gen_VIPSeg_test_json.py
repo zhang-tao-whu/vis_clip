@@ -2,7 +2,7 @@ import os
 import json
 import tqdm
 
-image_root = 'datasets/VIPSeg/VIPSeg_720P/images/'
+image_root = 'datasets/VIPSeg/imgs/'
 test_file = 'datasets/VIPSeg/VIPSeg_720P/test.txt'
 
 f = open(test_file, encoding='gbk')
