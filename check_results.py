@@ -23,7 +23,7 @@ def check_image(seg_file, seg_infos):
             print('seg_ids:', seg_ids)
             print('seg_ids_cnts:', seg_ids_cnts)
     for id in unique_ids:
-        if id not in seg_ids:
+        if id not in seg_ids and id != 0:
             print('------------------------------------')
             print('png files id not found in segment infos')
             print(seg_file)
