@@ -3,6 +3,7 @@ import json
 import tqdm
 import cv2
 import numpy as np
+import imagesize
 
 image_root = 'datasets/VIPSeg/imgs/'
 test_file = 'datasets/VIPSeg/VIPSeg_720P/test.txt'
@@ -22,8 +23,9 @@ for video_id in tqdm.tqdm(test_video_ids):
     image_files = os.listdir(os.path.join(image_root, video_id))
     for image_file in image_files:
         image_path = os.path.join(image_root, video_id, image_file)
-        img = np.array(cv2.imread(image_path))
-        images_infos.append({'id': image_file.split('.')[0], 'width': img.shape[1], 'height': img.shape[0],
+        #img = np.array(cv2.imread(image_path))
+        wh = imagesize.get(image_path)
+        images_infos.append({'id': image_file.split('.')[0], 'width': wh[0], 'height': wh[1],
                              'file_name': image_file})
     video_info['images'] = images_infos
     videos_infos.append(video_info)
