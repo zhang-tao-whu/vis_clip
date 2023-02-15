@@ -285,7 +285,7 @@ class PanopticDatasetVideoMapper:
                 zip(select_filenames, select_pan_seg_file_names, select_segments_infos)):
 
             ######
-            if segments_infos is not None:
+            if segments_infos is not None and self.is_train:
                 for segments_info in segments_infos:
                     class_id = segments_info["category_id"]
                     ins_id = segments_info['id']
@@ -296,7 +296,7 @@ class PanopticDatasetVideoMapper:
             if ii_ == 0:
                 image = utils.read_image(file_name, format=self.img_format)
                 utils.check_image_size(dataset_dict, image)
-                if pan_seg_file_name is not None:
+                if pan_seg_file_name is not None and self.is_train:
                     pan_seg_gt = utils.read_image(pan_seg_file_name, "RGB")
                 else:
                     pan_seg_gt = None
