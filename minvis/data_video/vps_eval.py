@@ -143,14 +143,19 @@ class VPSEvaluator(DatasetEvaluator):
                 sem = self.contiguous_id_to_stuff_dataset_id[sem - len(self.contiguous_id_to_thing_dataset_id)]
 
             mask = pan_seg_result == id
+            print(pan_seg_result)
             color = color_generator.get_color(sem)
             pan_format[mask] = color
 
             dts = []
             dt_ = {"category_id": int(sem), "iscrowd": 0, "id": int(rgb2id(color))}
             for i in range(pan_format.shape[0]):
+                area = mask[i].sum()
                 index = np.where(mask[i])
                 if len(index[0]) == 0:
+                    if area != 0:
+                        print("bugs")
+                        print(kk)
                     dt = {"bbox": [0, 0, 0, 0], "area": 0}
                     dts.append(None)
                 else:
