@@ -46,5 +46,5 @@ for video_annotation in tqdm(video_annotations):
     video_id = video_annotation['video_id']
     images_annotations = video_annotation['annotations']
     for image_annotation in images_annotations:
-        seg_file = os.path.join(img_path, video_id, image_annotation['file_name'])
+        seg_file = os.path.join(img_path, video_id, image_annotation['file_name'].split('.')[0] + '.png')
         check_image(seg_file, image_annotation['segments_info'])
