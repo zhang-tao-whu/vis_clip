@@ -189,7 +189,7 @@ _PREDEFINED_SPLITS_PANOVSPW = {
         "VIPSeg/VIPSeg_720P/panoptic_gt_VIPSeg_val.json",
     ),
     "panoVSPW_vps_video_test": (
-        "VIPSeg/imgs",
+        "VIPSeg/VIPSeg_720P/images",
         "VIPSeg/VIPSeg_720P/panomasksRGB",
         "VIPSeg/VIPSeg_720P/panoptic_gt_VIPSeg_test.json",
     ),
