@@ -21,6 +21,7 @@ for video_id in tqdm.tqdm(test_video_ids):
     video_info = {'video_id': video_id}
     images_infos = []
     image_files = os.listdir(os.path.join(image_root, video_id))
+    image_files.sort()
     for image_file in image_files:
         image_path = os.path.join(image_root, video_id, image_file)
         #img = np.array(cv2.imread(image_path))
