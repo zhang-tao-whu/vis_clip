@@ -70,18 +70,18 @@ INPUT:
   RANDOM_FLIP: "flip"
   AUGMENTATIONS: []
   CROP:
-    ENABLED: False
+    ENABLED: True
     TYPE: "absolute_range"
-    SIZE: (384, 600)
+    SIZE: (608, 608)
   # For pseudo videos
   PSEUDO:
     AUGMENTATIONS: ['rotation']
     MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)
     MAX_SIZE_TRAIN: 1333
     CROP:
-      ENABLED: False
+      ENABLED: True
       TYPE: "absolute_range"
-      SIZE: (384, 600)
+      SIZE: (608, 608)
   LSJ_AUG:
     ENABLED: False
     IMAGE_SIZE: 768

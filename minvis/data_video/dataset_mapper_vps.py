@@ -91,7 +91,6 @@ class PanopticDatasetVideoMapper:
                         cfg.INPUT.CROP.TYPE,
                         cfg.INPUT.CROP.SIZE,
                         1.0,
-                        cfg.MODEL.SEM_SEG_HEAD.IGNORE_VALUE,
                     )
                 )
             #        if cfg.INPUT.COLOR_AUG_SSD:
@@ -353,14 +352,11 @@ class PanopticDatasetVideoMapper:
                 if insid_ in unique_ids:
                     classes.append(self.stuff_ids_to_continue_dic[class_id_] + len(self.thing_ids_to_continue_dic))
                     masks.append(input_panoptic_seg == insid_)
-                    masks_ = np.array(input_panoptic_seg == insid_)
                 continue
 
             if insid_ in unique_ids:
                 classes.append(self.thing_ids_to_continue_dic[class_id_])
                 masks.append(input_panoptic_seg == insid_)
-
-                masks_ = np.array(input_panoptic_seg == insid_)
 
         classes = np.array(classes)
         if len(masks) == 0:
