@@ -125,7 +125,10 @@ if __name__ == "__main__":
 		if len(vid_frames) >= windows_size or i == len(frames_path) - 1:
 			# do inference
 			with autocast():
-				predictions, visualized_output = demo.run_on_video(vid_frames, keep=True)
+				if i < windows_size:
+					predictions, visualized_output = demo.run_on_video(vid_frames, keep=False)
+				else:
+					predictions, visualized_output = demo.run_on_video(vid_frames, keep=True)
 			# do save
 			for path, _vis_output in zip(_frames_path, visualized_output):
 				out_filename = os.path.join(output_root, os.path.basename(path))
