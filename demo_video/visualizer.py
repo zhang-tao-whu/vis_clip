@@ -81,12 +81,20 @@ class TrackVisualizer(Visualizer):
             dataset_colors = thing_colors + stuff_colors
 
         if ids is None:
+            # colors = [
+            #     self._jitter([x / 255 for x in dataset_colors[c]], id) for id, c in enumerate(classes)
+            # ]
             colors = [
-                self._jitter([x / 255 for x in dataset_colors[c]], id) for id, c in enumerate(classes)
+                self._jitter([x / 255 for x in dataset_colors[id % len(dataset_colors)]],
+                             id) for id, c in enumerate(classes)
             ]
         else:
+            # colors = [
+            #     self._jitter([x / 255 for x in dataset_colors[c]], ids[id]) for id, c in enumerate(classes)
+            # ]
             colors = [
-                self._jitter([x / 255 for x in dataset_colors[c]], ids[id]) for id, c in enumerate(classes)
+                self._jitter([x / 255 for x in dataset_colors[ids[id] % len(dataset_colors)]],
+                             ids[id]) for id, c in enumerate(classes)
             ]
         alpha = 0.5
 
