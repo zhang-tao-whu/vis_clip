@@ -34,7 +34,7 @@ class TrackVisualizer(Visualizer):
         res = np.clip(vec + color, 0, 1)
         return tuple(res)
 
-    def draw_instance_predictions(self, predictions):
+    def draw_instance_predictions(self, predictions, ids=None):
         """
         Draw instance-level prediction results on an image.
         Args:
@@ -58,7 +58,10 @@ class TrackVisualizer(Visualizer):
             dataset_classes = thing_classes + stuff_classes
         labels = _create_text_labels(classes, scores, dataset_classes)
         if labels is not None:
-            labels = ["[{}] ".format(_id) + l for _id, l in enumerate(labels)]
+            if ids is None:
+                labels = ["[{}] ".format(_id) + l for _id, l in enumerate(labels)]
+            else:
+                labels = ["[{}] ".format(_id) + l for _id, l in zip(ids, labels)]
 
         if preds.has("pred_masks"):
             masks = np.asarray(preds.pred_masks)
@@ -75,9 +78,15 @@ class TrackVisualizer(Visualizer):
             dataset_colors = thing_colors
         else:
             dataset_colors = thing_colors + stuff_colors
-        colors = [
-            self._jitter([x / 255 for x in dataset_colors[c]], id) for id, c in enumerate(classes)
-        ]
+
+        if ids is None:
+            colors = [
+                self._jitter([x / 255 for x in dataset_colors[c]], id) for id, c in enumerate(classes)
+            ]
+        else:
+            colors = [
+                self._jitter([x / 255 for x in dataset_colors[c]], ids[id]) for id, c in enumerate(classes)
+            ]
         alpha = 0.5
 
         if self._instance_mode == ColorMode.IMAGE_BW:

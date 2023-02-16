@@ -122,6 +122,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         self.max_iter_num = max_iter_num
 
         self.panoptic_on = panoptic_on
+        self.keep = False
 
     @classmethod
     def from_config(cls, cfg):
@@ -253,6 +254,12 @@ class VideoMaskFormer_frame_offline(nn.Module):
                     segments_info (list[dict]): Describe each segment in `panoptic_seg`.
                         Each dict contains keys "id", "category_id", "isthing".
         """
+
+        if 'keep' in batched_inputs[0].keys():
+            self.keep = batched_inputs[0]['keep']
+        else:
+            self.keep = False
+
         images = []
         for video in batched_inputs:
             for frame in video["image"]:
@@ -274,7 +281,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # b c t q
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
-                image_outputs = self.tracker(frame_embds, mask_features)
+                image_outputs = self.tracker(frame_embds, mask_features, resume=self.keep)
                 online_pred_logits = image_outputs['pred_logits'] # (b, t, q, c)
                 frame_embds_ = self.tracker.frame_forward(frame_embds)
                 del frame_embds
@@ -318,9 +325,11 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
+            pred_ids = outputs["ids"]
 
             mask_cls_result = mask_cls_results[0]
             mask_pred_result = mask_pred_results[0]
+            pred_id = pred_ids[0]
             first_resize_size = (images.tensor.shape[-2], images.tensor.shape[-1])
 
             input_per_image = batched_inputs[0]
@@ -331,11 +340,11 @@ class VideoMaskFormer_frame_offline(nn.Module):
             if self.panoptic_on:
                 return retry_if_cuda_oom(self.inference_video_pano)(mask_cls_result, mask_pred_result,
                                                                     image_size, height, width,
-                                                                    first_resize_size,
+                                                                    first_resize_size, pred_id,
                                                                     online_pred_cls=online_pred_logits)
             else:
                 return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size,
-                                                               height, width, first_resize_size,
+                                                               height, width, first_resize_size, pred_id,
                                                                online_pred_cls=online_pred_logits)
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
@@ -426,6 +435,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         outputs['pred_logits'] = out_logits
         outputs['pred_masks'] = out_masks
+        outputs['ids'] = [torch.arange(0, out_masks.size(0))]
 
         return outputs, online_logits
 
@@ -457,7 +467,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             overall_mask_features.append(mask_features.cpu())
             overall_frame_embds.append(frame_embds)
 
-            if i != 0:
+            if i != 0 or self.keep:
                 track_out = self.tracker(frame_embds, mask_features, resume=True)
             else:
                 track_out = self.tracker(frame_embds, mask_features)
@@ -514,7 +524,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
         #gt_instances -> [per video instance], per video instance {'labels': (N, ), 'ids': (N, f), 'masks': (N, f, H, W)}
         return gt_instances
 
-    def inference_video_pano(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, online_pred_cls=None):
+    def inference_video_pano(self, pred_cls, pred_masks, img_size, output_height, output_width,
+                             first_resize_size, pred_id, online_pred_cls=None):
         # pred_cls (N, C)
         # pred_masks (N, T, H, W)
         pred_cls_ = F.softmax(pred_cls, dim=-1)
@@ -527,6 +538,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         keep = labels.ne(self.sem_seg_head.num_classes) & (scores > self.object_mask_threshold)
         cur_scores = scores[keep]
         cur_classes = labels[keep]
+        cur_ids = pred_id[keep]
         cur_masks = mask_pred[keep]
         cur_mask_cls = pred_cls[keep]
         cur_mask_cls = cur_mask_cls[:, :-1]
@@ -545,6 +557,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         h, w = cur_masks.shape[-2:]
         panoptic_seg = torch.zeros((cur_masks.size(1), h, w), dtype=torch.int32, device=cur_masks.device)
         segments_infos = []
+        out_ids = []
 
         current_segment_id = 0
 
@@ -585,14 +598,17 @@ class VideoMaskFormer_frame_offline(nn.Module):
                             "category_id": int(pred_class),
                         }
                     )
+                    out_ids.append(cur_ids[k])
 
             return {
                     "image_size": (output_height, output_width),
                     'pred_masks': panoptic_seg.cpu(),
-                    'segments_infos': segments_infos
+                    'segments_infos': segments_infos,
+                    'pred_ids': out_ids
             }
 
-    def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, online_pred_cls=None):
+    def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width,
+                        first_resize_size, pred_id, online_pred_cls=None):
         if len(pred_cls) > 0:
             scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             if online_pred_cls is not None:
@@ -604,6 +620,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             labels_per_image = labels[topk_indices]
             topk_indices = topk_indices // self.sem_seg_head.num_classes
             pred_masks = pred_masks[topk_indices]
+            pred_ids = pred_id[topk_indices]
 
             pred_masks = F.interpolate(
                 pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
@@ -618,17 +635,20 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
             out_scores = scores_per_image.tolist()
             out_labels = labels_per_image.tolist()
+            out_ids = pred_ids.tolist()
             out_masks = [m for m in masks.cpu()]
         else:
             out_scores = []
             out_labels = []
             out_masks = []
+            out_ids = []
 
         video_output = {
             "image_size": (output_height, output_width),
             "pred_scores": out_scores,
             "pred_labels": out_labels,
             "pred_masks": out_masks,
+            "pred_ids": out_ids
         }
 
         return video_output

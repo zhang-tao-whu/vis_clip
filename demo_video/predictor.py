@@ -96,6 +96,88 @@ class VisualizationDemo(object):
 
         return predictions, total_vis_output
 
+class VisualizationDemo_windows(object):
+    def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False):
+        """
+        Args:
+            cfg (CfgNode):
+            instance_mode (ColorMode):
+            parallel (bool): whether to run the model in different processes from visualization.
+                Useful since the visualization logic can be slow.
+        """
+        self.metadata = MetadataCatalog.get(
+            cfg.DATASETS.TEST[0] if len(cfg.DATASETS.TEST) else "__unused"
+        )
+        self.cpu_device = torch.device("cpu")
+        self.instance_mode = instance_mode
+
+        self.parallel = parallel
+        if parallel:
+            num_gpu = torch.cuda.device_count()
+            self.predictor = AsyncPredictor(cfg, num_gpus=num_gpu)
+        else:
+            self.predictor = VideoPredictor(cfg)
+
+    def run_on_video(self, frames, keep=False):
+        """
+        Args:
+            frames (List[np.ndarray]): a list of images of shape (H, W, C) (in BGR order).
+                This is the format used by OpenCV.
+        Returns:
+            predictions (dict): the output of the model.
+            vis_output (VisImage): the visualized image output.
+        """
+        predictions = self.predictor((frames, keep))
+
+        image_size = predictions["image_size"]
+        if 'segments_infos' in predictions.keys():
+            segments_infos = predictions['segments_infos']
+            pred_scores = [1 for segments_info in segments_infos]
+            predictions["pred_scores"] = pred_scores
+            pred_labels = []
+            pred_masks = []
+            pan_seg = predictions['pred_masks']
+            pred_ids = predictions['pred_ids']
+            for segments_info in segments_infos:
+                id = segments_info['id']
+                pred_masks.append(pan_seg == id)
+                pred_labels.append(segments_info['category_id'])
+        else:
+            pred_scores = predictions["pred_scores"]
+            pred_labels = predictions["pred_labels"]
+            pred_masks = predictions["pred_masks"]
+            pred_ids = predictions['pred_ids']
+
+            pred_scores_ = []
+            pred_labels_ = []
+            pred_masks_ = []
+            pred_ids_ = []
+            for i, score in enumerate(pred_scores):
+                if score < 0.3:
+                    continue
+                pred_scores_.append(pred_scores[i])
+                pred_labels_.append(pred_labels[i])
+                pred_masks_.append(pred_masks[i])
+                pred_ids_.append(pred_ids[i])
+            pred_scores = pred_scores_
+            pred_masks = pred_masks_
+            pred_labels = pred_labels_
+            pred_ids = pred_ids_
+        frame_masks = list(zip(*pred_masks))
+        total_vis_output = []
+        for frame_idx in range(len(frames)):
+            frame = frames[frame_idx][:, :, ::-1]
+            visualizer = TrackVisualizer(frame, self.metadata, instance_mode=self.instance_mode)
+            ins = Instances(image_size)
+            if len(pred_scores) > 0:
+                ins.scores = pred_scores
+                ins.pred_classes = pred_labels
+                ins.pred_masks = torch.stack(frame_masks[frame_idx], dim=0)
+
+            vis_output = visualizer.draw_instance_predictions(predictions=ins, ids=pred_ids)
+            total_vis_output.append(vis_output)
+
+        return predictions, total_vis_output
 
 class VideoPredictor(DefaultPredictor):
     """
@@ -148,6 +230,8 @@ class VideoPredictor(DefaultPredictor):
                 the output of the model for one image only.
                 See :doc:`/tutorials/models` for details about the format.
         """
+        if isinstance(frames, tuple):
+            frames, keep = frames
         with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
             input_frames = []
             for original_image in frames:
@@ -160,7 +244,7 @@ class VideoPredictor(DefaultPredictor):
                 image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
                 input_frames.append(image)
 
-            inputs = {"image": input_frames, "height": height, "width": width}
+            inputs = {"image": input_frames, "height": height, "width": width, "keep": keep}
             predictions = self.model([inputs])
             return predictions
 
