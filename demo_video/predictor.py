@@ -232,6 +232,8 @@ class VideoPredictor(DefaultPredictor):
         """
         if isinstance(frames, tuple):
             frames, keep = frames
+        else:
+            keep = False
         with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
             input_frames = []
             for original_image in frames:
