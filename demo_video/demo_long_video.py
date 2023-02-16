@@ -118,7 +118,7 @@ if __name__ == "__main__":
 		img = read_image(path, format="BGR")
 		_frames_path.append(path)
 		vid_frames.append(img)
-		if len(vid_frames) >= windows_size or i == len(frames_path) - 1:
+		if len(vid_frames) == windows_size or i == len(frames_path) - 1:
 			# do inference
 			with autocast():
 				if i < windows_size:

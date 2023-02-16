@@ -27,6 +27,7 @@ class TrackVisualizer(Visualizer):
             jittered_color (tuple[double]): a tuple of 3 elements, containing the RGB values of the
                 color after being jittered. The values in the list are in the [0.0, 1.0] range.
         """
+        id = id // len(_ID_JITTERS)
         color = mplc.to_rgb(color)
         vec = _ID_JITTERS[id]
         # better to do it in another color space
