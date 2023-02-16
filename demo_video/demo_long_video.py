@@ -16,11 +16,7 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 # fmt: on
 
-import tempfile
 import time
-import warnings
-
-import numpy as np
 import tqdm
 
 from torch.cuda.amp import autocast
@@ -118,7 +114,7 @@ if __name__ == "__main__":
 	vid_frames = []
 	_frames_path = []
 	instances = set()
-	for i, path in enumerate(frames_path):
+	for i, path in tqdm.tqdm(enumerate(frames_path)):
 		img = read_image(path, format="BGR")
 		_frames_path.append(path)
 		vid_frames.append(img)
