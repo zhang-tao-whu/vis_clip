@@ -84,6 +84,8 @@ class TrackVisualizer(Visualizer):
                 self._jitter([x / 255 for x in dataset_colors[c]], id) for id, c in enumerate(classes)
             ]
         else:
+            print(ids)
+            print(len(classes))
             colors = [
                 self._jitter([x / 255 for x in dataset_colors[c]], ids[id]) for id, c in enumerate(classes)
             ]

@@ -114,7 +114,7 @@ if __name__ == "__main__":
 	vid_frames = []
 	_frames_path = []
 	instances = set()
-	for i, path in tqdm.tqdm(enumerate(frames_path)):
+	for i, path in enumerate(tqdm.tqdm(frames_path)):
 		img = read_image(path, format="BGR")
 		_frames_path.append(path)
 		vid_frames.append(img)
