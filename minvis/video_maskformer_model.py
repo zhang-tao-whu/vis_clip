@@ -475,7 +475,7 @@ class VideoMaskFormer_online(nn.Module):
 
         outputs['pred_logits'] = out_logits
         outputs['pred_masks'] = out_masks
-        outputs['ids'] = [torch.arange(0, out_masks.size(0))]
+        outputs['ids'] = [torch.arange(0, out_masks.size(1))]
 
         return outputs
 
