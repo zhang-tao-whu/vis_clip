@@ -55,6 +55,6 @@ model.eval()
 
 # online tracker
 online_tracker = model.tracker
-input_embeds = torch.randn(1, 100, 1, 256).to(model.device)
+input_embeds = torch.randn(1, 256, 1, 100).to(model.device)
 mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
 macs, params = profile(online_tracker, inputs=(input_embeds, mask_feature_input))
