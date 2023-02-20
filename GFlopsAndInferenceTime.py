@@ -1,0 +1,45 @@
+from thop import profile
+import torch
+from .demo_video.demo_long_video import setup_cfg
+from .minvis.video_maskformer_offline_model import VideoMaskFormer_frame_offline
+import argparse
+from detectron2.modeling import build_model
+from thop import clever_format
+
+video_size_dict = {'480p': [480, 853], '720p': [720, 1280]}
+configs_dict = {'r50': 'configs/ovis/video_maskformer2_R50_bs32_8ep_frame_offline.yaml',
+                'swinl': 'configs/ovis/swin/video_maskformer2_swin_large_IN21k_384_bs32_8ep_frame_offline.yaml'}
+parser = argparse.ArgumentParser(description="FlexVIS GFlops")
+parser.add_argument(
+    "--windows_size",
+    type=int,
+    default=80,
+    help="Windows size for semi-offline mode",
+)
+parser.add_argument(
+    "--video_size",
+    type=str,
+    default='480p',
+    help="Windows size for semi-offline mode",
+)
+parser.add_argument(
+    "--backbone",
+    type=str,
+    default='r50',
+    help="Windows size for semi-offline mode",
+)
+
+args = parser.parse_args()
+args.config_file = configs_dict[args.backbone]
+args.opts = []
+input_size = video_size_dict[args.video_size]
+cfg = setup_cfg(args)
+model = build_model(cfg.clone())
+model.eval()
+
+# backbone GFlops
+input = torch.randn(1, 3, input_size[0], input_size[1])
+macs, params = profile(model.backbone, inputs=(input, ))
+macs, params = clever_format([macs, params], "%.3f")
+print(macs)
+print(params)

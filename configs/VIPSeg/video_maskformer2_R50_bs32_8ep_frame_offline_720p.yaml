@@ -71,7 +71,7 @@ INPUT:
   AUGMENTATIONS: []
   CROP:
     ENABLED: True
-    TYPE: "absolute_range"
+    TYPE: "absolute"
     SIZE: (608, 608)
   # For pseudo videos
   PSEUDO:
@@ -80,7 +80,7 @@ INPUT:
     MAX_SIZE_TRAIN: 1333
     CROP:
       ENABLED: True
-      TYPE: "absolute_range"
+      TYPE: "absolute"
       SIZE: (608, 608)
   LSJ_AUG:
     ENABLED: False
