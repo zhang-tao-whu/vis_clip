@@ -50,11 +50,11 @@ args.config_file = configs_dict[args.backbone]
 args.opts = []
 input_size = video_size_dict[args.video_size]
 cfg = setup_cfg(args)
-model = build_model(cfg.clone()).to(torch.device('cpu'))
+model = build_model(cfg.clone())
 model.eval()
 
 # online tracker
 online_tracker = model.tracker
-input_embeds = torch.randn(1, 100, 1, 256).to(online_tracker.device)
-mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(online_tracker.device)
+input_embeds = torch.randn(1, 100, 1, 256).to(model.device)
+mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
 macs, params = profile(model, inputs=(input_embeds, mask_feature_input))
