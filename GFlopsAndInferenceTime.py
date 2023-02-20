@@ -54,6 +54,18 @@ cfg = setup_cfg(args)
 model = build_model(cfg.clone())
 model.eval()
 
+
+# segmentor
+backbone = model.backbone
+sem_seg_head = model.sem_seg_head
+input_image = torch.randn(1, 3, input_size.shape[0], input_size.shape[1]).to(model.device)
+start = time.time()
+for i in tqdm(range(100)):
+    features = backbone(input_image)
+    sem_seg_head(features)
+end = time.time()
+print("segmenter consumed {} s".format((end - start) / 100.))
+
 # online tracker
 online_tracker = model.tracker
 input_embeds = torch.randn(1, 256, 1, 100).to(model.device)
