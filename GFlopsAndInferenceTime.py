@@ -6,7 +6,8 @@ from detectron2.projects.deeplab import add_deeplab_config
 from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
 from minvis import add_minvis_config
-from torchstat import stat
+# from torchstat import stat
+from thop import profile
 
 
 def setup_cfg(args):
@@ -52,6 +53,8 @@ cfg = setup_cfg(args)
 model = build_model(cfg.clone()).to(torch.device('cpu'))
 model.eval()
 
-# backbone GFlops
-backbone = model.backbone
-stat(backbone, (3, input_size[0], input_size[1]))
+# online tracker
+online_tracker = model.tracker
+input_embeds = torch.randn(1, 100, 1, 256).to(online_tracker.device)
+mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(online_tracker.device)
+macs, params = profile(model, inputs=(input_embeds, mask_feature_input))
