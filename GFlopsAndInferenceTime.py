@@ -58,7 +58,7 @@ model.eval()
 # segmentor
 backbone = model.backbone
 sem_seg_head = model.sem_seg_head
-input_image = torch.randn(1, 3, input_size.shape[0], input_size.shape[1]).to(model.device)
+input_image = torch.randn(1, 3, input_size[0], input_size[1]).to(model.device)
 start = time.time()
 for i in tqdm(range(100)):
     features = backbone(input_image)
