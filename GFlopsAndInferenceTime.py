@@ -6,10 +6,9 @@ from detectron2.projects.deeplab import add_deeplab_config
 from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
 from minvis import add_minvis_config
-# from torchstat import stat
-from thop import profile
 from tqdm import tqdm
 import time
+from fvcore.nn import FlopCountAnalysis
 
 def setup_cfg(args):
     # load config from file and command-line arguments
@@ -61,6 +60,10 @@ with torch.no_grad():
     backbone = model.backbone
     sem_seg_head = model.sem_seg_head
     input_image = torch.randn(1, 3, input_size[0], input_size[1]).to(model.device)
+
+    flops = FlopCountAnalysis(model.backbone, input_image)
+    flops.by_module()
+
     start = time.time()
     for i in tqdm(range(100)):
         features = backbone(input_image)
