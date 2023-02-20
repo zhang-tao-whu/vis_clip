@@ -1,7 +1,6 @@
 from thop import profile
 import torch
-from .demo_video.demo_long_video import setup_cfg
-from .minvis.video_maskformer_offline_model import VideoMaskFormer_frame_offline
+from demo_video.demo_long_video import setup_cfg
 import argparse
 from detectron2.modeling import build_model
 from thop import clever_format
