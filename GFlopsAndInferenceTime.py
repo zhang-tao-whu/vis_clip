@@ -62,9 +62,22 @@ input_image = torch.randn(1, 3, input_size[0], input_size[1]).to(model.device)
 start = time.time()
 for i in tqdm(range(100)):
     features = backbone(input_image)
-    sem_seg_head(features)
 end = time.time()
-print("segmenter consumed {} s".format((end - start) / 100.))
+print("backbone consumed {} s".format((end - start) / 100.))
+
+pixel_decoder = sem_seg_head.pixel_decoder
+start = time.time()
+for i in tqdm(range(100)):
+    mask_features, transformer_encoder_features, multi_scale_features = pixel_decoder.forward_features(features)
+end = time.time()
+print("pixel_decoder consumed {} s".format((end - start) / 100.))
+
+transformer_decoder = sem_seg_head.predictor
+start = time.time()
+for i in tqdm(range(100)):
+    transformer_decoder(multi_scale_features, mask_features, None)
+end = time.time()
+print("transformer_decoder consumed {} s".format((end - start) / 100.))
 
 # online tracker
 online_tracker = model.tracker
