@@ -56,36 +56,41 @@ model.eval()
 
 
 # segmentor
-backbone = model.backbone
-sem_seg_head = model.sem_seg_head
-input_image = torch.randn(1, 3, input_size[0], input_size[1]).to(model.device)
-start = time.time()
-for i in tqdm(range(100)):
-    features = backbone(input_image)
-end = time.time()
-print("backbone consumed {} s".format((end - start) / 100.))
+with torch.no_grad():
 
-pixel_decoder = sem_seg_head.pixel_decoder
-start = time.time()
-for i in tqdm(range(100)):
-    mask_features, transformer_encoder_features, multi_scale_features = pixel_decoder.forward_features(features)
-end = time.time()
-print("pixel_decoder consumed {} s".format((end - start) / 100.))
+    backbone = model.backbone
+    sem_seg_head = model.sem_seg_head
+    input_image = torch.randn(1, 3, input_size[0], input_size[1]).to(model.device)
+    start = time.time()
+    for i in tqdm(range(100)):
+        features = backbone(input_image)
+    end = time.time()
+    print("backbone consumed {} s".format((end - start) / 100.))
+    del input_image
 
-transformer_decoder = sem_seg_head.predictor
-start = time.time()
-for i in tqdm(range(100)):
-    transformer_decoder(multi_scale_features, mask_features, None)
-end = time.time()
-print("transformer_decoder consumed {} s".format((end - start) / 100.))
+    pixel_decoder = sem_seg_head.pixel_decoder
+    start = time.time()
+    for i in tqdm(range(100)):
+        mask_features, transformer_encoder_features, multi_scale_features = pixel_decoder.forward_features(features)
+    end = time.time()
+    print("pixel_decoder consumed {} s".format((end - start) / 100.))
+    del features
 
-# online tracker
-online_tracker = model.tracker
-input_embeds = torch.randn(1, 256, 1, 100).to(model.device)
-mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
-start = time.time()
-for i in tqdm(range(100)):
-    online_tracker(input_embeds, mask_feature_input)
-end = time.time()
-print("online tracker consumed {} s".format((end - start) / 100.))
+    transformer_decoder = sem_seg_head.predictor
+    start = time.time()
+    for i in tqdm(range(100)):
+        transformer_decoder(multi_scale_features, mask_features, None)
+    end = time.time()
+    print("transformer_decoder consumed {} s".format((end - start) / 100.))
+    del mask_features, transformer_encoder_features, multi_scale_features
+
+    # online tracker
+    online_tracker = model.tracker
+    input_embeds = torch.randn(1, 256, 1, 100).to(model.device)
+    mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
+    start = time.time()
+    for i in tqdm(range(100)):
+        online_tracker(input_embeds, mask_feature_input)
+    end = time.time()
+    print("online tracker consumed {} s".format((end - start) / 100.))
 
