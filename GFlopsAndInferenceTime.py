@@ -1,13 +1,12 @@
-from thop import profile
 import torch
 import argparse
 from detectron2.modeling import build_model
-from thop import clever_format
 from detectron2.config import get_cfg
 from detectron2.projects.deeplab import add_deeplab_config
 from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
 from minvis import add_minvis_config
+from torchstat import stat
 
 
 def setup_cfg(args):
@@ -55,9 +54,5 @@ model.eval()
 
 # backbone GFlops
 backbone = model.backbone
-print(backbone)
-input = torch.randn(1, 3, input_size[0], input_size[1]).to(model.device)
-macs, params = profile(backbone, inputs=(input, ))
-#macs, params = clever_format([macs, params], "%.3f")
-print(macs)
-print(params)
+input = torch.randn(3, input_size[0], input_size[1]).to(model.device)
+stat(backbone, input)
