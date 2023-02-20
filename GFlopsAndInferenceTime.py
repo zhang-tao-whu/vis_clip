@@ -54,8 +54,10 @@ model = build_model(cfg.clone())
 model.eval()
 
 # backbone GFlops
+backbone = model.backbone
+print(backbone)
 input = torch.randn(1, 3, input_size[0], input_size[1]).to(model.device)
-macs, params = profile(model.backbone, inputs=(input, ), )
+macs, params = profile(backbone, inputs=(input, ))
 macs, params = clever_format([macs, params], "%.3f")
 print(macs)
 print(params)
