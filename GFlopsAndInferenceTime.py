@@ -49,7 +49,7 @@ args.config_file = configs_dict[args.backbone]
 args.opts = []
 input_size = video_size_dict[args.video_size]
 cfg = setup_cfg(args)
-model = build_model(cfg.clone())
+model = build_model(cfg.clone()).to(torch.device('cpu'))
 model.eval()
 
 # backbone GFlops
