@@ -61,7 +61,7 @@ with torch.no_grad():
     sem_seg_head = model.sem_seg_head
     input_image = torch.randn(1, 3, input_size[0], input_size[1]).to(model.device)
 
-    flops = FlopCountAnalysis(model.backbone, input_image)
+    flops = FlopCountAnalysis(backbone, input_image)
     flops.by_module()
     print(flop_count_table(flops))
 
@@ -72,21 +72,31 @@ with torch.no_grad():
     print("backbone consumed {} s".format((end - start) / 100.))
     del input_image
 
-    pixel_decoder = sem_seg_head.pixel_decoder
+    flops = FlopCountAnalysis(sem_seg_head, features)
+    flops.by_module()
+    print(flop_count_table(flops))
     start = time.time()
     for i in tqdm(range(100)):
-        mask_features, transformer_encoder_features, multi_scale_features = pixel_decoder.forward_features(features)
+        sem_seg_head(features)
     end = time.time()
-    print("pixel_decoder consumed {} s".format((end - start) / 100.))
+    print("mask2former head consumed {} s".format((end - start) / 100.))
     del features
 
-    transformer_decoder = sem_seg_head.predictor
-    start = time.time()
-    for i in tqdm(range(100)):
-        transformer_decoder(multi_scale_features, mask_features, None)
-    end = time.time()
-    print("transformer_decoder consumed {} s".format((end - start) / 100.))
-    del mask_features, transformer_encoder_features, multi_scale_features
+    # pixel_decoder = sem_seg_head.pixel_decoder
+    # start = time.time()
+    # for i in tqdm(range(100)):
+    #     mask_features, transformer_encoder_features, multi_scale_features = pixel_decoder.forward_features(features)
+    # end = time.time()
+    # print("pixel_decoder consumed {} s".format((end - start) / 100.))
+    # del features
+    #
+    # transformer_decoder = sem_seg_head.predictor
+    # start = time.time()
+    # for i in tqdm(range(100)):
+    #     transformer_decoder(multi_scale_features, mask_features, None)
+    # end = time.time()
+    # print("transformer_decoder consumed {} s".format((end - start) / 100.))
+    # del mask_features, transformer_encoder_features, multi_scale_features
 
     # online tracker
     online_tracker = model.tracker
