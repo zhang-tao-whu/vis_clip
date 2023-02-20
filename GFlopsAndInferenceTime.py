@@ -1,9 +1,26 @@
 from thop import profile
 import torch
-from demo_video.demo_long_video import setup_cfg
 import argparse
 from detectron2.modeling import build_model
 from thop import clever_format
+from detectron2.config import get_cfg
+from detectron2.projects.deeplab import add_deeplab_config
+from mask2former import add_maskformer2_config
+from mask2former_video import add_maskformer2_video_config
+from minvis import add_minvis_config
+
+
+def setup_cfg(args):
+	# load config from file and command-line arguments
+    cfg = get_cfg()
+	add_deeplab_config(cfg)
+	add_maskformer2_config(cfg)
+	add_maskformer2_video_config(cfg)
+	add_minvis_config(cfg)
+	cfg.merge_from_file(args.config_file)
+	cfg.merge_from_list(args.opts)
+	cfg.freeze()
+	return cfg
 
 video_size_dict = {'480p': [480, 853], '720p': [720, 1280]}
 configs_dict = {'r50': 'configs/ovis/video_maskformer2_R50_bs32_8ep_frame_offline.yaml',
