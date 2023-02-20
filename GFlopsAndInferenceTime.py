@@ -8,7 +8,7 @@ from mask2former_video import add_maskformer2_video_config
 from minvis import add_minvis_config
 from tqdm import tqdm
 import time
-from fvcore.nn import FlopCountAnalysis
+from fvcore.nn import FlopCountAnalysis, flop_count_table
 
 def setup_cfg(args):
     # load config from file and command-line arguments
@@ -94,6 +94,7 @@ with torch.no_grad():
 
     flops = FlopCountAnalysis(online_tracker, (input_embeds, mask_feature_input))
     flops.by_module()
+    print(flop_count_table(flops))
 
     start = time.time()
     for i in tqdm(range(100)):
