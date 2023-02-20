@@ -8,7 +8,8 @@ from mask2former_video import add_maskformer2_video_config
 from minvis import add_minvis_config
 # from torchstat import stat
 from thop import profile
-
+from tqdm import tqdm
+import time
 
 def setup_cfg(args):
     # load config from file and command-line arguments
@@ -57,4 +58,9 @@ model.eval()
 online_tracker = model.tracker
 input_embeds = torch.randn(1, 256, 1, 100).to(model.device)
 mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
-macs, params = profile(online_tracker, inputs=(input_embeds, mask_feature_input))
+start = time.time()
+for i in tqdm(range(100)):
+    online_tracker(input_embeds, mask_feature_input)
+end = time.time()
+print("online tracker consumed {} s".format((end - start) / 100.))
+
