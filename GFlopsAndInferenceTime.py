@@ -63,6 +63,7 @@ with torch.no_grad():
 
     flops = FlopCountAnalysis(model.backbone, input_image)
     flops.by_module()
+    print(flop_count_table(flops))
 
     start = time.time()
     for i in tqdm(range(100)):
