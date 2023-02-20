@@ -54,5 +54,4 @@ model.eval()
 
 # backbone GFlops
 backbone = model.backbone
-input = torch.randn(3, input_size[0], input_size[1]).to(model.device)
-stat(backbone, input)
+stat(backbone, (3, input_size[0], input_size[1]))
