@@ -105,7 +105,8 @@ with torch.no_grad():
     # online tracker
     online_tracker = model.tracker
     input_embeds = torch.randn(1, 256, 1, 100).to(model.device)
-    mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
+    #mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
+    mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 32, input_size[1] // 32).to(model.device)
 
     flops = FlopCountAnalysis(online_tracker, (input_embeds, mask_feature_input))
     flops.by_module()
