@@ -127,7 +127,7 @@ with torch.no_grad():
     del instance_embeds, mask_feature_input
 
     instance_embeds = torch.randn(1, 256, 100, 100).to(model.device)
-    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 16, input_size[1] // 16).to(model.device)
+    mask_feature_input = torch.randn(1, 100, 256, 1, 1).to(model.device)
     start = time.time()
     for i in tqdm(range(10)):
         offline_tracker(instance_embeds, instance_embeds, mask_feature_input)
