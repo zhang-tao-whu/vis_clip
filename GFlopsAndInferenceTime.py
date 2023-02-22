@@ -68,6 +68,7 @@ with torch.no_grad():
     start = time.time()
     for i in tqdm(range(100)):
         features = backbone(input_image)
+        torch.cuda.synchronize()
     end = time.time()
     print("backbone consumed {} s".format((end - start) / 100.))
     del input_image
@@ -78,6 +79,7 @@ with torch.no_grad():
     start = time.time()
     for i in tqdm(range(100)):
         sem_seg_head(features)
+        torch.cuda.synchronize()
     end = time.time()
     print("mask2former head consumed {} s".format((end - start) / 100.))
     del features
@@ -110,6 +112,7 @@ with torch.no_grad():
     start = time.time()
     for i in tqdm(range(100)):
         online_tracker(input_embeds, mask_feature_input)
+        torch.cuda.synchronize()
     end = time.time()
     print("online tracker consumed {} s".format((end - start) / 100.))
     del input_embeds, mask_feature_input
