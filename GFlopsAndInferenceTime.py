@@ -135,11 +135,11 @@ with torch.no_grad():
 
     instance_embeds_ = torch.randn(1, 256, 100, num_query).to(model.device)
     mask_feature_input_ = torch.randn(1, 100, 256, 1, 1).to(model.device)
-    instance_embeds = torch.randn(20, 1, num_query, 1, 256).to(model.device)
-    mask_feature_input = torch.randn(1, 20, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
+    instance_embeds = torch.randn(1, 1, num_query, 1, 256).to(model.device)
+    mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
     start = time.time()
-    for i in tqdm(range(5)):
-        offline_tracker.prediction(instance_embeds, mask_feature_input, test_GFLOPS=False)
+    for i in tqdm(range(100)):
+        offline_tracker.prediction(instance_embeds, mask_feature_input, test_GFLOPS=True)
     offline_tracker(instance_embeds_, instance_embeds_, mask_feature_input_)
     end = time.time()
     print("offline tracker consumed {} s".format((end - start) / 100.))
