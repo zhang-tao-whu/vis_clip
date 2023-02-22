@@ -1083,6 +1083,8 @@ class QueryTracker_mine(torch.nn.Module):
             self.last_outputs = ms_output
             outputs.append(ms_output[1:])
         outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
+        if not self.training:
+            outputs = outputs[:, :1]
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
         outputs = self.decoder_norm(outputs)
         out = {
