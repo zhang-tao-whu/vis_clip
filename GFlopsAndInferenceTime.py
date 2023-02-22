@@ -73,7 +73,7 @@ with torch.no_grad():
         torch.cuda.synchronize()
     end = time.time()
     print("backbone consumed {} s".format((end - start) / 100.))
-    del input_image
+    del input_image, backbone
 
     flops = FlopCountAnalysis(sem_seg_head, features)
     flops.by_module()
@@ -84,7 +84,7 @@ with torch.no_grad():
         torch.cuda.synchronize()
     end = time.time()
     print("mask2former head consumed {} s".format((end - start) / 100.))
-    del features
+    del features, sem_seg_head
 
     # pixel_decoder = sem_seg_head.pixel_decoder
     # start = time.time()
@@ -117,12 +117,13 @@ with torch.no_grad():
         torch.cuda.synchronize()
     end = time.time()
     print("online tracker consumed {} s".format((end - start) / 100.))
-    del input_embeds, mask_feature_input
+    del input_embeds, mask_feature_input, online_tracker
 
     # offline_tracker
     offline_tracker = model.offline_tracker
     instance_embeds = torch.randn(1, 256, 100, num_query).to(model.device)
-    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 8, input_size[1] // 8).to(model.device)
+    del model.backbone, model.sem_seg_head, model.tracker
+    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
     flops = FlopCountAnalysis(offline_tracker, (instance_embeds, instance_embeds, mask_feature_input))
     flops.by_module()
     print(flop_count_table(flops))
