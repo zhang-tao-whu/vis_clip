@@ -1080,10 +1080,10 @@ class QueryTracker_offline_transCls(torch.nn.Module):
         outputs_class = self.class_embed(class_token).repeat(1, 1, T, 1, 1).transpose(2, 3)
         return outputs_class
 
-    def prediction(self, outputs, mask_features):
+    def prediction(self, outputs, mask_features, test_GFLOPS=False):
         # outputs (T, L, q, b, c)
         # mask_features (b, T, C, H, W)
-        if self.training:
+        if self.training or test_GFLOPS:
             decoder_output = self.decoder_norm(outputs)
             decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
             outputs_class = self.pred_class(decoder_output)

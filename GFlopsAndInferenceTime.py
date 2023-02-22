@@ -73,7 +73,7 @@ with torch.no_grad():
         torch.cuda.synchronize()
     end = time.time()
     print("backbone consumed {} s".format((end - start) / 100.))
-    del input_image, backbone
+    del input_image
 
     flops = FlopCountAnalysis(sem_seg_head, features)
     flops.by_module()
@@ -84,7 +84,7 @@ with torch.no_grad():
         torch.cuda.synchronize()
     end = time.time()
     print("mask2former head consumed {} s".format((end - start) / 100.))
-    del features, sem_seg_head
+    del features
 
     # pixel_decoder = sem_seg_head.pixel_decoder
     # start = time.time()
@@ -116,22 +116,31 @@ with torch.no_grad():
         torch.cuda.synchronize()
     end = time.time()
     print("online tracker consumed {} s".format((end - start) / 100.))
-    del input_embeds, mask_feature_input, online_tracker
+    del input_embeds, mask_feature_input
 
     # offline_tracker
     offline_tracker = model.offline_tracker
     instance_embeds = torch.randn(1, 256, 100, num_query).to(model.device)
-    del model.backbone, model.sem_seg_head, model.tracker
-    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 32, input_size[1] // 32).to(model.device)
+    mask_feature_input = torch.randn(1, 100, 256, 1, 1).to(model.device)
+    flops = FlopCountAnalysis(offline_tracker, (instance_embeds, instance_embeds, mask_feature_input))
+    flops.by_module()
+    print(flop_count_table(flops))
+
+    instance_embeds = torch.randn(1, 256, 1, num_query).to(model.device)
+    mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
     flops = FlopCountAnalysis(offline_tracker, (instance_embeds, instance_embeds, mask_feature_input))
     flops.by_module()
     print(flop_count_table(flops))
     del instance_embeds, mask_feature_input
 
-    instance_embeds = torch.randn(1, 256, 100, num_query).to(model.device)
-    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 32, input_size[1] // 32).to(model.device)
+    instance_embeds_ = torch.randn(1, 256, 100, num_query).to(model.device)
+    mask_feature_input_ = torch.randn(1, 100, 256, 1, 1).to(model.device)
+    instance_embeds = torch.randn(1, 1, num_query, 1, 256).to(model.device)
+    mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
     start = time.time()
-    offline_tracker(instance_embeds, instance_embeds, mask_feature_input)
+    for i in tqdm(range(100)):
+        offline_tracker.prediction(instance_embeds, mask_feature_input, test_GFLOPS=False)
+    offline_tracker(instance_embeds_, instance_embeds_, mask_feature_input_)
     end = time.time()
     print("offline tracker consumed {} s".format((end - start) / 100.))
 
