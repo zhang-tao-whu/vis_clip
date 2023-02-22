@@ -23,6 +23,7 @@ def setup_cfg(args):
     return cfg
 
 video_size_dict = {'480p': [480, 853], '720p': [720, 1280]}
+query_num_dict = {'r50': 100, 'swinl': 200}
 configs_dict = {'r50': 'configs/ovis/video_maskformer2_R50_bs32_8ep_frame_offline.yaml',
                 'swinl': 'configs/ovis/swin/video_maskformer2_swin_large_IN21k_384_bs32_8ep_frame_offline.yaml'}
 parser = argparse.ArgumentParser(description="FlexVIS GFlops")
@@ -49,6 +50,7 @@ args = parser.parse_args()
 args.config_file = configs_dict[args.backbone]
 args.opts = []
 input_size = video_size_dict[args.video_size]
+num_query = query_num_dict[args.backbone]
 cfg = setup_cfg(args)
 model = build_model(cfg.clone())
 model.eval()
@@ -119,14 +121,14 @@ with torch.no_grad():
 
     # offline_tracker
     offline_tracker = model.offline_tracker
-    instance_embeds = torch.randn(1, 256, 100, 100).to(model.device)
+    instance_embeds = torch.randn(1, 256, 100, num_query).to(model.device)
     mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 8, input_size[1] // 8).to(model.device)
     flops = FlopCountAnalysis(offline_tracker, (instance_embeds, instance_embeds, mask_feature_input))
     flops.by_module()
     print(flop_count_table(flops))
     del instance_embeds, mask_feature_input
 
-    instance_embeds = torch.randn(1, 256, 100, 100).to(model.device)
+    instance_embeds = torch.randn(1, 256, 100, num_query).to(model.device)
     mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 32, input_size[1] // 32).to(model.device)
     start = time.time()
     offline_tracker(instance_embeds, instance_embeds, mask_feature_input)
