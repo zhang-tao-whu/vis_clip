@@ -124,6 +124,7 @@ with torch.no_grad():
     flops = FlopCountAnalysis(offline_tracker, (instance_embeds, instance_embeds, mask_feature_input))
     flops.by_module()
     print(flop_count_table(flops))
+    del instance_embeds, mask_feature_input
 
     instance_embeds = torch.randn(1, 256, 80, 100).to(model.device)
     mask_feature_input = torch.randn(1, 80, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)

@@ -859,7 +859,7 @@ class QueryTracker_offline(torch.nn.Module):
             mask_embed = self.mask_embed(decoder_output)
             outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         else:
-            outputs_class, outputs_mask = self.windows_prediction(outputs, mask_features, windows=5)
+            outputs_class, outputs_mask = self.windows_prediction(outputs, mask_features, windows=100)
         return outputs_class, outputs_mask
 
 
