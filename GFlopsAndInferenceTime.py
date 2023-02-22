@@ -116,14 +116,17 @@ with torch.no_grad():
 
     # offline_tracker
     offline_tracker = model.offline_tracker
-    instance_embeds = torch.randn(1, 256, 100, 100).to(model.device)
-    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
+    instance_embeds = torch.randn(1, 256, 1, 100).to(model.device)
+    mask_feature_input = torch.randn(1, 1, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
     flops = FlopCountAnalysis(offline_tracker, (instance_embeds, instance_embeds, mask_feature_input))
     flops.by_module()
     print(flop_count_table(flops))
 
+    instance_embeds = torch.randn(1, 256, 100, 100).to(model.device)
+    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
     start = time.time()
     offline_tracker(instance_embeds, instance_embeds, mask_feature_input)
+    end = time.time()
     print("offline tracker consumed {} s".format((end - start) / 100.))
 
 
