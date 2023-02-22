@@ -120,7 +120,7 @@ with torch.no_grad():
     # offline_tracker
     offline_tracker = model.offline_tracker
     instance_embeds = torch.randn(1, 256, 100, 100).to(model.device)
-    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 4, input_size[1] // 4).to(model.device)
+    mask_feature_input = torch.randn(1, 100, 256, input_size[0] // 8, input_size[1] // 8).to(model.device)
     flops = FlopCountAnalysis(offline_tracker, (instance_embeds, instance_embeds, mask_feature_input))
     flops.by_module()
     print(flop_count_table(flops))
