@@ -20,6 +20,7 @@ def add_minvis_config(cfg):
     cfg.MODEL.MASK_FORMER.TEST.MAX_NUM = 20
 
     cfg.MODEL.PANOPTIC_ON = False
+    cfg.MODEL.SEMANTIC_ON = False
 
     cfg.DATASETS.DATASET_RATIO = [1.0, ]
 

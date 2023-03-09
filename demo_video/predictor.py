@@ -16,6 +16,7 @@ from detectron2.utils.video_visualizer import VideoVisualizer
 from detectron2.utils.visualizer import ColorMode
 from detectron2.modeling import build_model
 import detectron2.data.transforms as T
+import numpy as np
 
 class VisualizationDemo(object):
     def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False):
@@ -63,6 +64,16 @@ class VisualizationDemo(object):
                 id = segments_info['id']
                 pred_masks.append(pan_seg == id)
                 pred_labels.append(segments_info['category_id'])
+        elif "pred_scores" not in predictions.keys():
+            pred_labels = []
+            pred_masks = []
+            pred_scores = []
+            sem_seg = predictions['pred_masks'][:, :, :, 0]
+            sem_cats = np.unique(sem_seg)
+            for cls in sem_seg:
+                pred_scores.append(1)
+                pred_labels.append(cls)
+                pred_masks.append(sem_seg == cls)
         else:
             pred_scores = predictions["pred_scores"]
             pred_labels = predictions["pred_labels"]
@@ -142,6 +153,18 @@ class VisualizationDemo_windows(object):
                 id = segments_info['id']
                 pred_masks.append(pan_seg == id)
                 pred_labels.append(segments_info['category_id'])
+        elif "pred_scores" not in predictions.keys():
+            pred_labels = []
+            pred_masks = []
+            pred_scores = []
+            pred_ids = []
+            sem_seg = predictions['pred_masks'][:, :, :, 0]
+            sem_cats = np.unique(sem_seg)
+            for cls in sem_seg:
+                pred_scores.append(1)
+                pred_labels.append(cls)
+                pred_masks.append(sem_seg == cls)
+                pred_ids.append(cls)
         else:
             pred_scores = predictions["pred_scores"]
             pred_labels = predictions["pred_labels"]

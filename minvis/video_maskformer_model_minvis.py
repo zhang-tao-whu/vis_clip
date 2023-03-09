@@ -56,6 +56,7 @@ class VideoMaskFormer_frame(nn.Module):
         window_inference,
         # type
         panoptic_on=False,
+        semantic_on=False,
     ):
         """
         Args:
@@ -101,6 +102,7 @@ class VideoMaskFormer_frame(nn.Module):
         self.window_inference = window_inference
 
         self.panoptic_on = panoptic_on
+        self.semantic_on = semantic_on
 
     @classmethod
     def from_config(cls, cfg):
@@ -146,6 +148,7 @@ class VideoMaskFormer_frame(nn.Module):
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
         panoptic_on = cfg.MODEL.PANOPTIC_ON
+        semantic_on = cfg.MODEL.SEMANTIC_ON
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
@@ -162,6 +165,7 @@ class VideoMaskFormer_frame(nn.Module):
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
             "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
             "panoptic_on": panoptic_on,
+            "semantic_on": semantic_on,
         }
 
     @property
@@ -241,6 +245,10 @@ class VideoMaskFormer_frame(nn.Module):
 
             if self.panoptic_on:
                 return retry_if_cuda_oom(self.inference_video_pano)(mask_cls_result, mask_pred_result,
+                                                                    image_size, height, width,
+                                                                    first_resize_size)
+            elif self.semantic_on:
+                return retry_if_cuda_oom(self.inference_video_sem)(mask_cls_result, mask_pred_result,
                                                                     image_size, height, width,
                                                                     first_resize_size)
             else:
@@ -455,6 +463,28 @@ class VideoMaskFormer_frame(nn.Module):
                     "image_size": (output_height, output_width),
                     'pred_masks': panoptic_seg.cpu(),
                     'segments_infos': segments_infos
+            }
+
+    def inference_video_sem(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, pred_id):
+        # pred_cls (N, C)
+        # pred_masks (N, T, H, W)
+
+        mask_cls = F.softmax(pred_cls, dim=-1)[..., :-1]
+        mask_pred = pred_masks.sigmoid()
+        cur_masks = F.interpolate(
+            mask_pred, size=first_resize_size, mode="bilinear", align_corners=False
+        )
+        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]]
+        cur_masks = F.interpolate(
+            cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
+        )
+
+        semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
+        sem_score, sem_mask = semseg.max(0)
+        sem_mask = sem_mask.unqueeze(3).repeat(1, 1, 1, 3)
+        return {
+                "image_size": (output_height, output_width),
+                'pred_masks': sem_mask.cpu(),
             }
 
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):

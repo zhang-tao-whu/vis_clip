@@ -56,6 +56,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         max_iter_num,
         # type
         panoptic_on=False,
+        semantic_on=False,
     ):
         """
         Args:
@@ -122,6 +123,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         self.max_iter_num = max_iter_num
 
         self.panoptic_on = panoptic_on
+        self.semantic_on = semantic_on
         self.keep = False
 
     @classmethod
@@ -178,6 +180,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         max_iter_num = cfg.SOLVER.MAX_ITER
         panoptic_on = cfg.MODEL.PANOPTIC_ON
+        semantic_on = cfg.MODEL.SEMANTIC_ON
 
         return {
             "backbone": backbone,
@@ -198,6 +201,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             "max_num": cfg.MODEL.MASK_FORMER.TEST.MAX_NUM,
             "max_iter_num": max_iter_num,
             "panoptic_on": panoptic_on,
+            "semantic_on": semantic_on,
         }
 
     @property
@@ -339,6 +343,11 @@ class VideoMaskFormer_frame_offline(nn.Module):
             width = input_per_image.get("width", image_size[1])
             if self.panoptic_on:
                 return retry_if_cuda_oom(self.inference_video_pano)(mask_cls_result, mask_pred_result,
+                                                                    image_size, height, width,
+                                                                    first_resize_size, pred_id,
+                                                                    online_pred_cls=online_pred_logits)
+            elif self.semantic_on:
+                return retry_if_cuda_oom(self.inference_video_sem)(mask_cls_result, mask_pred_result,
                                                                     image_size, height, width,
                                                                     first_resize_size, pred_id,
                                                                     online_pred_cls=online_pred_logits)
@@ -605,6 +614,31 @@ class VideoMaskFormer_frame_offline(nn.Module):
                     'pred_masks': panoptic_seg.cpu(),
                     'segments_infos': segments_infos,
                     'pred_ids': out_ids
+            }
+
+    def inference_video_sem(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size,
+                            pred_id, online_pred_cls=None):
+        # pred_cls (N, C)
+        # pred_masks (N, T, H, W)
+        mask_cls = F.softmax(pred_cls, dim=-1)[..., :-1]
+        if online_pred_cls is not None:
+            online_pred_cls = F.softmax(online_pred_cls, dim=-1)[:, :-1]
+            mask_cls = torch.maximum(mask_cls, online_pred_cls.to(mask_cls))
+        mask_pred = pred_masks.sigmoid()
+        cur_masks = F.interpolate(
+            mask_pred, size=first_resize_size, mode="bilinear", align_corners=False
+        )
+        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]]
+        cur_masks = F.interpolate(
+            cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
+        )
+
+        semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
+        sem_score, sem_mask = semseg.max(0)
+        sem_mask = sem_mask.unqueeze(3).repeat(1, 1, 1, 3)
+        return {
+                "image_size": (output_height, output_width),
+                'pred_masks': sem_mask.cpu(),
             }
 
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width,
