@@ -83,7 +83,7 @@ class TrackVisualizer(Visualizer):
             dataset_colors = thing_colors + stuff_colors
         if dataset_colors is None:
             dataset_colors = self.metadata.get("colors", None)
-        print(dataset_colors)
+        print(self.metadata)
 
         if ids is None:
             # colors = [
