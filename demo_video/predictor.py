@@ -70,11 +70,12 @@ class VisualizationDemo(object):
             pred_scores = []
             sem_seg = predictions['pred_masks'][:, :, :, 0]
             sem_cats = np.unique(sem_seg)
-            for cls in sem_seg:
+            for cls in sem_cats:
                 pred_scores.append(1)
                 pred_labels.append(cls)
                 pred_masks.append(sem_seg == cls)
             predictions["pred_scores"] = pred_scores
+            predictions["pred_labels"] = pred_labels
         else:
             pred_scores = predictions["pred_scores"]
             pred_labels = predictions["pred_labels"]
