@@ -93,7 +93,8 @@ INPUT:
 DATASETS:
   DATASET_RATIO: [1.0, ]
   TRAIN: ("VSPW_vss_video_train",)
-  TEST: ("VSPW_vss_video_val",)
+  #TEST: ("VSPW_vss_video_val",)
+  TEST: ("VSPW_vss_video_test",)
 
 OUTPUT_DIR: './output_8gpu'
 

@@ -118,7 +118,7 @@ class VSSEvaluator(DatasetEvaluator):
         video_id = inputs[0]["video_id"]
         image_names = [inputs[0]['file_names'][idx] for idx in inputs[0]["frame_idx"]]
         img_shape = outputs['image_size']
-        sem_seg_result = outputs['pred_masks']  # (t, h, w, 3)
+        sem_seg_result = outputs['pred_masks'].numpy()  # (t, h, w, 3)
         unique_cls = np.unique(sem_seg_result[:, :, :, 0])
         for cls in unique_cls:
             cls_ = self.contiguous_id_to_dataset_id[cls]
