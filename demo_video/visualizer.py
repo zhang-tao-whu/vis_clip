@@ -56,9 +56,10 @@ class TrackVisualizer(Visualizer):
         if stuff_classes is None:
             dataset_classes = thing_classes
         else:
-            dataset_classes = thing_classes + stuff_classes
-        if dataset_classes is None:
-            dataset_classes = self.metadata.get("classes", None)
+            if thing_classes is None:
+                dataset_classes = stuff_classes
+            else:
+                dataset_classes = thing_classes + stuff_classes
         labels = _create_text_labels(classes, scores, dataset_classes)
         if labels is not None:
             if ids is None:
@@ -80,9 +81,10 @@ class TrackVisualizer(Visualizer):
         if stuff_classes is None:
             dataset_colors = thing_colors
         else:
-            dataset_colors = thing_colors + stuff_colors
-        if dataset_colors is None:
-            dataset_colors = self.metadata.get("colors", None)
+            if thing_colors is None:
+                dataset_colors = stuff_colors
+            else:
+                dataset_colors = thing_colors + stuff_colors
 
         if ids is None:
             # colors = [
