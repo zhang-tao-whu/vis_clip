@@ -205,15 +205,19 @@ def get_metadata():
 
     meta["stuff_classes"] = classes
     meta["stuff_colors"] = colors
+    meta["thing_classes"] = None
+    meta["thing_colors"] = None
 
     classes_id = [k['id'] for k in categories]
     meta['stuff_classes_id'] = classes_id
+    meta['thing_classes_id'] = None
 
     dataset_id_to_contiguous_id = {}
 
     for i, id_ in enumerate(classes_id):
         dataset_id_to_contiguous_id[id_] = i
     meta["stuff_dataset_id_to_contiguous_id"] = dataset_id_to_contiguous_id
+    meta["thing_dataset_id_to_contiguous_id"] = None
 
     return meta
 

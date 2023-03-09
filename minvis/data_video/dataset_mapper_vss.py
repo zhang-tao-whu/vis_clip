@@ -105,7 +105,7 @@ class SemanticDatasetVideoMapper:
         ignore_label = meta.ignore_label
 
         #######
-        ids_to_continue_dic = meta.dataset_id_to_contiguous_id
+        ids_to_continue_dic = meta.stuff_dataset_id_to_contiguous_id
 
         #######
         sampling_frame_num = cfg.INPUT.SAMPLING_FRAME_NUM
