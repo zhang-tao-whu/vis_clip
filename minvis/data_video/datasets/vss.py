@@ -11,7 +11,7 @@ def gen_video_vspw_lists(image_root, split_txt):
         v_list = [line[:-1] for line in lines]
     ret = []
     for video_name in v_list:
-        path_video = os.listdir(os.path.join(image_root, video_name))
+        path_video = os.path.join(image_root, video_name)
         img_files = os.listdir(os.path.join(path_video, 'origin'))
         img_files.sort()
         img_files = [os.path.join(path_video, 'origin', item) for item in img_files]
