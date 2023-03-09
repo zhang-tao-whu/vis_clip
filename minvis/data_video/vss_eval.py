@@ -119,10 +119,13 @@ class VSSEvaluator(DatasetEvaluator):
         image_names = [inputs[0]['file_names'][idx] for idx in inputs[0]["frame_idx"]]
         img_shape = outputs['image_size']
         sem_seg_result = outputs['pred_masks'].numpy()  # (t, h, w, 3)
+        print(sem_seg_result.shape)
+        sem_seg_result_ = np.zeros_like(sem_seg_result) + 255
         unique_cls = np.unique(sem_seg_result[:, :, :, 0])
         for cls in unique_cls:
             cls_ = self.contiguous_id_to_dataset_id[cls]
-            sem_seg_result[sem_seg_result == cls] = cls_
+            sem_seg_result_[sem_seg_result == cls] = cls_
+        sem_seg_result = sem_seg_result_
         for i, image_name in enumerate(image_names):
             image_ = Image.fromarray(sem_seg_result[i])
             if not os.path.exists(os.path.join(self._output_dir, video_id)):
