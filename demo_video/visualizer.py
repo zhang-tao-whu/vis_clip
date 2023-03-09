@@ -50,7 +50,6 @@ class TrackVisualizer(Visualizer):
         boxes = preds.pred_boxes if preds.has("pred_boxes") else None
         scores = preds.scores if preds.has("scores") else None
         classes = preds.pred_classes if preds.has("pred_classes") else None
-        print(classes)
 
         thing_classes = self.metadata.get("thing_classes", None)
         stuff_classes = self.metadata.get("stuff_classes", None)
@@ -58,6 +57,8 @@ class TrackVisualizer(Visualizer):
             dataset_classes = thing_classes
         else:
             dataset_classes = thing_classes + stuff_classes
+        if dataset_classes is None:
+            dataset_classes = self.metadata.get("classes", None)
         labels = _create_text_labels(classes, scores, dataset_classes)
         if labels is not None:
             if ids is None:
@@ -80,6 +81,8 @@ class TrackVisualizer(Visualizer):
             dataset_colors = thing_colors
         else:
             dataset_colors = thing_colors + stuff_colors
+        if dataset_colors is None:
+            dataset_colors = self.metadata.get("colors", None)
 
         if ids is None:
             # colors = [
