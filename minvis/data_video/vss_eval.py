@@ -90,7 +90,7 @@ class VSSEvaluator(DatasetEvaluator):
         self._cpu_device = torch.device("cpu")
 
         self._metadata = MetadataCatalog.get(dataset_name)
-        dataset_id_to_contiguous_id = self._metadata.dataset_id_to_contiguous_id
+        dataset_id_to_contiguous_id = self._metadata.stuff_dataset_id_to_contiguous_id
         self.contiguous_id_to_dataset_id = {}
         for i, key in enumerate(dataset_id_to_contiguous_id.keys()):
             self.contiguous_id_to_dataset_id.update({i: key})

@@ -203,17 +203,17 @@ def get_metadata():
     classes = [k["name"] for k in categories]
     colors = [k["color"] for k in categories]
 
-    meta["classes"] = classes
-    meta["colors"] = colors
+    meta["stuff_classes"] = classes
+    meta["stuff_colors"] = colors
 
     classes_id = [k['id'] for k in categories]
-    meta['classes_id'] = classes_id
+    meta['stuff_classes_id'] = classes_id
 
     dataset_id_to_contiguous_id = {}
 
     for i, id_ in enumerate(classes_id):
         dataset_id_to_contiguous_id[id_] = i
-    meta["dataset_id_to_contiguous_id"] = dataset_id_to_contiguous_id
+    meta["stuff_dataset_id_to_contiguous_id"] = dataset_id_to_contiguous_id
 
     return meta
 
