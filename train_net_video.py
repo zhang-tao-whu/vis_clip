@@ -55,8 +55,10 @@ from minvis import (
     YTVISDatasetMapper,
     CocoClipDatasetMapper,
     PanopticDatasetVideoMapper,
+    SemanticDatasetVideoMapper,
     YTVISEvaluator,
     VPSEvaluator,
+    VSSEvaluator,
     add_minvis_config,
     build_combined_loader,
     build_detection_train_loader,
@@ -84,6 +86,8 @@ class Trainer(DefaultTrainer):
 
         if 'pano' in dataset_name:
             return VPSEvaluator(dataset_name, cfg, True, output_folder)
+        if 'vss' in dataset_name:
+            return VSSEvaluator(dataset_name, cfg, True, output_folder)
 
         return YTVISEvaluator(dataset_name, cfg, True, output_folder)
 
@@ -119,6 +123,10 @@ class Trainer(DefaultTrainer):
                 mappers.append(
                     PanopticDatasetVideoMapper(cfg, is_train=True)
                 )
+            elif dataset_name.startswith('VSPW'):
+                mappers.append(
+                    SemanticDatasetVideoMapper(cfg, is_train=True)
+                )
             else:
                 raise NotImplementedError
         assert len(mappers) > 0, "No dataset is chosen!"
@@ -139,6 +147,8 @@ class Trainer(DefaultTrainer):
         dataset_name = cfg.DATASETS.TEST[0]
         if dataset_name.startswith('pano'):
             mapper = PanopticDatasetVideoMapper(cfg, is_train=False)
+        elif dataset_name.startswith('VSPW'):
+            mapper = SemanticDatasetVideoMapper(cfg, is_train=False)
         else:
             mapper = YTVISDatasetMapper(cfg, is_train=False)
         return build_detection_test_loader(cfg, dataset_name, mapper=mapper)

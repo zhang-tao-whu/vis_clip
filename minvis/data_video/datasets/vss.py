@@ -184,6 +184,14 @@ def get_metadata():
      {"id": 121, "name": "food", "isthing": 0, "color": [255, 0, 143]},
      {"id": 122, "name": "instrument", "isthing": 1, "color": [0, 255, 235]},
      {"id": 123, "name": "train", "isthing": 1, "color": [133, 255, 0]}]
+    categories_ = {}
+    for item in categories:
+        if item['isthing']:
+            categories_.append(item)
+    for item in categories:
+        if item['isthing'] == 0:
+            categories_.append(item)
+    categories = categories_
     meta = {}
     # The following metadata maps contiguous id from [0, #thing categories +
     # #stuff categories) to their names and colors. We have to replica of the

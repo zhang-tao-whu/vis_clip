@@ -91,9 +91,9 @@ class VSSEvaluator(DatasetEvaluator):
 
         self._metadata = MetadataCatalog.get(dataset_name)
         dataset_id_to_contiguous_id = self._metadata.dataset_id_to_contiguous_id
-        self.contiguous_id_to_thing_dataset_id = {}
+        self.contiguous_id_to_dataset_id = {}
         for i, key in enumerate(dataset_id_to_contiguous_id.keys()):
-            self.contiguous_id_to_thing_dataset_id.update({i: key})
+            self.contiguous_id_to_dataset_id.update({i: key})
 
         # Test set json files do not contain annotations (evaluation must be
         # performed using the COCO evaluation server).
@@ -119,7 +119,10 @@ class VSSEvaluator(DatasetEvaluator):
         image_names = [inputs[0]['file_names'][idx] for idx in inputs[0]["frame_idx"]]
         img_shape = outputs['image_size']
         sem_seg_result = outputs['pred_masks']  # (t, h, w, 3)
-
+        unique_cls = np.unique(sem_seg_result[:, :, :, 0])
+        for cls in unique_cls:
+            cls_ = self.contiguous_id_to_dataset_id[cls]
+            sem_seg_result[sem_seg_result == cls] = cls_
         for i, image_name in enumerate(image_names):
             image_ = Image.fromarray(sem_seg_result[i])
             if not os.path.exists(os.path.join(self._output_dir, video_id)):
