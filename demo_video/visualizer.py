@@ -50,6 +50,7 @@ class TrackVisualizer(Visualizer):
         boxes = preds.pred_boxes if preds.has("pred_boxes") else None
         scores = preds.scores if preds.has("scores") else None
         classes = preds.pred_classes if preds.has("pred_classes") else None
+        print(classes)
 
         thing_classes = self.metadata.get("thing_classes", None)
         stuff_classes = self.metadata.get("stuff_classes", None)
