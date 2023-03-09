@@ -74,6 +74,7 @@ class VisualizationDemo(object):
                 pred_scores.append(1)
                 pred_labels.append(cls)
                 pred_masks.append(sem_seg == cls)
+            predictions["pred_scores"] = pred_scores
         else:
             pred_scores = predictions["pred_scores"]
             pred_labels = predictions["pred_labels"]
