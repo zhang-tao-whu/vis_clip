@@ -224,16 +224,16 @@ def get_metadata():
 
 _PREDEFINED_SPLITS_PANOVSPW = {
     "VSPW_vss_video_train": (
-        "VSPW/VSPW_480p/data/",
-        "VSPW/VSPW_480p/train.txt",
+        "VSPW_480p/data/",
+        "VSPW_480p/train.txt",
     ),
     "VSPW_vss_video_val": (
-        "VSPW/VSPW_480p/data/",
-        "VSPW/VSPW_480p/val.txt",
+        "VSPW_480p/data/",
+        "VSPW_480p/val.txt",
     ),
     "VSPW_vss_video_test": (
-        "VSPW/VSPW_480p/data/",
-        "VSPW/VSPW_480p/test.txt",
+        "VSPW_480p/data/",
+        "VSPW_480p/test.txt",
     ),
 }
 
