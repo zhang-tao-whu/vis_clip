@@ -120,7 +120,7 @@ class VSSEvaluator(DatasetEvaluator):
         img_shape = outputs['image_size']
         sem_seg_result = outputs['pred_masks'].numpy().astype(np.uint8)  # (t, h, w, 3)
         sem_seg_result_ = np.zeros_like(sem_seg_result, dtype=np.uint8) + 255
-        unique_cls = np.unique(sem_seg_result[:, :, :, 0])
+        unique_cls = np.unique(sem_seg_result)
         for cls in unique_cls:
             cls_ = self.contiguous_id_to_dataset_id[cls]
             sem_seg_result_[sem_seg_result == cls] = cls_

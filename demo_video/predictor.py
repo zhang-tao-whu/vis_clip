@@ -68,7 +68,7 @@ class VisualizationDemo(object):
             pred_labels = []
             pred_masks = []
             pred_scores = []
-            sem_seg = predictions['pred_masks'][:, :, :, 0]
+            sem_seg = predictions['pred_masks']
             sem_cats = np.unique(sem_seg)
             for cls in sem_cats:
                 pred_scores.append(1)
@@ -160,9 +160,9 @@ class VisualizationDemo_windows(object):
             pred_masks = []
             pred_scores = []
             pred_ids = []
-            sem_seg = predictions['pred_masks'][:, :, :, 0]
+            sem_seg = predictions['pred_masks']
             sem_cats = np.unique(sem_seg)
-            for cls in sem_seg:
+            for cls in sem_cats:
                 pred_scores.append(1)
                 pred_labels.append(cls)
                 pred_masks.append(sem_seg == cls)

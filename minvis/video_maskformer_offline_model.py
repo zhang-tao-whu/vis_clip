@@ -620,11 +620,20 @@ class VideoMaskFormer_frame_offline(nn.Module):
                             pred_id, online_pred_cls=None):
         # pred_cls (N, C)
         # pred_masks (N, T, H, W)
-        mask_cls = F.softmax(pred_cls, dim=-1)[..., :-1]
+        mask_cls = F.softmax(pred_cls, dim=-1)
         if online_pred_cls is not None:
             online_pred_cls = F.softmax(online_pred_cls, dim=-1)[:, :-1]
-            mask_cls = torch.maximum(mask_cls, online_pred_cls.to(mask_cls))
+            mask_cls[..., -1] = torch.maximum(mask_cls[..., -1], online_pred_cls.to(mask_cls))
         mask_pred = pred_masks.sigmoid()
+
+        scores, labels = F.softmax(pred_cls, dim=-1).max(-1)
+        keep = labels.ne(self.sem_seg_head.num_classes)
+
+        mask_cls = mask_cls[..., :-1]
+
+        mask_pred = mask_pred[keep]
+        mask_cls = mask_cls[keep]
+
         cur_masks = F.interpolate(
             mask_pred, size=first_resize_size, mode="bilinear", align_corners=False
         )
@@ -635,7 +644,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
         sem_score, sem_mask = semseg.max(0)
-        sem_mask = sem_mask.unsqueeze(3).repeat(1, 1, 1, 3)
+        sem_mask = sem_mask
         return {
                 "image_size": (output_height, output_width),
                 'pred_masks': sem_mask.cpu(),
