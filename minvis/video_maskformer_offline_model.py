@@ -623,7 +623,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         mask_cls = F.softmax(pred_cls, dim=-1)
         if online_pred_cls is not None:
             online_pred_cls = F.softmax(online_pred_cls, dim=-1)[:, :-1]
-            mask_cls[..., -1] = torch.maximum(mask_cls[..., -1], online_pred_cls.to(mask_cls))
+            mask_cls[..., :-1] = torch.maximum(mask_cls[..., :-1], online_pred_cls.to(mask_cls))
         mask_pred = pred_masks.sigmoid()
 
         scores, labels = F.softmax(pred_cls, dim=-1).max(-1)
