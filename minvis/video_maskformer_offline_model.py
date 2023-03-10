@@ -627,8 +627,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         mask_pred = pred_masks.sigmoid()
 
         scores, labels = F.softmax(pred_cls, dim=-1).max(-1)
-        #keep = labels.ne(self.sem_seg_head.num_classes)
-        keep = labels.ne(self.sem_seg_head.num_classes) & (scores > self.object_mask_threshold)
+        keep = labels.ne(self.sem_seg_head.num_classes)
 
         mask_cls = mask_cls[..., :-1]
 
