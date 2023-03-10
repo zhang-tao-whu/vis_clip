@@ -644,7 +644,6 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
         sem_score, sem_mask = semseg.max(0)
-        sem_mask[sem_score < 0.1] = 255
         return {
                 "image_size": (output_height, output_width),
                 'pred_masks': sem_mask.cpu(),
