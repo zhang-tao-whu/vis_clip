@@ -90,6 +90,7 @@ class VSSEvaluator(DatasetEvaluator):
         self._cpu_device = torch.device("cpu")
 
         self._metadata = MetadataCatalog.get(dataset_name)
+        self.ignore_val = self._metadata.ignore_label
         dataset_id_to_contiguous_id = self._metadata.stuff_dataset_id_to_contiguous_id
         self.contiguous_id_to_dataset_id = {}
         for i, key in enumerate(dataset_id_to_contiguous_id.keys()):
@@ -122,6 +123,8 @@ class VSSEvaluator(DatasetEvaluator):
         sem_seg_result_ = np.zeros_like(sem_seg_result, dtype=np.uint8) + 255
         unique_cls = np.unique(sem_seg_result)
         for cls in unique_cls:
+            if cls == self.ignore_val:
+                continue
             cls_ = self.contiguous_id_to_dataset_id[cls]
             sem_seg_result_[sem_seg_result == cls] = cls_
         sem_seg_result = sem_seg_result_
