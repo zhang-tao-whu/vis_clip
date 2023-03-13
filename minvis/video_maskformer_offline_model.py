@@ -639,8 +639,6 @@ class VideoMaskFormer_frame_offline(nn.Module):
                               output_height, output_width, img_size):
         # pred_logits (t, nq, c)
         # pred_masks (nq, t, h, w)
-        print(segmenter_out_logits.shape)
-        print(segmenter_out_masks.shape)
         segmenter_out_logits = F.softmax(segmenter_out_logits, dim=-1)
         segmenter_out_masks = segmenter_out_masks.sigmoid()
 
@@ -670,7 +668,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
         # pred_masks (N, T, H, W)
 
         if segmenter_pred is not None:
-            sem_seg_segmenter = self.segmenter_sem_process(segmenter_pred['pred_logits'], segmenter_pred['pred_masks'],
+            sem_seg_segmenter = self.segmenter_sem_process(segmenter_pred['pred_logits'][0],
+                                                           segmenter_pred['pred_masks'][0],
                                                            first_resize_size, output_height, output_width, img_size)
             del segmenter_pred['pred_logits'], segmenter_pred['pred_masks']
             del segmenter_pred
