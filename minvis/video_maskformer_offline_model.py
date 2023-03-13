@@ -275,7 +275,13 @@ class VideoMaskFormer_frame_offline(nn.Module):
         self.tracker.eval()
 
         if not self.training and self.window_inference:
-            outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=3)
+            if self.semantic_on:
+                input_per_image = batched_inputs[0]
+                image_size = images.image_sizes[0]  # image size without padding after data augmentation
+                height = input_per_image.get("height", image_size[0])  # raw image size before data augmentation
+                width = input_per_image.get("width", image_size[1])
+                image_info = {'output_height': height, 'output_width': width,'img_size': image_size}
+            outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=3, image_info=image_info)
         else:
             with torch.no_grad():
                 # features = self.backbone(images.tensor)
@@ -347,13 +353,11 @@ class VideoMaskFormer_frame_offline(nn.Module):
                                                                     first_resize_size, pred_id,
                                                                     online_pred_cls=online_pred_logits)
             elif self.semantic_on:
-                segmenter_pred = {'pred_logits': outputs['segmenter_logits'],
-                                  'pred_masks': outputs['segmenter_masks']}
                 return retry_if_cuda_oom(self.inference_video_sem)(mask_cls_result, mask_pred_result,
                                                                    image_size, height, width,
                                                                    first_resize_size, pred_id,
                                                                    online_pred_cls=online_pred_logits,
-                                                                   segmenter_pred=segmenter_pred
+                                                                   segmenter_sem_seg=outputs['segmenter_sem_seg']
                                                                    )
             else:
                 return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size,
@@ -452,7 +456,53 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         return outputs, online_logits
 
-    def run_window_inference(self, images_tensor, window_size=30):
+    def segmenter_sem_process(self, segmenter_out_logits, segmenter_out_masks, first_resize_size,
+                              output_height, output_width, img_size):
+        # pred_logits (t, nq, c)
+        # pred_masks (nq, t, h, w)
+        segmenter_out_logits = F.softmax(segmenter_out_logits, dim=-1)
+        segmenter_out_masks = segmenter_out_masks.sigmoid()
+
+        segmenter_scores, segmenter_labels = F.softmax(segmenter_out_logits, dim=-1).max(-1)
+        keep = segmenter_labels.ne(self.sem_seg_head.num_classes)
+        keep = torch.any(keep, dim=0) # (nq)
+        segmenter_out_logits = segmenter_out_logits[..., :-1]
+
+        segmenter_out_masks = segmenter_out_masks[keep]
+        segmenter_out_logits = segmenter_out_logits.permute(1, 0, 2)[keep] # (q, t, c)
+
+        max_len = segmenter_out_masks.shape[1]
+        windows_size = 10
+        iter_num = max_len // windows_size
+        sem_seg_segmenter = []
+        if max_len > iter_num * windows_size:
+            iter_num += 1
+        for i in range(iter_num):
+            start = i * windows_size
+            end = min(start + windows_size, max_len)
+            temp = F.interpolate(
+                segmenter_out_masks[:, start:end], size=first_resize_size, mode="bilinear", align_corners=False
+            )
+            temp = temp[:, :, :img_size[0], :img_size[1]]
+            temp = F.interpolate(
+                temp, size=(output_height, output_width), mode="bilinear", align_corners=False
+            )
+            sem_seg_segmenter.append(torch.einsum("qtc,qthw->cthw", segmenter_out_logits[:, start:end],
+                                                  temp).cpu())
+        del segmenter_out_masks, segmenter_out_logits, keep
+        sem_seg_segmenter = torch.cat(sem_seg_segmenter, dim=1)
+        # segmenter_out_masks = F.interpolate(
+        #     segmenter_out_masks, size=first_resize_size, mode="bilinear", align_corners=False
+        # )
+        # segmenter_out_masks = segmenter_out_masks[:, :, :img_size[0], :img_size[1]]
+        # segmenter_out_masks = F.interpolate(
+        #     segmenter_out_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
+        # )
+        #sem_seg_segmenter = torch.einsum("qtc,qthw->cthw", segmenter_out_logits, segmenter_out_masks)
+        # del segmenter_out_masks, segmenter_out_logits, keep
+        return sem_seg_segmenter
+
+    def run_window_inference(self, images_tensor, window_size=30, image_info=None):
         iters = len(images_tensor) // window_size
         if len(images_tensor) % window_size != 0:
             iters += 1
@@ -464,8 +514,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         online_pred_logits = []
 
         if self.semantic_on:
-            segmenter_masks = []
-            segmenter_logits = []
+            segmenter_sem_seg = []
 
         for i in range(iters):
             start_idx = i * window_size
@@ -475,14 +524,20 @@ class VideoMaskFormer_frame_offline(nn.Module):
             out = self.sem_seg_head(features)
             del features['res2'], features['res3'], features['res4'], features['res5']
             if self.semantic_on:
-                segmenter_logits.append(out['pred_logits'])
-                segmenter_masks.append(out['pred_masks'])
+                first_resize_size = (images_tensor.shape[-2], images_tensor.shape[-1])
+                segmenter_sem_seg.append(self.segmenter_sem_process(out['pred_logits'][0],
+                                                                    out['pred_masks'][0],
+                                                                    first_resize_size,
+                                                                    **image_info))
+                # segmenter_logits.append(out['pred_logits'])
+                # segmenter_masks.append(out['pred_masks'])
             del out['pred_masks'], out['pred_logits']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
 
             frame_embds = out['pred_embds']  # b c t q
             mask_features = out['mask_features'].unsqueeze(0)
+            del out
 
             overall_mask_features.append(mask_features.cpu())
             overall_frame_embds.append(frame_embds)
@@ -514,9 +569,10 @@ class VideoMaskFormer_frame_offline(nn.Module):
         if self.semantic_on:
             # pred_logits (bs, t, nq, c)
             # pred_masks (bs, nq, t, h, w)
-            segmenter_logits = torch.cat(segmenter_logits, dim=1)
-            segmenter_masks = torch.cat(segmenter_masks, dim=2)
-            outputs.update({'segmenter_logits': segmenter_logits, 'segmenter_masks': segmenter_masks})
+            # segmenter_logits = torch.cat(segmenter_logits, dim=1)
+            # segmenter_masks = torch.cat(segmenter_masks, dim=2)
+            segmenter_sem_seg = torch.cat(segmenter_sem_seg, dim=1)
+            outputs.update({'segmenter_sem_seg': segmenter_sem_seg})
         return outputs, online_pred_logits
 
 
@@ -635,66 +691,10 @@ class VideoMaskFormer_frame_offline(nn.Module):
                     'pred_ids': out_ids
             }
 
-    def segmenter_sem_process(self, segmenter_out_logits, segmenter_out_masks, first_resize_size,
-                              output_height, output_width, img_size):
-        # pred_logits (t, nq, c)
-        # pred_masks (nq, t, h, w)
-        segmenter_out_logits = F.softmax(segmenter_out_logits, dim=-1)
-        segmenter_out_masks = segmenter_out_masks.sigmoid()
-
-        segmenter_scores, segmenter_labels = F.softmax(segmenter_out_logits, dim=-1).max(-1)
-        keep = segmenter_labels.ne(self.sem_seg_head.num_classes)
-        keep = torch.any(keep, dim=0) # (nq)
-        segmenter_out_logits = segmenter_out_logits[..., :-1]
-
-        segmenter_out_masks = segmenter_out_masks[keep]
-        segmenter_out_logits = segmenter_out_logits.permute(1, 0, 2)[keep] # (q, t, c)
-
-        max_len = segmenter_out_masks.shape[1]
-        windows_size = 10
-        iter_num = max_len // windows_size
-        sem_seg_segmenter = []
-        if max_len > iter_num * windows_size:
-            iter_num += 1
-        for i in range(iter_num):
-            start = i * windows_size
-            end = min(start + windows_size, max_len)
-            temp = F.interpolate(
-                segmenter_out_masks[:, start:end], size=first_resize_size, mode="bilinear", align_corners=False
-            )
-            temp = temp[:, :, :img_size[0], :img_size[1]]
-            temp = F.interpolate(
-                temp, size=(output_height, output_width), mode="bilinear", align_corners=False
-            )
-            sem_seg_segmenter.append(torch.einsum("qtc,qthw->cthw", segmenter_out_logits[:, start:end],
-                                                  temp).cpu())
-        del segmenter_out_masks, segmenter_out_logits, keep
-        sem_seg_segmenter = torch.cat(sem_seg_segmenter, dim=1)
-        print(sem_seg_segmenter.shape)
-
-
-        # segmenter_out_masks = F.interpolate(
-        #     segmenter_out_masks, size=first_resize_size, mode="bilinear", align_corners=False
-        # )
-        # segmenter_out_masks = segmenter_out_masks[:, :, :img_size[0], :img_size[1]]
-        # segmenter_out_masks = F.interpolate(
-        #     segmenter_out_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-        # )
-        #sem_seg_segmenter = torch.einsum("qtc,qthw->cthw", segmenter_out_logits, segmenter_out_masks)
-        # del segmenter_out_masks, segmenter_out_logits, keep
-        return sem_seg_segmenter
-
-
     def inference_video_sem(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size,
-                            pred_id, online_pred_cls=None, segmenter_pred=None):
+                            pred_id, online_pred_cls=None, segmenter_sem_seg=None):
         # pred_cls (N, C)
         # pred_masks (N, T, H, W)
-
-        if segmenter_pred is not None:
-            sem_seg_segmenter = self.segmenter_sem_process(segmenter_pred['pred_logits'][0],
-                                                           segmenter_pred['pred_masks'][0],
-                                                           first_resize_size, output_height, output_width, img_size)
-            del segmenter_pred['pred_logits'], segmenter_pred['pred_masks']
 
         mask_cls = F.softmax(pred_cls, dim=-1)
         if online_pred_cls is not None:
@@ -719,9 +719,9 @@ class VideoMaskFormer_frame_offline(nn.Module):
         )
 
         semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
-        if segmenter_pred is not None:
-            semseg = (semseg + sem_seg_segmenter.to(semseg)) / 2.
-            del sem_seg_segmenter
+        if segmenter_sem_seg is not None:
+            semseg = (semseg + segmenter_sem_seg.to(semseg)) / 2.
+            del segmenter_sem_seg
         sem_score, sem_mask = semseg.max(0)
         return {
                 "image_size": (output_height, output_width),
