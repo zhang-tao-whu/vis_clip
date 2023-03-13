@@ -694,7 +694,6 @@ class VideoMaskFormer_frame_offline(nn.Module):
                                                            segmenter_pred['pred_masks'][0],
                                                            first_resize_size, output_height, output_width, img_size)
             del segmenter_pred['pred_logits'], segmenter_pred['pred_masks']
-            del segmenter_pred
 
         mask_cls = F.softmax(pred_cls, dim=-1)
         if online_pred_cls is not None:
@@ -720,7 +719,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
         if segmenter_pred is not None:
-            semseg = (semseg + sem_seg_segmenter) / 2.
+            semseg = (semseg + sem_seg_segmenter.to(semseg)) / 2.
             del sem_seg_segmenter
         sem_score, sem_mask = semseg.max(0)
         return {
