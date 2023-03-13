@@ -651,7 +651,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         segmenter_out_logits = segmenter_out_logits.permute(1, 0, 2)[keep] # (q, t, c)
 
         max_len = segmenter_out_masks.shape[0]
-        windows_size = 10
+        windows_size = 5
         iter_num = max_len // windows_size
         sem_seg_segmenter = []
         if max_len > iter_num * windows_size:
