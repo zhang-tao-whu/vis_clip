@@ -476,7 +476,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             del features['res2'], features['res3'], features['res4'], features['res5']
             if self.semantic_on:
                 segmenter_logits.append(out['pred_logits'])
-                segmenter_masks.append(out['pred_masks'].cpu())
+                segmenter_masks.append(out['pred_masks'])
             del out['pred_masks'], out['pred_logits']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
@@ -650,13 +650,34 @@ class VideoMaskFormer_frame_offline(nn.Module):
         segmenter_out_masks = segmenter_out_masks[keep]
         segmenter_out_logits = segmenter_out_logits.permute(1, 0, 2)[keep] # (q, t, c)
 
-        segmenter_out_masks = F.interpolate(
-            segmenter_out_masks, size=first_resize_size, mode="bilinear", align_corners=False
-        )
-        segmenter_out_masks = segmenter_out_masks[:, :, :img_size[0], :img_size[1]]
-        segmenter_out_masks = F.interpolate(
-            segmenter_out_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-        )
+        max_len = segmenter_out_masks.shape[0]
+        windows_size = 20
+        iter_num = max_len // windows_size
+        segmenter_out_masks_ = []
+        if max_len > iter_num * windows_size:
+            iter_num += 1
+        for i in range(iter_num):
+            start = i * windows_size
+            end = min(start + windows_size, max_len)
+            temp = F.interpolate(
+                segmenter_out_masks[start:end], size=first_resize_size, mode="bilinear", align_corners=False
+            )
+            temp = temp[:, :, :img_size[0], :img_size[1]]
+            temp = F.interpolate(
+                temp, size=(output_height, output_width), mode="bilinear", align_corners=False
+            )
+            segmenter_out_masks_.append(temp.cpu())
+        del segmenter_out_masks
+        segmenter_out_masks = torch.cat(segmenter_out_masks_, dim=0)
+
+
+        # segmenter_out_masks = F.interpolate(
+        #     segmenter_out_masks, size=first_resize_size, mode="bilinear", align_corners=False
+        # )
+        # segmenter_out_masks = segmenter_out_masks[:, :, :img_size[0], :img_size[1]]
+        # segmenter_out_masks = F.interpolate(
+        #     segmenter_out_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
+        # )
         sem_seg_segmenter = torch.einsum("qtc,qthw->cthw", segmenter_out_logits, segmenter_out_masks)
         del segmenter_out_masks, segmenter_out_logits, keep
         return sem_seg_segmenter
