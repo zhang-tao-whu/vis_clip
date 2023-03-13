@@ -476,7 +476,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             del features['res2'], features['res3'], features['res4'], features['res5']
             if self.semantic_on:
                 segmenter_logits.append(out['pred_logits'])
-                segmenter_masks.append(out['pred_masks'])
+                segmenter_masks.append(out['pred_masks'].cpu())
             del out['pred_masks'], out['pred_logits']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
