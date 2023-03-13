@@ -644,7 +644,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         segmenter_scores, segmenter_labels = F.softmax(segmenter_out_logits, dim=-1).max(-1)
         keep = segmenter_labels.ne(self.sem_seg_head.num_classes)
-        keep = torch.any(keep, dim=1) # (nq)
+        keep = torch.any(keep, dim=0) # (nq)
         segmenter_out_logits = segmenter_out_logits[..., :-1]
 
         segmenter_out_masks = segmenter_out_masks[keep]
