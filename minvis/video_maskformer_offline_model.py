@@ -666,7 +666,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             temp = F.interpolate(
                 temp, size=(output_height, output_width), mode="bilinear", align_corners=False
             )
-            segmenter_out_masks_.append(temp.cpu())
+            segmenter_out_masks_.append(temp)
         del segmenter_out_masks
         segmenter_out_masks = torch.cat(segmenter_out_masks_, dim=0)
 
