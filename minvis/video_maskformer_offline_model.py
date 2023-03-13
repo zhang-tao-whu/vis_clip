@@ -639,6 +639,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
                               output_height, output_width, img_size):
         # pred_logits (t, nq, c)
         # pred_masks (nq, t, h, w)
+        print(segmenter_out_logits.shape)
+        print(segmenter_out_masks.shape)
         segmenter_out_logits = F.softmax(segmenter_out_logits, dim=-1)
         segmenter_out_masks = segmenter_out_masks.sigmoid()
 
