@@ -668,7 +668,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
                 temp, size=(output_height, output_width), mode="bilinear", align_corners=False
             )
             sem_seg_segmenter.append(torch.einsum("qtc,qthw->cthw", segmenter_out_logits[start:end],
-                                                  temp))
+                                                  temp).cpu())
         del segmenter_out_masks
         sem_seg_segmenter = torch.cat(sem_seg_segmenter, dim=0)
 
