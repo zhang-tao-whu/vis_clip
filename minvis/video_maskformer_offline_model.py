@@ -720,7 +720,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
         if segmenter_sem_seg is not None:
-            semseg = (semseg + segmenter_sem_seg.to(semseg)) / 2.
+            # semseg = (semseg + segmenter_sem_seg.to(semseg)) / 2.
+            semseg = torch.maximum(semseg, segmenter_sem_seg.to(semseg))
             del segmenter_sem_seg
         sem_score, sem_mask = semseg.max(0)
         return {
