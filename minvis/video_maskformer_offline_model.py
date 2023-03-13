@@ -650,7 +650,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         segmenter_out_masks = segmenter_out_masks[keep]
         segmenter_out_logits = segmenter_out_logits.permute(1, 0, 2)[keep] # (q, t, c)
 
-        max_len = segmenter_out_masks.shape[0]
+        max_len = segmenter_out_masks.shape[1]
         windows_size = 10
         iter_num = max_len // windows_size
         sem_seg_segmenter = []
@@ -660,16 +660,16 @@ class VideoMaskFormer_frame_offline(nn.Module):
             start = i * windows_size
             end = min(start + windows_size, max_len)
             temp = F.interpolate(
-                segmenter_out_masks[start:end], size=first_resize_size, mode="bilinear", align_corners=False
+                segmenter_out_masks[:, start:end], size=first_resize_size, mode="bilinear", align_corners=False
             )
             temp = temp[:, :, :img_size[0], :img_size[1]]
             temp = F.interpolate(
                 temp, size=(output_height, output_width), mode="bilinear", align_corners=False
             )
-            sem_seg_segmenter.append(torch.einsum("qtc,qthw->cthw", segmenter_out_logits[start:end],
+            sem_seg_segmenter.append(torch.einsum("qtc,qthw->cthw", segmenter_out_logits[:, start:end],
                                                   temp).cpu())
         del segmenter_out_masks, segmenter_out_logits, keep
-        sem_seg_segmenter = torch.cat(sem_seg_segmenter, dim=0)
+        sem_seg_segmenter = torch.cat(sem_seg_segmenter, dim=1)
         print(sem_seg_segmenter.shape)
 
 
