@@ -275,13 +275,13 @@ class VideoMaskFormer_frame_offline(nn.Module):
         self.tracker.eval()
 
         if not self.training and self.window_inference:
-            if self.semantic_on:
-                input_per_image = batched_inputs[0]
-                image_size = images.image_sizes[0]  # image size without padding after data augmentation
-                height = input_per_image.get("height", image_size[0])  # raw image size before data augmentation
-                width = input_per_image.get("width", image_size[1])
-                image_info = {'output_height': height, 'output_width': width,'img_size': image_size}
-            outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=3, image_info=image_info)
+            # if self.semantic_on:
+            #     input_per_image = batched_inputs[0]
+            #     image_size = images.image_sizes[0]  # image size without padding after data augmentation
+            #     height = input_per_image.get("height", image_size[0])  # raw image size before data augmentation
+            #     width = input_per_image.get("width", image_size[1])
+            #     image_info = {'output_height': height, 'output_width': width,'img_size': image_size}
+            outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=3)
         else:
             with torch.no_grad():
                 # features = self.backbone(images.tensor)
@@ -357,7 +357,6 @@ class VideoMaskFormer_frame_offline(nn.Module):
                                                                    image_size, height, width,
                                                                    first_resize_size, pred_id,
                                                                    online_pred_cls=online_pred_logits,
-                                                                   segmenter_sem_seg=outputs['segmenter_sem_seg']
                                                                    )
             else:
                 return retry_if_cuda_oom(self.inference_video)(mask_cls_result, mask_pred_result, image_size,
@@ -502,7 +501,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
         # del segmenter_out_masks, segmenter_out_logits, keep
         return sem_seg_segmenter
 
-    def run_window_inference(self, images_tensor, window_size=30, image_info=None):
+    def run_window_inference(self, images_tensor, window_size=30):
         iters = len(images_tensor) // window_size
         if len(images_tensor) % window_size != 0:
             iters += 1
@@ -513,8 +512,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         online_pred_logits = []
 
-        if self.semantic_on:
-            segmenter_sem_seg = []
+        # if self.semantic_on:
+        #     segmenter_sem_seg = []
 
         for i in range(iters):
             start_idx = i * window_size
@@ -523,12 +522,12 @@ class VideoMaskFormer_frame_offline(nn.Module):
             features = self.backbone(images_tensor[start_idx:end_idx])
             out = self.sem_seg_head(features)
             del features['res2'], features['res3'], features['res4'], features['res5']
-            if self.semantic_on:
-                first_resize_size = (images_tensor.shape[-2], images_tensor.shape[-1])
-                segmenter_sem_seg.append(self.segmenter_sem_process(out['pred_logits'][0],
-                                                                    out['pred_masks'][0],
-                                                                    first_resize_size,
-                                                                    **image_info))
+            # if self.semantic_on:
+            #     first_resize_size = (images_tensor.shape[-2], images_tensor.shape[-1])
+            #     segmenter_sem_seg.append(self.segmenter_sem_process(out['pred_logits'][0],
+            #                                                         out['pred_masks'][0],
+            #                                                         first_resize_size,
+            #                                                         **image_info))
                 # segmenter_logits.append(out['pred_logits'])
                 # segmenter_masks.append(out['pred_masks'])
             del out['pred_masks'], out['pred_logits']
@@ -566,13 +565,13 @@ class VideoMaskFormer_frame_offline(nn.Module):
 
         # merge outputs
         outputs = self.offline_tracker(overall_instance_embds, overall_frame_embds_, overall_mask_features)
-        if self.semantic_on:
-            # pred_logits (bs, t, nq, c)
-            # pred_masks (bs, nq, t, h, w)
-            # segmenter_logits = torch.cat(segmenter_logits, dim=1)
-            # segmenter_masks = torch.cat(segmenter_masks, dim=2)
-            segmenter_sem_seg = torch.cat(segmenter_sem_seg, dim=1)
-            outputs.update({'segmenter_sem_seg': segmenter_sem_seg})
+        # if self.semantic_on:
+        #     # pred_logits (bs, t, nq, c)
+        #     # pred_masks (bs, nq, t, h, w)
+        #     # segmenter_logits = torch.cat(segmenter_logits, dim=1)
+        #     # segmenter_masks = torch.cat(segmenter_masks, dim=2)
+        #     segmenter_sem_seg = torch.cat(segmenter_sem_seg, dim=1)
+        #     outputs.update({'segmenter_sem_seg': segmenter_sem_seg})
         return outputs, online_pred_logits
 
 
@@ -692,7 +691,7 @@ class VideoMaskFormer_frame_offline(nn.Module):
             }
 
     def inference_video_sem(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size,
-                            pred_id, online_pred_cls=None, segmenter_sem_seg=None):
+                            pred_id, online_pred_cls=None):
         # pred_cls (N, C)
         # pred_masks (N, T, H, W)
 
@@ -719,9 +718,9 @@ class VideoMaskFormer_frame_offline(nn.Module):
         )
 
         semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
-        if segmenter_sem_seg is not None:
-            semseg = (semseg + segmenter_sem_seg.to(semseg)) / 2.
-            del segmenter_sem_seg
+        # if segmenter_sem_seg is not None:
+        #     semseg = (semseg + segmenter_sem_seg.to(semseg)) / 2.
+        #     del segmenter_sem_seg
         sem_score, sem_mask = semseg.max(0)
         return {
                 "image_size": (output_height, output_width),
