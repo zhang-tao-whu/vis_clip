@@ -172,6 +172,7 @@ class VideoMaskFormer_online(nn.Module):
             num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
             oversample_ratio=cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
+            id_filter=True,
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER

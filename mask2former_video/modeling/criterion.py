@@ -95,7 +95,7 @@ class VideoSetCriterion(nn.Module):
     """
 
     def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses,
-                 num_points, oversample_ratio, importance_sample_ratio, frames=2):
+                 num_points, oversample_ratio, importance_sample_ratio, frames=2, id_filter=False):
         """Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -120,19 +120,30 @@ class VideoSetCriterion(nn.Module):
         self.importance_sample_ratio = importance_sample_ratio
         self.frames = frames
 
+        self.id_filter = id_filter
+
     def loss_labels(self, outputs, targets, indices, num_masks):
         """Classification loss (NLL)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
         assert "pred_logits" in outputs
-        src_logits = outputs["pred_logits"].float()
+        src_logits = outputs["pred_logits"].float() #(bt, q, c)
 
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+
+        if self.id_filter:
+            target_id = torch.cat([t["ids"][J] for t, (_, J) in zip(targets, indices)])
+            valid = target_id != -1
+
         target_classes = torch.full(
             src_logits.shape[:2], self.num_classes, dtype=torch.int64, device=src_logits.device
         )
-        target_classes[idx] = target_classes_o.to(target_classes)
+
+        if self.id_filter:
+            target_classes[idx][valid] = target_classes_o.to(target_classes)[valid]
+        else:
+            target_classes[idx] = target_classes_o.to(target_classes)
 
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
         losses = {"loss_ce": loss_ce}
