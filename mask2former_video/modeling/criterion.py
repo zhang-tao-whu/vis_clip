@@ -134,7 +134,7 @@ class VideoSetCriterion(nn.Module):
 
         if self.id_filter:
             target_id = torch.cat([t["ids"][J] for t, (_, J) in zip(targets, indices)])
-            valid = target_id != -1
+            valid = target_id[:, 0] != -1
 
         target_classes = torch.full(
             src_logits.shape[:2], self.num_classes, dtype=torch.int64, device=src_logits.device
