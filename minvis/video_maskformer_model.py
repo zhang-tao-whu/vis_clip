@@ -631,7 +631,7 @@ class VideoMaskFormer_online(nn.Module):
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size, pred_id):
         if len(pred_cls) > 0:
             # scores = F.softmax(pred_cls, dim=-1)[:, :-1]
-            scores = F.softmax(pred_cls, dim=-1)[:, :, -1]
+            scores = F.softmax(pred_cls, dim=-1)[:, :, :-1]
             scores, _ = scores.max(dim=0)
             labels = torch.arange(self.sem_seg_head.num_classes, device=self.device).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-10 predictions
