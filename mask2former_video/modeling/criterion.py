@@ -136,15 +136,14 @@ class VideoSetCriterion(nn.Module):
             target_id = torch.cat([t["ids"][J] for t, (_, J) in zip(targets, indices)])
             print(target_id)
             valid = target_id[:, 0] != -1
+            target_classes_o[valid] = self.num_classes
+            print(target_classes_o)
 
         target_classes = torch.full(
             src_logits.shape[:2], self.num_classes, dtype=torch.int64, device=src_logits.device
         )
 
-        if self.id_filter:
-            target_classes[idx][valid] = target_classes_o.to(target_classes)[valid]
-        else:
-            target_classes[idx] = target_classes_o.to(target_classes)
+        target_classes[idx] = target_classes_o.to(target_classes)
 
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
         losses = {"loss_ce": loss_ce}
