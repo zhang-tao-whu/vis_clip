@@ -114,9 +114,9 @@ class VideoMaskFormer_online(nn.Module):
             decoder_layer_num=6,
             mask_dim=256,
             class_num=num_class,
-            decoder_norm=self.sem_seg_head.decoder_norm,
-            class_embed=self.sem_seg_head.class_embed,
-            mask_embed=self.mask_embed
+            decoder_norm=self.sem_seg_head.predictor.decoder_norm,
+            class_embed=self.sem_seg_head.predictor.class_embed,
+            mask_embed=self.sem_seg_head.predictor.mask_embed
         )
 
         self.iter = 0
