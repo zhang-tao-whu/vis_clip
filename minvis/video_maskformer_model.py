@@ -1081,11 +1081,11 @@ class QueryTracker_mine(torch.nn.Module):
                         # )
                         ms_output.append(output)
             else:
-                indices = self.match_embds(self.decoder_norm(self.last_frame_embeds),
-                                           self.decoder_norm(single_frame_embeds))
-                print(indices)
-                self.last_frame_embeds = single_frame_embeds[indices]
                 for j in range(self.num_layers):
+                    indices = self.match_embds(self.decoder_norm(self.last_frame_embeds),
+                                               self.decoder_norm(single_frame_embeds))
+                    print(indices)
+                    self.last_frame_embeds = single_frame_embeds[indices]
                     if j == 0:
                         ms_output.append(single_frame_embeds[indices])
                         # indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
@@ -1161,6 +1161,7 @@ class QueryTracker_mine(torch.nn.Module):
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
+        print(indices)
         return indices
 
     @torch.jit.unused
