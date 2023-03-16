@@ -949,7 +949,7 @@ class QueryTracker_mine(torch.nn.Module):
                 p.requires_grad_(False)
 
         # if mask_embed is None:
-        if True
+        if True:
             self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
         else:
             self.mask_embed = mask_embed
