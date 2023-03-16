@@ -1008,7 +1008,7 @@ class QueryTracker_mine(torch.nn.Module):
                 output = self.transformer_ffn_layers[j](
                     output
                 )
-        output = self.decoder_norm(output)
+        #output = self.decoder_norm(output)
         output = output.reshape(n_q, bs, n_frame, n_channel)
         return output.permute(1, 3, 2, 0)
 
@@ -1112,7 +1112,7 @@ class QueryTracker_mine(torch.nn.Module):
         if not self.training:
             outputs = outputs[:, -1:]
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
-        outputs = self.decoder_norm(outputs)
+        #outputs = self.decoder_norm(outputs)
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),
            'pred_masks': outputs_masks[-1],

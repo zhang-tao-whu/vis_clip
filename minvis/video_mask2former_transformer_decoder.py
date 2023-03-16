@@ -130,7 +130,8 @@ class VideoMultiScaleMaskedTransformerDecoder_frame_(VideoMultiScaleMaskedTransf
         for i in range(len(predictions_class)):
             predictions_class[i] = einops.rearrange(predictions_class[i], '(b t) q c -> b t q c', t=t)
 
-        pred_embds = self.decoder_norm(output)
+        #pred_embds = self.decoder_norm(output)
+        pred_embds = output
         pred_embds = einops.rearrange(pred_embds, 'q (b t) c -> b c t q', t=t)
 
         out = {
