@@ -1074,38 +1074,39 @@ class QueryTracker_mine(torch.nn.Module):
                         indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
-                        output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
+                        output = single_frame_embeds[indices]
+                        # output = self.transformer_cross_attention_layers[j](
+                        #     single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
+                        #     memory_mask=None,
+                        #     memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                        #     pos=None, query_pos=None
+                        # )
+                        # output = self.transformer_self_attention_layers[j](
+                        #     output, tgt_mask=None,
+                        #     tgt_key_padding_mask=None,
+                        #     query_pos=None
+                        # )
+                        # # FFN
+                        # output = self.transformer_ffn_layers[j](
+                        #     output
+                        # )
                         ms_output.append(output)
                     else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
+                        # output = self.transformer_cross_attention_layers[j](
+                        #     ms_output[-1], self.last_outputs[-1], single_frame_embeds,
+                        #     memory_mask=None,
+                        #     memory_key_padding_mask=None,  # here we do not apply masking on padded region
+                        #     pos=None, query_pos=None
+                        # )
+                        # output = self.transformer_self_attention_layers[j](
+                        #     output, tgt_mask=None,
+                        #     tgt_key_padding_mask=None,
+                        #     query_pos=None
+                        # )
+                        # # FFN
+                        # output = self.transformer_ffn_layers[j](
+                        #     output
+                        # )
                         ms_output.append(output)
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
