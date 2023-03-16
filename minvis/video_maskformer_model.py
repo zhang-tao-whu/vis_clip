@@ -1084,6 +1084,8 @@ class QueryTracker_mine(torch.nn.Module):
                 for j in range(self.num_layers):
                     indices = self.match_embds(self.decoder_norm(self.last_frame_embeds),
                                                self.decoder_norm(single_frame_embeds))
+                    print(self.match_embds(self.decoder_norm(single_frame_embeds[indices]),
+                                           self.decoder_norm(single_frame_embeds)))
                     print(indices)
                     self.last_frame_embeds = single_frame_embeds[indices]
                     if j == 0:
