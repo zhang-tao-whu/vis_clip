@@ -286,7 +286,7 @@ class VideoMaskFormer_frame(nn.Module):
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
-
+        print(indices)
         return indices
 
     def post_processing(self, outputs):
