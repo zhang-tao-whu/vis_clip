@@ -1081,12 +1081,12 @@ class QueryTracker_mine(torch.nn.Module):
                         # )
                         ms_output.append(output)
             else:
+                indices = self.match_embds(self.decoder_norm(self.last_frame_embeds),
+                                           self.decoder_norm(single_frame_embeds))
+                print(indices)
+                self.last_frame_embeds = single_frame_embeds[indices]
                 for j in range(self.num_layers):
                     if j == 0:
-                        indices = self.match_embds(self.decoder_norm(self.last_frame_embeds),
-                                                   self.decoder_norm(single_frame_embeds))
-                        print(indices)
-                        self.last_frame_embeds = single_frame_embeds[indices]
                         ms_output.append(single_frame_embeds[indices])
                         # indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
                         # self.last_frame_embeds = single_frame_embeds[indices]
