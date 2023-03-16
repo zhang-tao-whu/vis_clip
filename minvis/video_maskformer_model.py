@@ -933,7 +933,7 @@ class QueryTracker_mine(torch.nn.Module):
         if decoder_norm is None:
             self.decoder_norm = nn.LayerNorm(hidden_channel)
         else:
-            self.decoder_norm = self.decoder_norm
+            self.decoder_norm = decoder_norm
             for p in self.decoder_norm.parameters():
                 p.requires_grad_(False)
 
