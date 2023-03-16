@@ -105,7 +105,7 @@ class VideoMaskFormer_online(nn.Module):
         self.window_inference = window_inference
 
         self.max_num = max_num
-        
+
 
         self.tracker = QueryTracker_mine(
             hidden_channel=256,
@@ -113,7 +113,11 @@ class VideoMaskFormer_online(nn.Module):
             num_head=8,
             decoder_layer_num=6,
             mask_dim=256,
-            class_num=num_class,)
+            class_num=num_class,
+            decoder_norm=self.sem_seg_head.decoder_norm,
+            class_embed=self.sem_seg_head.class_embed,
+            mask_embed=self.mask_embed
+        )
 
         self.iter = 0
         self.max_iter_num = max_iter_num
@@ -884,7 +888,11 @@ class QueryTracker_mine(torch.nn.Module):
                  num_head=8,
                  decoder_layer_num=6,
                  mask_dim=256,
-                 class_num=25,):
+                 class_num=25,
+                 decoder_norm=None,
+                 class_embed=None,
+                 mask_embed=None,
+                 ):
         super(QueryTracker_mine, self).__init__()
 
         # init transformer layers
@@ -922,11 +930,27 @@ class QueryTracker_mine(torch.nn.Module):
                 )
             )
 
-        self.decoder_norm = nn.LayerNorm(hidden_channel)
+        if decoder_norm is None:
+            self.decoder_norm = nn.LayerNorm(hidden_channel)
+        else:
+            self.decoder_norm = self.decoder_norm
+            for p in self.decoder_norm.parameters():
+                p.requires_grad_(False)
 
         # init heads
-        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
-        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+        if class_embed is None:
+            self.class_embed = nn.Linear(hidden_channel, class_num + 1)
+        else:
+            self.class_embed = class_embed
+            for p in self.class_embed.parameters():
+                p.requires_grad_(False)
+
+        if mask_embed is None:
+            self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+        else:
+            self.mask_embed = mask_embed
+            for p in self.mask_embed.parameters():
+                p.requires_grad_(False)
 
         # self.mask_feature_proj = nn.Conv2d(
         #     mask_dim,
