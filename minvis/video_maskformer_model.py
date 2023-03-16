@@ -472,7 +472,7 @@ class VideoMaskFormer_online(nn.Module):
         out_logits = torch.stack(out_logits, dim=0)
         scores = F.softmax(out_logits, dim=-1)
         _, labels = scores.max(-1)
-        valid_frames = (torch.cumsum((labels != scores.size(-1)).to(torch.float32)) != 0).to(torch.float32)
+        valid_frames = (torch.cumsum((labels != scores.size(-1)).to(torch.float32), dim=0) != 0).to(torch.float32)
         out_logits = (out_logits * valid_frames).sum(dim=0) / valid_frames.sum(dim=0)
 
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
