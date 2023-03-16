@@ -931,7 +931,8 @@ class QueryTracker_mine(torch.nn.Module):
                 )
             )
 
-        if decoder_norm is None:
+        #if decoder_norm is None:
+        if True:
             self.decoder_norm = nn.LayerNorm(hidden_channel)
         else:
             self.decoder_norm = decoder_norm
@@ -939,19 +940,23 @@ class QueryTracker_mine(torch.nn.Module):
                 p.requires_grad_(False)
 
         # init heads
-        if class_embed is None:
+        # if class_embed is None:
+        if True:
             self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         else:
             self.class_embed = class_embed
             for p in self.class_embed.parameters():
                 p.requires_grad_(False)
 
-        if mask_embed is None:
+        # if mask_embed is None:
+        if True
             self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
         else:
             self.mask_embed = mask_embed
             for p in self.mask_embed.parameters():
                 p.requires_grad_(False)
+
+        self._models = {'norm': decoder_norm, 'class': class_embed, 'mask': mask_embed}
 
         # self.mask_feature_proj = nn.Conv2d(
         #     mask_dim,
@@ -963,6 +968,12 @@ class QueryTracker_mine(torch.nn.Module):
 
         self.last_outputs = None
         self.last_frame_embeds = None
+
+
+    def _debug(self):
+        self.decoder_norm = self._models['norm']
+        self.class_embed = self._models['class']
+        self.mask_embed = self._models['mask']
 
     def _clear_memory(self):
         del self.last_outputs
@@ -1014,6 +1025,7 @@ class QueryTracker_mine(torch.nn.Module):
         return output.permute(1, 3, 2, 0)
 
     def forward(self, frame_embeds, mask_features, resume=False, return_indices=False):
+        self._debug()
         # mask_features_shape = mask_features.shape
         # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
         # init_query (q, b, c)
