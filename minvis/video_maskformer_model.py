@@ -295,6 +295,7 @@ class VideoMaskFormer_online(nn.Module):
                 else:
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
+            print(losses)
             return losses
         else:
             #outputs = self.post_processing(outputs)
