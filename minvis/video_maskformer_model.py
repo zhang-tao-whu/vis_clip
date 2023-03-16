@@ -1081,11 +1081,15 @@ class QueryTracker_mine(torch.nn.Module):
                         ms_output.append(output)
             else:
                 for j in range(self.num_layers):
+                    indices = self.match_embds(self.decoder_norm(self.last_frame_embeds),
+                                               self.decoder_norm(single_frame_embeds))
+                    self.last_frame_embeds = single_frame_embeds[indices]
+                    ret_indices.append(indices)
                     if j == 0:
-                        ms_output.append(single_frame_embeds)
-                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        ret_indices.append(indices)
+                        ms_output.append(single_frame_embeds[indices])
+                        # indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
+                        # self.last_frame_embeds = single_frame_embeds[indices]
+                        # ret_indices.append(indices)
                         output = single_frame_embeds[indices]
                         # output = self.transformer_cross_attention_layers[j](
                         #     single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
