@@ -95,7 +95,7 @@ class VideoSetCriterion(nn.Module):
     """
 
     def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses,
-                 num_points, oversample_ratio, importance_sample_ratio, frames=2, id_filter=False):
+                 num_points, oversample_ratio, importance_sample_ratio, frames=2):
         """Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -120,7 +120,7 @@ class VideoSetCriterion(nn.Module):
         self.importance_sample_ratio = importance_sample_ratio
         self.frames = frames
 
-        self.id_filter = id_filter
+        # self.id_filter = id_filter
 
     def loss_labels(self, outputs, targets, indices, num_masks):
         """Classification loss (NLL)
@@ -132,10 +132,10 @@ class VideoSetCriterion(nn.Module):
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
 
-        if self.id_filter:
-            target_id = torch.cat([t["ids"][J] for t, (_, J) in zip(targets, indices)])
-            not_valid = target_id[:, 0] == -1
-            target_classes_o[not_valid] = self.num_classes
+        # if self.id_filter:
+        #     target_id = torch.cat([t["ids"][J] for t, (_, J) in zip(targets, indices)])
+        #     not_valid = target_id[:, 0] == -1
+        #     target_classes_o[not_valid] = self.num_classes
 
         target_classes = torch.full(
             src_logits.shape[:2], self.num_classes, dtype=torch.int64, device=src_logits.device
