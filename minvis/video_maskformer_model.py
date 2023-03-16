@@ -899,62 +899,62 @@ class QueryTracker_mine(torch.nn.Module):
         # init transformer layers
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
-        self.transformer_self_attention_layers = nn.ModuleList()
-        self.transformer_cross_attention_layers = nn.ModuleList()
-        self.transformer_ffn_layers = nn.ModuleList()
-
-        for _ in range(self.num_layers):
-            self.transformer_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_cross_attention_layers.append(
-                CrossAttentionLayer_mine(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_ffn_layers.append(
-                FFNLayer(
-                    d_model=hidden_channel,
-                    dim_feedforward=feedforward_channel,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-        #if decoder_norm is None:
-        if True:
-            self.decoder_norm = nn.LayerNorm(hidden_channel)
-        else:
-            self.decoder_norm = decoder_norm
-            for p in self.decoder_norm.parameters():
-                p.requires_grad_(False)
-
-        # init heads
-        # if class_embed is None:
-        if True:
-            self.class_embed = nn.Linear(hidden_channel, class_num + 1)
-        else:
-            self.class_embed = class_embed
-            for p in self.class_embed.parameters():
-                p.requires_grad_(False)
-
-        # if mask_embed is None:
-        if True:
-            self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
-        else:
-            self.mask_embed = mask_embed
-            for p in self.mask_embed.parameters():
-                p.requires_grad_(False)
+        # self.transformer_self_attention_layers = nn.ModuleList()
+        # self.transformer_cross_attention_layers = nn.ModuleList()
+        # self.transformer_ffn_layers = nn.ModuleList()
+        #
+        # for _ in range(self.num_layers):
+        #     self.transformer_self_attention_layers.append(
+        #         SelfAttentionLayer(
+        #             d_model=hidden_channel,
+        #             nhead=num_head,
+        #             dropout=0.0,
+        #             normalize_before=False,
+        #         )
+        #     )
+        #
+        #     self.transformer_cross_attention_layers.append(
+        #         CrossAttentionLayer_mine(
+        #             d_model=hidden_channel,
+        #             nhead=num_head,
+        #             dropout=0.0,
+        #             normalize_before=False,
+        #         )
+        #     )
+        #
+        #     self.transformer_ffn_layers.append(
+        #         FFNLayer(
+        #             d_model=hidden_channel,
+        #             dim_feedforward=feedforward_channel,
+        #             dropout=0.0,
+        #             normalize_before=False,
+        #         )
+        #     )
+        #
+        # #if decoder_norm is None:
+        # if True:
+        #     self.decoder_norm = nn.LayerNorm(hidden_channel)
+        # else:
+        #     self.decoder_norm = decoder_norm
+        #     for p in self.decoder_norm.parameters():
+        #         p.requires_grad_(False)
+        #
+        # # init heads
+        # # if class_embed is None:
+        # if True:
+        #     self.class_embed = nn.Linear(hidden_channel, class_num + 1)
+        # else:
+        #     self.class_embed = class_embed
+        #     for p in self.class_embed.parameters():
+        #         p.requires_grad_(False)
+        #
+        # # if mask_embed is None:
+        # if True:
+        #     self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+        # else:
+        #     self.mask_embed = mask_embed
+        #     for p in self.mask_embed.parameters():
+        #         p.requires_grad_(False)
 
         self._models = {'norm': decoder_norm, 'class': class_embed, 'mask': mask_embed}
 
