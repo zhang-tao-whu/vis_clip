@@ -1087,6 +1087,7 @@ class QueryTracker_mine(torch.nn.Module):
                     print(self.match_embds(self.decoder_norm(single_frame_embeds[indices]),
                                            self.decoder_norm(single_frame_embeds)))
                     print(indices)
+                    print(kkkk)
                     self.last_frame_embeds = single_frame_embeds[indices]
                     if j == 0:
                         ms_output.append(single_frame_embeds[indices])
@@ -1159,7 +1160,6 @@ class QueryTracker_mine(torch.nn.Module):
         C = 1 - cos_sim
 
         C = C.cpu()
-        print(C.sum())
         C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
