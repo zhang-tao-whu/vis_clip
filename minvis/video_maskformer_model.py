@@ -105,6 +105,7 @@ class VideoMaskFormer_online(nn.Module):
         self.window_inference = window_inference
 
         self.max_num = max_num
+        
 
         self.tracker = QueryTracker_mine(
             hidden_channel=256,
