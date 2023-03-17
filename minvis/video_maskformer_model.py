@@ -1220,7 +1220,7 @@ class QueryTracker_mine_learnable_init(torch.nn.Module):
         self.last_outputs = None
         return
 
-    def forward(self, frame_embeds, mask_features, resume=False, return_indices=True,):
+    def forward(self, frame_embeds, mask_features, resume=False, return_indices=False,):
         # mask_features_shape = mask_features.shape
         # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
         # init_query (q, b, c)
