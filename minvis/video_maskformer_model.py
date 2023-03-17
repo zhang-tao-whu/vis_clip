@@ -1148,7 +1148,7 @@ class QueryTracker_mine(torch.nn.Module):
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         if self.add_noise:
-            C[indices[1], indices[0]] = 1e6
+            C[indices[1], indices[0]] = 1e3
             indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
         return indices
