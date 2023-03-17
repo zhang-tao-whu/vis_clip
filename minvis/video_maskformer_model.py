@@ -9,6 +9,7 @@ import logging
 import math
 from typing import Tuple
 import einops
+import random
 
 import torch
 from torch import nn
@@ -114,14 +115,13 @@ class VideoMaskFormer_online(nn.Module):
         #     decoder_layer_num=6,
         #     mask_dim=256,
         #     class_num=num_class,)
-        self.tracker = QueryTracker_mine_learnable_init(
+        self.tracker = QueryTracker_mine(
             hidden_channel=256,
             feedforward_channel=2048,
             num_head=8,
             decoder_layer_num=6,
             mask_dim=256,
             class_num=num_class,
-            num_queries=num_queries,
         )
 
         self.iter = 0
@@ -947,6 +947,7 @@ class QueryTracker_mine(torch.nn.Module):
 
         self.last_outputs = None
         self.last_frame_embeds = None
+        self.add_noise = False
 
     def _clear_memory(self):
         del self.last_outputs
@@ -1005,6 +1006,11 @@ class QueryTracker_mine(torch.nn.Module):
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
         ret_indices = []
+
+        if self.training and random.random() < 0.5:
+            self.add_noise = True
+        else:
+            self.add_noise = False
 
         for i in range(n_frame):
             ms_output = []
@@ -1113,231 +1119,21 @@ class QueryTracker_mine(torch.nn.Module):
         else:
             return out
 
-    def match_embds(self, ref_embds, cur_embds):
-        # embds (q, b, c)
-        ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
-        ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
-        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-        # cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
-        cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
-        C = 1 - cos_sim
-
-        C = C.cpu()
-        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
-
-        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
-        indices = indices[1]  # permutation that makes current aligns to target
-        return indices
-
-    @torch.jit.unused
-    def _set_aux_loss(self, outputs_class, outputs_seg_masks):
-        # this is a workaround to make torchscript happy, as torchscript
-        # doesn't support dictionary with non-homogeneous values, such
-        # as a dict having both a Tensor and a list.
-        return [{"pred_logits": a.transpose(1, 2), "pred_masks": b}
-                for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
-                ]
-
-    def prediction(self, outputs, mask_features):
-        # outputs (T, L, q, b, c)
-        # mask_features (b, T, C, H, W)
-        decoder_output = self.decoder_norm(outputs)
-        decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (L, B, T, q, C)
-        outputs_class = self.class_embed(decoder_output).transpose(2, 3) # (L, B, q, T, Cls+1)
-        mask_embed = self.mask_embed(decoder_output)
-        outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
-        return outputs_class, outputs_mask
-
-class QueryTracker_mine_learnable_init(torch.nn.Module):
-    def __init__(self,
-                 hidden_channel=256,
-                 feedforward_channel=2048,
-                 num_head=8,
-                 decoder_layer_num=6,
-                 mask_dim=256,
-                 class_num=25,
-                 num_queries=100,
-                 ):
-        super(QueryTracker_mine_learnable_init, self).__init__()
-
-        # init transformer layers
-        self.num_heads = num_head
-        self.num_layers = decoder_layer_num
-        self.transformer_self_attention_layers = nn.ModuleList()
-        self.transformer_cross_attention_layers = nn.ModuleList()
-        self.transformer_ffn_layers = nn.ModuleList()
-
-        for _ in range(self.num_layers):
-            self.transformer_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_cross_attention_layers.append(
-                CrossAttentionLayer_mine(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_ffn_layers.append(
-                FFNLayer(
-                    d_model=hidden_channel,
-                    dim_feedforward=feedforward_channel,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-        self.decoder_norm = nn.LayerNorm(hidden_channel)
-
-        # init heads
-        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
-        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
-
-        self.num_queries = num_queries
-        self.queries_init = nn.Embedding(num_queries, hidden_channel)
-
-        # self.mask_feature_proj = nn.Conv2d(
-        #     mask_dim,
-        #     mask_dim,
-        #     kernel_size=1,
-        #     stride=1,
-        #     padding=0,
-        # )
-
-        self.last_outputs = None
-        self.last_frame_embeds = None
-
-    def _clear_memory(self):
-        del self.last_outputs
-        self.last_outputs = None
-        return
-
-    def forward(self, frame_embeds, mask_features, resume=False, return_indices=False,):
-        # mask_features_shape = mask_features.shape
-        # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
-        # init_query (q, b, c)
-        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
-        n_frame, n_q, bs, _ = frame_embeds.size()
-        outputs = []
-        ret_indices = []
-
-        init_queries = self.queries_init.weight
-        init_queries = init_queries.unsqueeze(1).repeat(1, bs, 1)
-
-        for i in range(n_frame):
-            ms_output = []
-            single_frame_embeds = frame_embeds[i]  # q b c
-            # the first frame of a video
-            if i == 0 and resume is False:
-                self._clear_memory()
-                self.last_frame_embeds = single_frame_embeds
-                for j in range(self.num_layers):
-                    if j == 0:
-                        ms_output.append(init_queries)
-                        ret_indices.append(self.match_embds(single_frame_embeds, single_frame_embeds))
-                        output = self.transformer_cross_attention_layers[j](
-                            init_queries, single_frame_embeds, single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], ms_output[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-            else:
-                for j in range(self.num_layers):
-                    if j == 0:
-                        ms_output.append(init_queries)
-                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        ret_indices.append(indices)
-                        output = self.transformer_cross_attention_layers[j](
-                            init_queries, self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-            ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
-            self.last_outputs = ms_output
-            outputs.append(ms_output[1:])
-        outputs = torch.stack(outputs, dim=0)  # frame, decoder_layer, q, b, c
-        if not self.training:
-            outputs = outputs[:, -1:]
-        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
-        outputs = self.decoder_norm(outputs)
-        out = {
-           'pred_logits': outputs_class[-1].transpose(1, 2),
-           'pred_masks': outputs_masks[-1],
-           'aux_outputs': self._set_aux_loss(
-               outputs_class, outputs_masks
-           ),
-           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # b c t q
-        }
-        # pred_logits (bs, t, nq, c)
-        # pred_masks (bs, nq, t, h, w)
-        if return_indices:
-            return out, ret_indices
-        else:
-            return out
+    # def match_embds(self, ref_embds, cur_embds):
+    #     # embds (q, b, c)
+    #     ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
+    #     ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
+    #     cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+    #     # cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
+    #     cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
+    #     C = 1 - cos_sim
+    #
+    #     C = C.cpu()
+    #     C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
+    #
+    #     indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
+    #     indices = indices[1]  # permutation that makes current aligns to target
+    #     return indices
 
     def match_embds(self, ref_embds, cur_embds):
         # embds (q, b, c)
@@ -1345,13 +1141,15 @@ class QueryTracker_mine_learnable_init(torch.nn.Module):
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
         cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
         cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
-        #cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
         C = 1 - cos_sim
 
         C = C.cpu()
         C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
+        if self.add_noise:
+            C[indices[1], indices[0]] = 1e6
+            indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
         return indices
 
