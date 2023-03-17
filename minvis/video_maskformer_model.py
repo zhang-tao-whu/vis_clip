@@ -271,8 +271,8 @@ class VideoMaskFormer_online(nn.Module):
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 torch.cuda.empty_cache()
-            outputs = self.tracker(frame_embds, mask_features, resume=self.keep)
-            #image_outputs = self.reset_image_output_order(image_outputs, indices)
+            outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True, resume=self.keep)
+            image_outputs = self.reset_image_output_order(image_outputs, indices)
 
         # outputs['pred_embds'] = self.embed_proj(outputs['pred_embds'].detach().permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
         #outputs['pred_embds'] = outputs['pred_embds']
@@ -282,12 +282,12 @@ class VideoMaskFormer_online(nn.Module):
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
 
-            # if self.iter < self.max_iter_num // 2:
-            #     image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
-            #                                                                       image_outputs=image_outputs)
-            # else:
-            image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
-                                                                              image_outputs=None)
+            if self.iter < self.max_iter_num // 2:
+                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
+                                                                                  image_outputs=image_outputs)
+            else:
+                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
+                                                                                  image_outputs=None)
             self.iter += 1
 
             # bipartite matching-based loss
@@ -1220,13 +1220,14 @@ class QueryTracker_mine_learnable_init(torch.nn.Module):
         self.last_outputs = None
         return
 
-    def forward(self, frame_embeds, mask_features, resume=False):
+    def forward(self, frame_embeds, mask_features, resume=False, return_indices=True,):
         # mask_features_shape = mask_features.shape
         # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
         # init_query (q, b, c)
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
+        ret_indices = []
 
         init_queries = self.queries_init.weight
         init_queries = init_queries.unsqueeze(1).repeat(1, bs, 1)
@@ -1236,12 +1237,12 @@ class QueryTracker_mine_learnable_init(torch.nn.Module):
             single_frame_embeds = frame_embeds[i]  # q b c
             # the first frame of a video
             if i == 0 and resume is False:
-                #self._clear_memory()
-                #self.last_frame_embeds = single_frame_embeds
+                self._clear_memory()
+                self.last_frame_embeds = single_frame_embeds
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(init_queries)
-                        #ret_indices.append(self.match_embds(single_frame_embeds, single_frame_embeds))
+                        ret_indices.append(self.match_embds(single_frame_embeds, single_frame_embeds))
                         output = self.transformer_cross_attention_layers[j](
                             init_queries, single_frame_embeds, single_frame_embeds,
                             memory_mask=None,
@@ -1279,9 +1280,9 @@ class QueryTracker_mine_learnable_init(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(init_queries)
-                        #indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        #self.last_frame_embeds = single_frame_embeds[indices]
-                        #ret_indices.append(indices)
+                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
+                        self.last_frame_embeds = single_frame_embeds[indices]
+                        ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
                             init_queries, self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
@@ -1333,15 +1334,18 @@ class QueryTracker_mine_learnable_init(torch.nn.Module):
         }
         # pred_logits (bs, t, nq, c)
         # pred_masks (bs, nq, t, h, w)
-        return out
+        if return_indices:
+            return out, ret_indices
+        else:
+            return out
 
     def match_embds(self, ref_embds, cur_embds):
         # embds (q, b, c)
         ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
         cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-        # cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
-        cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
+        cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
+        #cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
         C = 1 - cos_sim
 
         C = C.cpu()
