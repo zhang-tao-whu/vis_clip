@@ -1022,7 +1022,7 @@ class QueryTracker_mine(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
-                        ret_indices.append(self.match_embds(single_frame_embeds, single_frame_embeds))
+                        ret_indices.append(self.match_embds(single_frame_embeds, single_frame_embeds, first=True))
                         output = self.transformer_cross_attention_layers[j](
                             single_frame_embeds, single_frame_embeds, single_frame_embeds,
                             memory_mask=None,
@@ -1135,7 +1135,7 @@ class QueryTracker_mine(torch.nn.Module):
     #     indices = indices[1]  # permutation that makes current aligns to target
     #     return indices
 
-    def match_embds(self, ref_embds, cur_embds):
+    def match_embds(self, ref_embds, cur_embds, first=False):
         # embds (q, b, c)
         ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
@@ -1147,7 +1147,7 @@ class QueryTracker_mine(torch.nn.Module):
         C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
 
         indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
-        if self.add_noise:
+        if self.add_noise and not first:
             C[indices[1], indices[0]] = 1e3
             indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
         indices = indices[1]  # permutation that makes current aligns to target
