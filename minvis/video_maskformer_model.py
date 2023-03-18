@@ -375,31 +375,31 @@ class VideoMaskFormer_online(nn.Module):
     #
     #     return indices
     #
-    # def match_from_embds_(self, tgt_embds, cur_embds, scores=None):
-    #
-    #     cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-    #     tgt_embds = [tgt_embd / (tgt_embd.norm(dim=1)[:, None] + 1e-6) for tgt_embd in tgt_embds]
-    #     C = 0
-    #     weights = [0.1, 0.3, 0.6]
-    #     #weights = [0.05, 0.15, 0.8]
-    #     for i, (weight, tgt_embd) in enumerate(zip(weights, tgt_embds)):
-    #         cos_sim = torch.mm(cur_embds, tgt_embd.transpose(0,1))
-    #         cost_embd = 1 - cos_sim
-    #         if scores is None:
-    #             C = C + cost_embd * weight
-    #         else:
-    #             C = C + cost_embd * scores[i].unsqueeze(0) * weight
-    #
-    #     if scores is not None:
-    #         score_average = torch.stack(scores, dim=0).sum(dim=0)
-    #         C = C / (score_average + 1e-6).unsqueeze(0)
-    #     C = C.cpu()
-    #     C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
-    #
-    #     indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
-    #     indices = indices[1]  # permutation that makes current aligns to target
-    #
-    #     return indices
+    def match_from_embds_(self, tgt_embds, cur_embds, scores=None):
+
+        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+        tgt_embds = [tgt_embd / (tgt_embd.norm(dim=1)[:, None] + 1e-6) for tgt_embd in tgt_embds]
+        C = 0
+        weights = [0.1, 0.3, 0.6]
+        #weights = [0.05, 0.15, 0.8]
+        for i, (weight, tgt_embd) in enumerate(zip(weights, tgt_embds)):
+            cos_sim = torch.mm(cur_embds, tgt_embd.transpose(0,1))
+            cost_embd = 1 - cos_sim
+            if scores is None:
+                C = C + cost_embd * weight
+            else:
+                C = C + cost_embd * scores[i].unsqueeze(0) * weight
+
+        if scores is not None:
+            score_average = torch.stack(scores, dim=0).sum(dim=0)
+            C = C / (score_average + 1e-6).unsqueeze(0)
+        C = C.cpu()
+        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
+
+        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
+        indices = indices[1]  # permutation that makes current aligns to target
+
+        return indices
 
     def post_processing(self, outputs):
         pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
