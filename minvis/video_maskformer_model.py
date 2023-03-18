@@ -1007,7 +1007,7 @@ class QueryTracker_mine(torch.nn.Module):
         outputs = []
         ret_indices = []
 
-        if self.training and random.random() < 0.5:
+        if self.training and random.random() < 0.9:
             self.add_noise = True
         else:
             self.add_noise = False
