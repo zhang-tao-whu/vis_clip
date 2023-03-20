@@ -285,14 +285,15 @@ class VideoMaskFormer_online(nn.Module):
             if self.iter < self.max_iter_num // 2:
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
                                                                                   image_outputs=image_outputs)
+                losses = self.criterion(outputs, targets, matcher_outputs=image_outputs, pred_guide=True)
             else:
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(outputs, targets,
                                                                                   image_outputs=None)
+                losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
             self.iter += 1
 
             # bipartite matching-based loss
             #losses = self.criterion(outputs, targets)
-            losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:

@@ -217,7 +217,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
         self.num_points = num_points
 
     @torch.no_grad()
-    def memory_efficient_forward(self, outputs, targets):
+    def memory_efficient_forward(self, outputs, targets, pred_guide=None):
         """More memory-friendly matching"""
         bs, num_queries = outputs["pred_logits"].shape[:2]
 
@@ -279,6 +279,20 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                     align_corners=False,
                 ).flatten(1)
 
+                if pred_guide is not None:
+                    out_prob_guide = pred_guide["pred_logits"][overall_bs].softmax(-1)  # [num_queries, num_classes]
+                    cost_class_guide = -out_prob_guide[:, tgt_ids]
+
+                    out_mask_guide = pred_guide["pred_masks"][overall_bs]  # [num_queries, T, H_pred, W_pred]
+                    out_mask_guide = point_sample(
+                        out_mask_guide,
+                        point_coords.repeat(out_mask.shape[0], 1, 1).to(out_mask),
+                        align_corners=False,
+                    ).flatten(1)
+                else:
+                    cost_class_guide = 0.0
+                    out_mask_guide = None
+
                 with autocast(enabled=False):
                     out_mask = out_mask.float()
                     tgt_mask = tgt_mask.float()
@@ -288,11 +302,19 @@ class VideoHungarianMatcher_Consistent(nn.Module):
                     # Compute the dice loss betwen masks
                     cost_dice = batch_dice_loss_jit(out_mask, tgt_mask)
 
+                    if out_mask_guide is not None:
+                        out_mask_guide = out_mask_guide.float()
+                        cost_mask_guide = batch_sigmoid_ce_loss_jit(out_mask_guide, tgt_mask)
+                        cost_dice_guide = batch_dice_loss_jit(out_mask_guide, tgt_mask)
+                    else:
+                        cost_mask_guide = 0.0
+                        cost_dice_guide = 0.0
+
                 # Final cost matrix
                 C = (
-                        self.cost_mask * cost_mask
-                        + self.cost_class * cost_class
-                        + self.cost_dice * cost_dice
+                        self.cost_mask * cost_mask + 0.1 * cost_mask_guide
+                        + self.cost_class * cost_class + 0.1 * cost_class_guide
+                        + self.cost_dice * cost_dice + 0.1 * cost_dice_guide
                 )
                 C = C.reshape(num_queries, -1).cpu()
                 if len(used_query_idx) != 0:
@@ -309,7 +331,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
         # [per image indicates], per image indicates -> (pred inds, gt inds)
 
     @torch.no_grad()
-    def forward(self, outputs, targets):
+    def forward(self, outputs, targets, pred_guide=None):
         """Performs the matching
 
         Params:
@@ -329,7 +351,7 @@ class VideoHungarianMatcher_Consistent(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
         """
-        return self.memory_efficient_forward(outputs, targets)
+        return self.memory_efficient_forward(outputs, targets, pred_guide=pred_guide)
 
     def __repr__(self, _repr_indent=4):
         head = "Matcher " + self.__class__.__name__
