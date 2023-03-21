@@ -122,6 +122,9 @@ class VideoMaskFormer_online(nn.Module):
             decoder_layer_num=6,
             mask_dim=256,
             class_num=num_class,
+            decoder_norm=self.sem_seg_head.predictor.decoder_norm,
+            mask_embed=self.sem_seg_head.predictor.mask_embed,
+            class_embed=self.sem_seg_head.predictor.class_embed,
         )
 
         self.iter = 0
@@ -1157,7 +1160,7 @@ class QueryTracker_mine(torch.nn.Module):
         # embds (q, b, c)
         ref_embds = self.decoder_norm(ref_embds)
         cur_embds = self.decoder_norm(cur_embds)
-        
+
         ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
         cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
