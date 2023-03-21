@@ -306,7 +306,7 @@ class SemanticDatasetVideoMapper:
         classes = []
         masks = []
         for class_id in unique_ids:
-            if class_id == self.ignore_label:
+            if class_id == self.ignore_label or class_id not in self.ids_to_continue_dic.keys():
                 continue
             classes.append(self.ids_to_continue_dic[class_id])
             masks.append(input_sem_seg == class_id)
