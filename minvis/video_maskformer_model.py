@@ -893,7 +893,10 @@ class QueryTracker_mine(torch.nn.Module):
                  num_head=8,
                  decoder_layer_num=6,
                  mask_dim=256,
-                 class_num=25,):
+                 class_num=25,
+                 decoder_norm=None,
+                 class_embed=None,
+                 mask_embed=None):
         super(QueryTracker_mine, self).__init__()
 
         # init transformer layers
@@ -931,11 +934,26 @@ class QueryTracker_mine(torch.nn.Module):
                 )
             )
 
-        self.decoder_norm = nn.LayerNorm(hidden_channel)
+        if decoder_norm is None:
+            self.decoder_norm = nn.LayerNorm(hidden_channel)
+        else:
+            self.decoder_norm = decoder_norm
+            for p in self.decoder_norm.parameters():
+                p.requires_grad_(False)
 
         # init heads
-        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
-        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+        if class_embed is None:
+            self.class_embed = nn.Linear(hidden_channel, class_num + 1)
+        else:
+            self.class_embed = class_embed
+            for p in self.class_embed.parameters():
+                p.requires_grad_(False)
+        if mask_embed is None:
+            self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+        else:
+            self.mask_embed = mask_embed
+            for p in self.mask_embed.parameters():
+                p.requires_grad_(False)
 
         # self.mask_feature_proj = nn.Conv2d(
         #     mask_dim,
@@ -1137,6 +1155,9 @@ class QueryTracker_mine(torch.nn.Module):
 
     def match_embds(self, ref_embds, cur_embds, first=False):
         # embds (q, b, c)
+        ref_embds = self.decoder_norm(ref_embds)
+        cur_embds = self.decoder_norm(cur_embds)
+        
         ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
         cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
