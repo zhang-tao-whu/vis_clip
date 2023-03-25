@@ -112,6 +112,8 @@ class VideoMaskFormer_frame_offline(nn.Module):
             decoder_layer_num=6,
             mask_dim=256,
             class_num=num_class,)
+        for p in self.tracker.parameters():
+            p.requires_grad_(False)
 
         self.offline_tracker = QueryTracker_offline(
         # self.offline_tracker = QueryTracker_offline_transCls(
