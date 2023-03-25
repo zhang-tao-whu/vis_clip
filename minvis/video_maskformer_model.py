@@ -89,6 +89,10 @@ class VideoMaskFormer_online(nn.Module):
         super().__init__()
         self.backbone = backbone
         self.sem_seg_head = sem_seg_head
+        for p in self.backbone.parameters():
+            p.requires_grad_(False)
+        for p in self.sem_seg_head.parameters():
+            p.requires_grad_(False)
         self.criterion = criterion
         self.num_queries = num_queries
         self.overlap_threshold = overlap_threshold
