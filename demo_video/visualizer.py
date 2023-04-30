@@ -77,7 +77,7 @@ class TrackVisualizer(Visualizer):
             if ids is None:
                 labels = ["[{}] ".format(_id) + l for _id, l in enumerate(labels)]
             else:
-                labels = ["[{}] ".format(_id) + l for self._get_continuous_id(_id), l in zip(ids, labels)]
+                labels = ["[{}] ".format(self._get_continuous_id(_id)) + l for _id, l in zip(ids, labels)]
 
         if preds.has("pred_masks"):
             masks = np.asarray(preds.pred_masks)
