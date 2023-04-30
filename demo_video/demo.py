@@ -102,7 +102,7 @@ if __name__ == "__main__":
 	os.makedirs(output_root, exist_ok=True)
 	
 	frames_path = video_root
-	frames_path = glob.glob(os.path.expanduser(os.path.join(frames_path, '*.jpg')))
+	frames_path = glob.glob(os.path.expanduser(os.path.join(frames_path, '*.???')))
 	frames_path.sort()
 
 	vid_frames = []
