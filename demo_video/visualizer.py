@@ -116,7 +116,6 @@ class TrackVisualizer(Visualizer):
             # ]
 
             # using object ID to get color
-            print(dataset_colors)
             colors = [
                 self._jitter([x / 255 for x in dataset_colors[ids[id] % len(dataset_colors)]],
                              ids[id]) for id, c in enumerate(classes)
