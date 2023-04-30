@@ -16,6 +16,82 @@ from detectron2.utils.video_visualizer import VideoVisualizer
 from detectron2.utils.visualizer import ColorMode
 from detectron2.modeling import build_model
 import detectron2.data.transforms as T
+import numpy as np
+
+def _get_objects_from_outputs(outputs):
+    def _get_objects_from_vis_outputs(outputs):
+        pred_scores = outputs["pred_scores"]
+        pred_labels = outputs["pred_labels"]
+        pred_masks = outputs["pred_masks"]
+        if 'pred_ids' in outputs.keys():
+            pred_ids = outputs['pred_ids']
+        else:
+            pred_ids_ = None
+
+        # filter low score instance prediction
+        pred_scores_ = []
+        pred_labels_ = []
+        pred_masks_ = []
+        if pred_ids is not None:
+            pred_ids_ = []
+        for i, score in enumerate(pred_scores):
+            if score < 0.3:
+                continue
+            pred_scores_.append(pred_scores[i])
+            pred_labels_.append(pred_labels[i])
+            pred_masks_.append(pred_masks[i])
+            if pred_ids is not None:
+                pred_ids_.append(pred_ids[i])
+
+        return pred_masks_, pred_labels_, pred_scores_, pred_ids_
+
+    def _get_objects_from_vss_outputs(outputs):
+        # init
+        pred_labels = []
+        pred_masks = []
+        pred_scores = []
+        pred_ids = []
+
+        sem_seg = outputs['pred_masks']
+        sem_cats = np.unique(sem_seg)  # get valid class
+        for cls in sem_cats:
+            pred_scores.append(1)
+            pred_labels.append(cls)
+            pred_masks.append(sem_seg == cls)
+            pred_ids.append(cls)  # using class ID as object ID
+        return pred_masks, pred_labels, pred_scores, pred_ids
+
+    def _get_objects_from_vps_outputs(outputs):
+        segments_infos = outputs['segments_infos']
+        pred_ids = outputs['pred_ids']
+
+        # generate object score list
+        pred_scores = [1 for segments_info in segments_infos]
+        outputs["pred_scores"] = pred_scores
+
+        # get bit-mask and category lable for per object(thing & stuff)
+        pred_labels = []
+        pred_masks = []
+        pan_seg = outputs['pred_masks']
+        for segments_info in segments_infos:
+            id = segments_info['id']
+            pred_masks.append(pan_seg == id)
+            pred_labels.append(segments_info['category_id'])
+        return pred_masks, pred_labels, pred_scores, pred_ids
+
+    func_dict = {
+        'vis': _get_objects_from_vis_outputs,
+        'vss': _get_objects_from_vss_outputs,
+        'vps': _get_objects_from_vps_outputs
+    }
+
+    if 'task' in outputs.keys():
+        pred_masks, pred_labels, pred_scores, pred_ids = func_dict[outputs['task']](outputs)
+    else:
+        # minvis prediction results
+        pred_masks, pred_labels, pred_scores, pred_ids = _get_objects_from_vis_outputs(outputs)
+
+    return pred_masks, pred_labels, pred_scores, pred_ids
 
 class VisualizationDemo(object):
     def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False):
@@ -38,6 +114,7 @@ class VisualizationDemo(object):
             self.predictor = AsyncPredictor(cfg, num_gpus=num_gpu)
         else:
             self.predictor = VideoPredictor(cfg)
+        self.id_memories = {}
 
     def run_on_video(self, frames):
         """
@@ -52,22 +129,7 @@ class VisualizationDemo(object):
         predictions = self.predictor(frames)
 
         image_size = predictions["image_size"]
-        pred_scores = predictions["pred_scores"]
-        pred_labels = predictions["pred_labels"]
-        pred_masks = predictions["pred_masks"]
-
-        pred_scores_ = []
-        pred_labels_ = []
-        pred_masks_ = []
-        for i, score in enumerate(pred_scores):
-            if score < 0.3:
-                continue
-            pred_scores_.append(pred_scores[i])
-            pred_labels_.append(pred_labels[i])
-            pred_masks_.append(pred_masks[i])
-        pred_scores = pred_scores_
-        pred_masks = pred_masks_
-        pred_labels = pred_labels_
+        pred_masks, pred_labels, pred_scores, pred_ids = _get_objects_from_outputs(predictions)
 
         frame_masks = list(zip(*pred_masks))
         total_vis_output = []
@@ -85,6 +147,38 @@ class VisualizationDemo(object):
 
         return predictions, total_vis_output
 
+class VisualizationDemo_windows(VisualizationDemo):
+    def run_on_video(self, frames, keep=False):
+        """
+        Args:
+            frames (List[np.ndarray]): a list of images of shape (H, W, C) (in BGR order).
+                This is the format used by OpenCV.
+        Returns:
+            predictions (dict): the output of the model.
+            vis_output (VisImage): the visualized image output.
+        """
+        predictions = self.predictor((frames, keep))
+
+        pred_masks, pred_labels, pred_scores, pred_ids = _get_objects_from_outputs(predictions)
+        image_size = predictions["image_size"]
+
+        frame_masks = list(zip(*pred_masks))
+        total_vis_output = []
+        for frame_idx in range(len(frames)):
+            frame = frames[frame_idx][:, :, ::-1]
+            visualizer = TrackVisualizer(frame, self.metadata,
+                                         instance_mode=self.instance_mode,
+                                         id_memories=self.id_memories)
+            ins = Instances(image_size)
+            if len(pred_scores) > 0:
+                ins.scores = pred_scores
+                ins.pred_classes = pred_labels
+                ins.pred_masks = torch.stack(frame_masks[frame_idx], dim=0)
+
+            vis_output = visualizer.draw_instance_predictions(predictions=ins, ids=pred_ids)
+            total_vis_output.append(vis_output)
+
+        return predictions, total_vis_output
 
 class VideoPredictor(DefaultPredictor):
     """
@@ -114,8 +208,6 @@ class VideoPredictor(DefaultPredictor):
         if len(cfg.DATASETS.TEST):
             self.metadata = MetadataCatalog.get(cfg.DATASETS.TEST[0])
 
-        #checkpointer = DetectionCheckpointer(self.model)
-        #checkpointer.load(cfg.MODEL.WEIGHTS)
         weight = torch.load(cfg.MODEL.WEIGHTS)
         if 'model' in weight.keys():
             weight = weight['model']
@@ -137,6 +229,11 @@ class VideoPredictor(DefaultPredictor):
                 the output of the model for one image only.
                 See :doc:`/tutorials/models` for details about the format.
         """
+        # add for dvis processes long video
+        if isinstance(frames, tuple):
+            frames, keep = frames
+        else:
+            keep = False
         with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
             input_frames = []
             for original_image in frames:
@@ -149,7 +246,7 @@ class VideoPredictor(DefaultPredictor):
                 image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
                 input_frames.append(image)
 
-            inputs = {"image": input_frames, "height": height, "width": width}
+            inputs = {"image": input_frames, "height": height, "width": width, "keep": keep}
             predictions = self.model([inputs])
             return predictions
 

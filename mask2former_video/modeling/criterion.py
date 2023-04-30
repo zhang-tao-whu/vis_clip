@@ -186,106 +186,6 @@ class VideoSetCriterion(nn.Module):
         del target_masks
         return losses
 
-    def loss_contrast(self, outputs, targets, indices, num_masks, neg_num=3):
-        refer_embeds = []
-        pos_embeds = []
-        neg_embeds = []
-
-        pred_embeds = outputs['pred_embds'].permute(0, 2, 3, 1).flatten(0, 1)  # pred_embeds: (bt, q, c)
-
-        num_video = pred_embeds.size(0) // self.frames
-
-        for i in range(num_video):
-            frame_masks = []
-            frame_embeds = []
-            frame_ids = []
-            for j in range(self.frames):
-                idx = i * self.frames + j
-                indice = indices[idx]
-                frame_masks.append(targets[idx]['masks'][indice[1]].squeeze(1))  # (n, h, w)
-                frame_ids.append(targets[idx]['ids'][indice[1]].squeeze(1))  # (n)
-                frame_embeds.append(pred_embeds[idx][indice[0]])  # (n, c)
-            self._select_pos_neg_embeds(frame_masks, frame_ids, frame_embeds, refer_embeds,
-                                        pos_embeds, neg_embeds, neg_num=neg_num)
-        if len(refer_embeds) == 0:
-            return {"loss_contrast": pred_embeds.sum() * 0.0}
-        refer_embeds = torch.cat(refer_embeds, dim=0)
-        pos_embeds = torch.cat(pos_embeds, dim=0)
-        neg_embeds = torch.cat(neg_embeds, dim=0)
-        targets_embeds = torch.cat([pos_embeds, neg_embeds], dim=1)
-
-        refer_embeds = refer_embeds / (refer_embeds.norm(dim=2) + 1e-6).detach()[:, :, None]  # (n, 1, c)
-        targets_embeds = targets_embeds / (targets_embeds.norm(dim=2) + 1e-6).detach()[:, :, None]  # (n, 1+neg_num, c)
-
-        cos_sim = (refer_embeds * targets_embeds).sum(dim=2)  # (n, 1+neg_num)
-        target_classes = torch.full(
-            cos_sim.shape[:1], 0, dtype=torch.int64, device=cos_sim.device
-        )
-        sup_valid = torch.max(cos_sim, dim=1)[0] != cos_sim[:, 0]
-        empty_weight = torch.ones(neg_num + 1) / neg_num
-        empty_weight[0] = 1
-
-        if len(cos_sim[sup_valid]) == 0:
-            return {"loss_contrast": pred_embeds.sum() * 0.0}
-
-        loss_contrast = F.cross_entropy(cos_sim[sup_valid], target_classes[sup_valid], empty_weight.to(cos_sim.device))
-        if torch.any(torch.isnan(loss_contrast)).item():
-            return {"loss_contrast": pred_embeds.sum() * 0.0}
-        return {"loss_contrast": loss_contrast}
-
-    def get_bounding_boxes(self, masks):
-        """
-        Returns:
-            Boxes: tight bounding boxes around bitmasks.
-            If a mask is empty, it's bounding box will be all zero.
-        """
-        boxes = torch.zeros(masks.shape[0], 4, dtype=torch.float32)
-        x_any = torch.any(masks, dim=1)
-        y_any = torch.any(masks, dim=2)
-        for idx in range(masks.shape[0]):
-            x = torch.where(x_any[idx, :])[0]
-            y = torch.where(y_any[idx, :])[0]
-            if len(x) > 0 and len(y) > 0:
-                boxes[idx, :] = torch.as_tensor(
-                    [x[0], y[0], x[-1] + 1, y[-1] + 1], dtype=torch.float32
-                )
-        return boxes
-
-    def _select_pos_neg_embeds(self, frame_masks, frame_ids, frame_embeds, refer_embeds, pos_embeds, neg_embeds, neg_num=3):
-        assert len(frame_masks) == len(frame_embeds) == len(frame_ids) == self.frames
-        refer_idx = self.frames // 2
-        refer_id = frame_ids[refer_idx]
-        valid = refer_id != -1
-        refer_boxes = self.get_bounding_boxes(frame_masks[refer_idx][valid]) # (n, 4) [minx, miny, maxx, maxy]
-        refer_embed = frame_embeds[refer_idx][valid]
-        refer_id = refer_id[valid] # remove not avaliable in refer frame
-
-        for i in range(self.frames):
-            target_id = frame_ids[i]
-            target_embed = frame_embeds[i]
-            target_boxes = self.get_bounding_boxes(frame_masks[i])
-            #select pos
-            is_same_id = ((refer_id.unsqueeze(1) - target_id.unsqueeze(0)) == 0).to(torch.float32)
-            pos_valid = is_same_id.sum(dim=1) != 0
-            id_refer, id_target = torch.nonzero(is_same_id, as_tuple=True)
-            refer_embeds.append(refer_embed[id_refer].unsqueeze(1))
-            pos_embeds.append(target_embed[id_target].unsqueeze(1))
-            #select neg
-            distance = torch.sum((refer_boxes.unsqueeze(1) - target_boxes.unsqueeze(0)) ** 2, dim=-1) ** 0.5
-            distance = is_same_id * 1e6 + distance.to(is_same_id.device)
-            _neg_num = min(neg_num, distance.size(1) - 1)
-            # if none neg, pass
-            if _neg_num <= 0:
-                refer_embeds.pop()
-                pos_embeds.pop()
-                continue
-            _, id_neg = torch.topk(distance, k=_neg_num, dim=1, largest=False)
-            # is real neg num < neg_num, repeat to neg_num
-            if _neg_num != neg_num:
-                id_neg = torch.cat([id_neg, torch.flip(id_neg, [1])] * neg_num, dim=1)[:, :neg_num]
-            neg_embeds.append(target_embed[id_neg][pos_valid])
-        return
-
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
         batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
@@ -302,12 +202,11 @@ class VideoSetCriterion(nn.Module):
         loss_map = {
             'labels': self.loss_labels,
             'masks': self.loss_masks,
-            'contrast': self.loss_contrast
         }
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices, num_masks)
 
-    def forward(self, outputs, targets, matcher_outputs=None, use_contrast=False):
+    def forward(self, outputs, targets, matcher_outputs=None):
         """This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
@@ -335,8 +234,6 @@ class VideoSetCriterion(nn.Module):
         # Compute all the requested losses
         losses = {}
         for loss in self.losses:
-            if loss == 'contrast' and use_contrast is False:
-                continue
             losses.update(self.get_loss(loss, outputs, targets, indices, num_masks))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
@@ -345,8 +242,6 @@ class VideoSetCriterion(nn.Module):
                 if matcher_outputs is None:
                     indices = self.matcher(aux_outputs, targets)
                 for loss in self.losses:
-                    if loss == 'contrast':
-                        continue
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_masks)
                     l_dict = {k + f"_{i}": v for k, v in l_dict.items()}
                     losses.update(l_dict)

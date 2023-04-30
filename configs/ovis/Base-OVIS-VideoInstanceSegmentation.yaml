@@ -14,7 +14,18 @@ MODEL:
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
     # NORM: "SyncBN"
     RES5_MULTI_GRID: [1, 1, 1]  # not used
+  MASK_FORMER:
+    TEST:
+      # A larger windows_size can be used if there is more GPU memory.
+      WINDOW_SIZE: 3
+      WINDOW_INFERENCE: True
+      TASK: 'vis'
 DATASETS:
+  DATASET_RATIO: [1.0, ]
+  DATASET_NEED_MAP: [False, ]
+  DATASET_TYPE: ['video_instance', ]
+  DATASET_TYPE_TEST: ['video_instance', ]
+  # The categories of all datasets will be mapped to the categories of the last dataset
   TRAIN: ("ovis_train",)
   TEST: ("ovis_val",)
 SOLVER:

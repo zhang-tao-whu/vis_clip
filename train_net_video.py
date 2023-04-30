@@ -1,9 +1,3 @@
-# Copyright (c) 2021-2022, NVIDIA Corporation & Affiliates. All rights reserved.
-#
-# This work is made available under the Nvidia Source Code License-NC.
-# To view a copy of this license, visit
-# https://github.com/NVlabs/MinVIS/blob/main/LICENSE
-
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
 MaskFormer Training Script.
@@ -49,17 +43,21 @@ from detectron2.solver.build import maybe_add_gradient_clipping
 from detectron2.utils.logger import setup_logger
 
 # Models
-from mask2former import add_maskformer2_config
-from mask2former_video import add_maskformer2_video_config
-from minvis import (
+from .mask2former import add_maskformer2_config
+from .mask2former_video import add_maskformer2_video_config
+from .dvis import (
     YTVISDatasetMapper,
     CocoClipDatasetMapper,
+    PanopticDatasetVideoMapper,
+    SemanticDatasetVideoMapper,
     YTVISEvaluator,
+    VPSEvaluator,
+    VSSEvaluator,
     add_minvis_config,
+    add_dvis_config,
     build_combined_loader,
     build_detection_train_loader,
     build_detection_test_loader,
-    get_detection_dataset_dicts,
 )
 
 
@@ -80,38 +78,29 @@ class Trainer(DefaultTrainer):
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
             os.makedirs(output_folder, exist_ok=True)
 
-        return YTVISEvaluator(dataset_name, cfg, True, output_folder)
+        evaluator_dict = {'vis': YTVISEvaluator, 'vss': VSSEvaluator, 'vps': VPSEvaluator}
+        assert cfg.MODEL.MASK_FORMER.TEST.TASK in evaluator_dict.keys()
+        return evaluator_dict[cfg.MODEL.MASK_FORMER.TEST.TASK](dataset_name, cfg, True, output_folder)
 
     @classmethod
     def build_train_loader(cls, cfg):
-        dataset_name = cfg.DATASETS.TRAIN[0]
-        mapper = YTVISDatasetMapper(cfg, is_train=True)
-
-        dataset_dict = get_detection_dataset_dicts(
-            dataset_name,
-            filter_empty=cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
-            proposal_files=cfg.DATASETS.PROPOSAL_FILES_TRAIN if cfg.MODEL.LOAD_PROPOSALS else None,
-        )
-
-        return build_detection_train_loader(cfg, mapper=mapper, dataset=dataset_dict)
-
-    @classmethod
-    def build_train_loader(cls, cfg):
+        assert len(cfg.DATASETS.DATASET_RATIO) == len(cfg.DATASETS.TRAIN) ==\
+               len(cfg.DATASETS.DATASET_NEED_MAP) == len(cfg.DATASETS.DATASET_TYPE)
         mappers = []
-        for d_i, dataset_name in enumerate(cfg.DATASETS.TRAIN):
-            if dataset_name.startswith('coco'):
-                mappers.append(
-                    CocoClipDatasetMapper(
-                        cfg, is_train=True, is_tgt=(d_i == len(cfg.DATASETS.TRAIN) - 1), src_dataset_name=dataset_name
-                    )
-                )
-            elif dataset_name.startswith('ytvis') or dataset_name.startswith('ovis'):
-                mappers.append(
-                    YTVISDatasetMapper(cfg, is_train=True, is_tgt=(d_i == len(cfg.DATASETS.TRAIN) - 1),
-                                       src_dataset_name=dataset_name)
-                )
-            else:
+        mapper_dict = {
+            'video_instance': YTVISDatasetMapper,
+            'video_panoptic': PanopticDatasetVideoMapper,
+            'video_semantic': SemanticDatasetVideoMapper,
+            'image_instance': CocoClipDatasetMapper,
+        }
+        for d_i, (dataset_name, dataset_type, dataset_need_map) in \
+                enumerate(zip(cfg.DATASETS.TRAIN, cfg.DATASETS.DATASET_TYPE, cfg.DATASETS.DATASET_NEED_MAP)):
+            if dataset_type not in mapper_dict.keys():
                 raise NotImplementedError
+            _mapper = mapper_dict[dataset_type]
+            mappers.append(
+                _mapper(cfg, is_train=True, is_tgt=not dataset_need_map, src_dataset_name=dataset_name, )
+            )
         assert len(mappers) > 0, "No dataset is chosen!"
 
         if len(mappers) == 1:
@@ -126,9 +115,15 @@ class Trainer(DefaultTrainer):
             return combined_data_loader
 
     @classmethod
-    def build_test_loader(cls, cfg, dataset_name):
-        dataset_name = cfg.DATASETS.TEST[0]
-        mapper = YTVISDatasetMapper(cfg, is_train=False)
+    def build_test_loader(cls, cfg, dataset_name, dataset_type):
+        mapper_dict = {
+            'video_instance': YTVISDatasetMapper,
+            'video_panoptic': PanopticDatasetVideoMapper,
+            'video_semantic': SemanticDatasetVideoMapper,
+        }
+        if dataset_type not in mapper_dict.keys():
+            raise NotImplementedError
+        mapper = mapper_dict[dataset_type](cfg, is_train=False)
         return build_detection_test_loader(cfg, dataset_name, mapper=mapper)
 
     @classmethod
@@ -165,8 +160,6 @@ class Trainer(DefaultTrainer):
         params: List[Dict[str, Any]] = []
         memo: Set[torch.nn.parameter.Parameter] = set()
         for module_name, module in model.named_modules():
-            if 'tracker' not in module_name and cfg.MODEL.ONLY_TRAIN_TRACKER:
-                continue
             for module_param_name, value in module.named_parameters(recurse=False):
                 if not value.requires_grad:
                     continue
@@ -247,7 +240,8 @@ class Trainer(DefaultTrainer):
 
         results = OrderedDict()
         for idx, dataset_name in enumerate(cfg.DATASETS.TEST):
-            data_loader = cls.build_test_loader(cfg, dataset_name)
+            dataset_type = cfg.DATASETS.DATASET_TYPE_TEST[idx]
+            data_loader = cls.build_test_loader(cfg, dataset_name, dataset_type)
             # When evaluators are passed in as arguments,
             # implicitly assume that evaluators can be created before data_loader.
             if evaluators is not None:
@@ -289,6 +283,7 @@ def setup(args):
     add_maskformer2_config(cfg)
     add_maskformer2_video_config(cfg)
     add_minvis_config(cfg)
+    add_dvis_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
@@ -321,6 +316,7 @@ def main(args):
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
+    args.dist_url = 'tcp://127.0.0.1:50263'
     print("Command Line Args:", args)
     launch(
         main,
