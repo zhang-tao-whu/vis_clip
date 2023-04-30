@@ -106,9 +106,7 @@ if __name__.endswith(".builtin"):
     _root = os.getenv("DETECTRON2_DATASETS", "datasets")
     #register_all_ytvis_2019(_root)
     #register_all_ytvis_2021(_root)
-    #if os.path.exists(os.path.join(_root, 'ovis')):
     register_all_ovis(_root)
-    if os.path.exists(os.path.join(_root, 'coco')):
-        register_all_coco_video(_root)
+    register_all_coco_video(_root)
     from . import vps
     from . import vss
