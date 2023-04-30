@@ -193,6 +193,14 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
     """
     Only match in the first frame where the object appears in the GT.
     """
+    def __init__(self, cost_class: float = 1, cost_mask: float = 1,
+                 cost_dice: float = 1, num_points: int = 0,
+                 frames: int = 5):
+        super().__init__(
+            cost_class=cost_class, cost_mask=cost_mask,
+            cost_dice=cost_dice, num_points=num_points,
+        )
+        self.frames = frames
 
     @torch.no_grad()
     def memory_efficient_forward(self, outputs, targets):
