@@ -53,5 +53,6 @@ def add_dvis_config(cfg):
     cfg.INPUT.LSJ_AUG.MAX_SCALE = 2.0
 
     cfg.SEED = 42
+    cfg.DATASETS.DATALOADER.NUM_WORKERS = 4
 
 
