@@ -17,6 +17,9 @@ for i, weight in enumerate(src_weights):
             key_ = key.replace("offline_tracker", "refiner")
         else:
             key_ = key
+        print(key)
+        print(key_)
+        print('-------------------------')
         model_.update({key_: weight['model'][key]})
 
     weight['model'] = model_
