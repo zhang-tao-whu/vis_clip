@@ -770,12 +770,12 @@ class DVIS_online(MinVIS):
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
-            # track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
-            # track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
-            # track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
-            track_out['pred_logits'] = track_out['pred_logits'].detach()
-            track_out['pred_masks'] = track_out['pred_masks'].detach()
-            track_out['pred_embds'] = track_out['pred_embds'].detach()
+            track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
+            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
+            track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
+            # track_out['pred_logits'] = track_out['pred_logits'].detach()
+            # track_out['pred_masks'] = track_out['pred_masks'].detach()
+            # track_out['pred_embds'] = track_out['pred_embds'].detach()
             out_list.append(track_out)
 
         # merge outputs
