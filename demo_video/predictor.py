@@ -211,6 +211,7 @@ class VideoPredictor(DefaultPredictor):
         weight = torch.load(cfg.MODEL.WEIGHTS)
         if 'model' in weight.keys():
             weight = weight['model']
+        print(weight.keys())
         self.model.load_state_dict(weight, strict=True)
 
         self.aug = T.ResizeShortestEdge(
