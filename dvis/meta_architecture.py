@@ -811,6 +811,7 @@ class DVIS_online(MinVIS):
                 pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
             )
             masks = pred_masks > 0.
+            del pred_masks
 
             out_scores = scores_per_image.tolist()
             out_labels = labels_per_image.tolist()
