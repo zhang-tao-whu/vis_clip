@@ -43,9 +43,9 @@ from detectron2.solver.build import maybe_add_gradient_clipping
 from detectron2.utils.logger import setup_logger
 
 # Models
-from .mask2former import add_maskformer2_config
-from .mask2former_video import add_maskformer2_video_config
-from .dvis import (
+from mask2former import add_maskformer2_config
+from mask2former_video import add_maskformer2_video_config
+from dvis import (
     YTVISDatasetMapper,
     CocoClipDatasetMapper,
     PanopticDatasetVideoMapper,
