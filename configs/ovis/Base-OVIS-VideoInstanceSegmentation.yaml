@@ -17,7 +17,7 @@ MODEL:
   MASK_FORMER:
     TEST:
       # A larger windows_size can be used if there is more GPU memory.
-      WINDOW_SIZE: 3
+      WINDOW_SIZE: 10
       WINDOW_INFERENCE: True
       TASK: 'vis'
 DATASETS:
