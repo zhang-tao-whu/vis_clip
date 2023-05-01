@@ -1350,5 +1350,5 @@ class DVIS_offline(DVIS_online):
         del overall_frame_embds
 
         # temporal refiner inference
-        outputs = self.offline_tracker(overall_instance_embds, overall_frame_embds_, overall_mask_features)
+        outputs = self.refiner(overall_instance_embds, overall_frame_embds_, overall_mask_features)
         return outputs, online_pred_logits
