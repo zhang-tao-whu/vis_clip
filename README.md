@@ -7,9 +7,9 @@
 
 ## Features
 - DVIS is a universal video segmentation framework that supports VIS, VPS and VSS.
-- DVIS can run both in online and offline modes. 
+- DVIS can run in both online and offline modes. 
 - DVIS achieved SOTA performance on YTVIS, OVIS, VIPSeg and VSPW datasets.
-- DVIS can be trained and inference on 11G GPUS.
+- DVIS can complete training and inference on GPUs with only 11G memory. 
 
 ## Demos
 
