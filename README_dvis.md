@@ -7,10 +7,7 @@
 - DVIS achieved SOTA performance on YTVIS, OVIS, VIPSeg and VSPW datasets.
 - DVIS can be trained and inference on 11G GPUS.
 
-##Demos
-
-
-
+## Demos
 
 <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="390"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="360"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="234"/>
 
