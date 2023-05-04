@@ -8,9 +8,10 @@
 - DVIS can be trained and inference on 11G GPUS.
 
 ##Demos
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="400"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="400"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="400"/>
+
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="300"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="280"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="200"/>
 
 
 
