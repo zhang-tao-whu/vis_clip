@@ -9,7 +9,7 @@
 
 ##Demos
 
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="300"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="270"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="180"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="420"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="378"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="252"/>
 
 
 
