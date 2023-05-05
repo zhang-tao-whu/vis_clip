@@ -13,8 +13,8 @@
 
 ## Demos
 
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="390"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="360"/> 
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="220"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_4.gif" width="290"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_5.gif" width="290"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="370"/> 
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="215"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_4.gif" width="290"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_5.gif" width="290"/>
 <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_6.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_7.gif" width="400"/>
 
 ## Installation
