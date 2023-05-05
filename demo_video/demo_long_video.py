@@ -31,8 +31,6 @@ from mask2former_video import add_maskformer2_video_config
 from dvis import add_minvis_config, add_dvis_config
 from predictor import VisualizationDemo, VisualizationDemo_windows
 
-import shutil
-
 
 def setup_cfg(args):
 	# load config from file and command-line arguments
