@@ -2,6 +2,7 @@ _BASE_: DVIS_Online_R50_720p.yaml
 MODEL:
   META_ARCHITECTURE: "DVIS_offline"
 
+
 SOLVER:
   IMS_PER_BATCH: 8
   STEPS: (14000,)

@@ -1,4 +1,5 @@
 _BASE_: ../DVIS_Offline_R50_720p.yaml
+
 MODEL:
   BACKBONE:
     NAME: "D2SwinTransformer"

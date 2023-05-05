@@ -1,4 +1,5 @@
 _BASE_: Base-VIPSeg-VideoInstanceSegmentation.yaml
+
 MODEL:
   WEIGHTS: "model_final_3c8ec9.pkl"
   META_ARCHITECTURE: "MinVIS"

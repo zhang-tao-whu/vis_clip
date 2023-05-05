@@ -4,6 +4,7 @@ MODEL:
   MASK_FORMER:
     TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_dvis"
 
+
 SOLVER:
   IMS_PER_BATCH: 8
   STEPS: (14000,)
