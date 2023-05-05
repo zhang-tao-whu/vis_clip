@@ -337,6 +337,5 @@ def register_all_video_panoVSPW(root):
 
 
 _root = os.getenv("DETECTRON2_DATASETS", "datasets")
-if os.path.exists(os.path.join(_root, 'VIPSeg')):
-    register_all_video_panoVSPW(_root)
+register_all_video_panoVSPW(_root)
 
