@@ -51,9 +51,9 @@ The "Config" column contains a link to the config file. Running `train_net_video
 <td align="center">SwinL(IN21k)</td>
 <td align="center">200</td>
 <td align="center">480P</td>
-<td align="center"> </td>
-<td align="center"> </td>
-<td align="center"> </td>
+<td align="center">45.3</td>
+<td align="center">70.2</td>
+<td align="center">47.2</td>
 <td align="center"><a href="configs/ovis/swin/DVIS_Online_SwinL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/1zSbrEE5faNYDgLvn5154Qg">model</a></td>
 <td align="center">dvis</td>
@@ -63,9 +63,9 @@ The "Config" column contains a link to the config file. Running `train_net_video
 <td align="center">SwinL(IN21k)</td>
 <td align="center">200</td>
 <td align="center">720P</td>
-<td align="center"> </td>
-<td align="center"> </td>
-<td align="center"> </td>
+<td align="center">47.6</td>
+<td align="center">72.5</td>
+<td align="center">50.1</td>
 <td align="center"><a href="configs/ovis/swin/DVIS_Online_SwinL_720p.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/1C8d5VVxUNeSl6lwnMJgxVA">model</a></td>
 <td align="center">dvis</td>
@@ -75,9 +75,9 @@ The "Config" column contains a link to the config file. Running `train_net_video
 <td align="center">R50</td>
 <td align="center">100</td>
 <td align="center">480P</td>
-<td align="center"> </td>
-<td align="center"> </td>
-<td align="center"> </td>
+<td align="center">33.7</td>
+<td align="center">59.6</td>
+<td align="center">33.7</td>
 <td align="center"><a href="configs/ovis/DVIS_Offline_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/1dQ0F2MI-jTf2POBlMG3n_A">model</a></td>
 <td align="center">dvis</td>
@@ -87,18 +87,37 @@ The "Config" column contains a link to the config file. Running `train_net_video
 <td align="center">R50</td>
 <td align="center">100</td>
 <td align="center">720P</td>
-<td align="center"> </td>
-<td align="center"> </td>
-<td align="center"> </td>
+<td align="center">34.6</td>
+<td align="center">60.1</td>
+<td align="center">33.3</td>
 <td align="center"><a href="configs/ovis/DVIS_Offline_R50_720p.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/1vwYiui4shSdlG0wN5C-rBw">model</a></td>
 <td align="center">dvis</td>
 </tr>
-
-
-
-
-
+<!-- ROW: SwinL Offline -->
+ <tr><td align="center">DVIS_offline</td>
+<td align="center">SwinL(IN21k)</td>
+<td align="center">200</td>
+<td align="center">480P</td>
+<td align="center">47.9</td>
+<td align="center">73.7</td>
+<td align="center">50.1</td>
+<td align="center"><a href="configs/ovis/swin/DVIS_Offline_SwinL.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1nV7_VqWefzU66NSsceAasA">model</a></td>
+<td align="center">dvis</td>
+</tr>
+<!-- ROW: SwinL Offline 720p -->
+ <tr><td align="center">DVIS_offline</td>
+<td align="center">SwinL(IN21k)</td>
+<td align="center">200</td>
+<td align="center">720P</td>
+<td align="center">50.0</td>
+<td align="center">75.6</td>
+<td align="center">52.9</td>
+<td align="center"><a href="configs/ovis/swin/DVIS_Offline_SwinL_720p.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1LIGkINBAcLNd8isUR5yPVQ">model</a></td>
+<td align="center">dvis</td>
+</tr>
 </tbody></table>
 
 ### YouTubeVIS 2019
