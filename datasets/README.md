@@ -56,7 +56,7 @@ ovis/
 ```
 ## Expected dataset structure for [VIPSeg](https://github.com/VIPSeg-Dataset/VIPSeg-Dataset):
 
-After downloading the VIPSeg dataset, it still needs to be processed according to the official script. To save time, you can directly download the processed [VIPSeg]() dataset we have prepared. 
+After downloading the VIPSeg dataset, it still needs to be processed according to the official script. To save time, you can directly download the processed VIPSeg dataset from [baiduyun](https://pan.baidu.com/s/1SMausnr6pVDJXTGISeFMuw) (password is `dvis`). 
 ```
 VIPSeg/
   VIPSeg_720P/

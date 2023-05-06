@@ -1,11 +1,106 @@
-# MinVIS Model Zoo
+# DVIS Model Zoo
 
 ## Introduction
 
-This file documents a collection of trained MinVIS models.
-The numbers in this page are for the specific checkpoints and are different from the paper, which are averaged from multiple runs. The "Config" column contains a link to the config file. Running `train_net_video.py --num-gpus $num_gpus` with this config file will train a model with the same setting. ResNet-50 results are trained with 8 GPUs and Swin-L results are trained with 16 GPUs.
+This file documents a collection of trained DVIS models.
+The "Config" column contains a link to the config file. Running `train_net_video.py --num-gpus $num_gpus` with this config file will train a model with the same setting. ResNet-50 results are trained with 8 2080Ti GPUs and Swin-L results are trained with 8 V100 GPUs.
 
 ## Video Instance Segmentation
+
+### Occluded VIS
+
+<table><tbody>
+<!-- START TABLE -->
+<!-- TABLE HEADER -->
+<th valign="bottom">Model</th>
+<th valign="bottom">Backbone</th>
+<th valign="bottom">Queries</th>
+<th valign="bottom">Video</th>
+<th valign="bottom">AP</th>
+<th valign="bottom">AP50</th>
+<th valign="bottom">AP75</th>
+<th valign="bottom">Config</th>
+<th valign="bottom">Download</th>
+<th valign="bottom">Password</th>
+<!-- TABLE BODY -->
+<!-- ROW: R50 Online -->
+ <tr><td align="center">DVIS_online</td>
+<td align="center">R50</td>
+<td align="center">100</td>
+<td align="center">480P</td>
+<td align="center">30.4</td>
+<td align="center">54.9</td>
+<td align="center">29.7</td>
+<td align="center"><a href="configs/ovis/DVIS_Online_R50.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1HdL6Y8G2UD7l43r8AfsIpg">model</a></td>
+<td align="center">dvis</td>
+</tr>
+<!-- ROW: R50 Online 720p -->
+ <tr><td align="center">DVIS_online</td>
+<td align="center">R50</td>
+<td align="center">100</td>
+<td align="center">720P</td>
+<td align="center">30.9</td>
+<td align="center">55.2</td>
+<td align="center">30.8</td>
+<td align="center"><a href="configs/ovis/DVIS_Online_R50_720p.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1npLPI7WVXJIPE19XsPF4gQ">model</a></td>
+<td align="center">dvis</td>
+<!-- ROW: SwinL Online 480p -->
+ <tr><td align="center">DVIS_online</td>
+<td align="center">SwinL(IN21k)</td>
+<td align="center">200</td>
+<td align="center">480P</td>
+<td align="center"> </td>
+<td align="center"> </td>
+<td align="center"> </td>
+<td align="center"><a href="configs/ovis/swin/DVIS_Online_SwinL.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1zSbrEE5faNYDgLvn5154Qg">model</a></td>
+<td align="center">dvis</td>
+</tr>
+<!-- ROW: SwinL Online 720p -->
+ <tr><td align="center">DVIS_online</td>
+<td align="center">SwinL(IN21k)</td>
+<td align="center">200</td>
+<td align="center">720P</td>
+<td align="center"> </td>
+<td align="center"> </td>
+<td align="center"> </td>
+<td align="center"><a href="configs/ovis/swin/DVIS_Online_SwinL_720p.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1C8d5VVxUNeSl6lwnMJgxVA">model</a></td>
+<td align="center">dvis</td>
+</tr>
+<!-- ROW: R50 Offline -->
+ <tr><td align="center">DVIS_offline</td>
+<td align="center">R50</td>
+<td align="center">100</td>
+<td align="center">480P</td>
+<td align="center"> </td>
+<td align="center"> </td>
+<td align="center"> </td>
+<td align="center"><a href="configs/ovis/DVIS_Offline_R50.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1dQ0F2MI-jTf2POBlMG3n_A">model</a></td>
+<td align="center">dvis</td>
+</tr>
+<!-- ROW: R50 Offline 720p -->
+ <tr><td align="center">DVIS_offline</td>
+<td align="center">R50</td>
+<td align="center">100</td>
+<td align="center">720P</td>
+<td align="center"> </td>
+<td align="center"> </td>
+<td align="center"> </td>
+<td align="center"><a href="configs/ovis/DVIS_Offline_R50_720p.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1vwYiui4shSdlG0wN5C-rBw">model</a></td>
+<td align="center">dvis</td>
+</tr>
+
+
+
+
+
+</tbody></table>
+
 ### YouTubeVIS 2019
 
 <table><tbody>
