@@ -297,7 +297,7 @@ class ReferringTracker(torch.nn.Module):
 
         can_add_noise = start_frame < cur_frame
         pred_indices = pre_indices[cur_frame][0]
-        indices = list(range(len(frame_embeds.size(0))))
+        indices = list(range(frame_embeds.size(0)))
         np.random.shuffle(indices)
         indices = indices[:len(pred_indices)]
 
