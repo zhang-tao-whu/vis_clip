@@ -655,7 +655,7 @@ class DVIS_online(MinVIS):
             #image_outputs = self.reset_image_output_order(image_outputs, indices)
 
         if self.training:
-            targets = self.prepare_targets(batched_inputs, images)
+            #targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
             if self.iter < self.max_iter_num // 2:
 
