@@ -34,16 +34,3 @@ Trained models are available for download in the [DVIS Model Zoo](MODEL_ZOO.md).
 
 This repo is largely based on [Mask2Former](https://github.com/facebookresearch/Mask2Former), [MinVIS](https://github.com/NVlabs/MinVIS) and [VITA](https://github.com/sukjunhwang/VITA).
 Thanks for their excellent works.
-## Visualization
-
-### Testing on COCO
-
-Command:
-
-   ```
-   python demo_video/demo_long_video.py \
-       --config-file /path/to/config.yaml \
-       --input /path/to/images \
-       --output work_dirs/demo_out/ \
-       --opts MODEL.WEIGHTS /path/to/weight.pth
-   ```
