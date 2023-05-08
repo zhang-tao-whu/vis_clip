@@ -301,8 +301,9 @@ class ReferringTracker(torch.nn.Module):
         np.random.shuffle(indices)
         indices = indices[:len(pred_indices)]
 
-        frame_embeds[pred_indices][can_add_noise] = frame_embeds[indices][can_add_noise]
-        return frame_embeds
+        frame_embeds_ret = frame_embeds.clone().detach()
+        frame_embeds_ret[pred_indices][can_add_noise] = frame_embeds[indices][can_add_noise]
+        return frame_embeds_ret
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_seg_masks):
