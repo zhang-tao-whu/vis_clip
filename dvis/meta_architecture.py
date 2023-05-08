@@ -755,7 +755,7 @@ class DVIS_online(MinVIS):
         image_outputs['pred_masks'][0] = image_outputs['pred_masks'][0][indices, frame_indices].transpose(0, 1)
         # pred logits, shape is (b, t, q, c)
         image_outputs['pred_logits'][0] = image_outputs['pred_logits'][0][frame_indices, indices]
-        frame_embds[0] = frame_embds[0][:, frame_embds, indices]
+        frame_embds[0] = frame_embds[0].permute(1, 2, 0)[frame_embds, indices].permute(2, 0, 1)
         return image_outputs, frame_embds
 
     def reset_image_output_order(self, output, indices):
