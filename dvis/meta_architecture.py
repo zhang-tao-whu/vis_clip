@@ -707,6 +707,7 @@ class DVIS_online(MinVIS):
             )
 
     def pre_forward_matcher(self, image_outputs, targets):
+        image_outputs = {k: v for k, v in image_outputs.items() if k != "aux_outputs"}
         return self.criterion.matcher(image_outputs, targets, return_start=True)
 
     def frame_decoder_loss_reshape(self, outputs=None, targets=None, image_outputs=None):
@@ -741,7 +742,6 @@ class DVIS_online(MinVIS):
         return image_outputs, outputs, gt_instances
 
     def pre_match(self, image_outputs, frame_embds):
-        print(frame_embds.shape)
         frame_embds_ = frame_embds[0]  # (c, t, q)
         frame_embds_ = frame_embds_.permute(1, 2, 0) # (t, q, c)
         indices = []
@@ -751,7 +751,6 @@ class DVIS_online(MinVIS):
             ref_embeds = frame_embds_[i][indices[-1]]
 
         indices = torch.Tensor(indices).to(torch.int64)  # (t, q)
-        print(indices.shape)
         frame_indices = torch.range(0, indices.shape[0] - 1).to(indices).unsqueeze(1).repeat(1, indices.shape[1])
         # pred_masks, shape is (b, q, t, h, w)
         image_outputs['pred_masks'][0] = image_outputs['pred_masks'][0][indices, frame_indices].transpose(0, 1)
