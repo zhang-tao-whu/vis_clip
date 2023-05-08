@@ -665,7 +665,7 @@ class DVIS_online(MinVIS):
                 _, outputs, _ = self.frame_decoder_loss_reshape(
                     outputs=outputs, targets=None, image_outputs=None
                 )
-                losses = self.criterion(outputs, targets, pre_indices=pre_indices)
+                losses = self.criterion(outputs, targets, pre_indices=pre_indices, image_outputs=image_outputs)
             else:
                 # image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
                 #     outputs, targets, image_outputs=None
