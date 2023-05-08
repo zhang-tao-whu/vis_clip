@@ -51,11 +51,11 @@ The "Config" column contains a link to the config file. Running `train_net_video
 <td align="center">SwinL(IN21k)</td>
 <td align="center">200</td>
 <td align="center">480P</td>
-<td align="center">45.3</td>
-<td align="center">70.2</td>
-<td align="center">47.2</td>
+<td align="center">46.0</td>
+<td align="center">70.7</td>
+<td align="center">48.6</td>
 <td align="center"><a href="configs/ovis/swin/DVIS_Online_SwinL.yaml">yaml</a></td>
-<td align="center"><a href="https://pan.baidu.com/s/1zSbrEE5faNYDgLvn5154Qg">model</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1lydzag6D_Uh9B_ly8UgnuQ">model</a></td>
 <td align="center">dvis</td>
 </tr>
 <!-- ROW: SwinL Online 720p -->
@@ -103,7 +103,7 @@ The "Config" column contains a link to the config file. Running `train_net_video
 <td align="center">73.7</td>
 <td align="center">50.1</td>
 <td align="center"><a href="configs/ovis/swin/DVIS_Offline_SwinL.yaml">yaml</a></td>
-<td align="center"><a href="https://pan.baidu.com/s/1nV7_VqWefzU66NSsceAasA">model</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1X3gh-CJj5z0OesN-0wB62w">model</a></td>
 <td align="center">dvis</td>
 </tr>
 <!-- ROW: SwinL Offline 720p -->
