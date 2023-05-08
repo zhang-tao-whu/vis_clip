@@ -206,7 +206,7 @@ class VideoSetCriterion(nn.Module):
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices, num_masks)
 
-    def forward(self, outputs, targets, matcher_outputs=None):
+    def forward(self, outputs, targets, matcher_outputs=None, pre_indices=None):
         """This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
@@ -219,7 +219,10 @@ class VideoSetCriterion(nn.Module):
             outputs_without_aux = {k: v for k, v in matcher_outputs.items() if k != "aux_outputs"}
 
         # Retrieve the matching between the outputs of the last layer and the targets
-        indices = self.matcher(outputs_without_aux, targets)
+        if pre_indices is None:
+            indices = self.matcher(outputs_without_aux, targets)
+        else:
+            indices = pre_indices
         # [per image indicates], per image indicates -> (pred inds, gt inds)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
@@ -239,7 +242,7 @@ class VideoSetCriterion(nn.Module):
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if "aux_outputs" in outputs:
             for i, aux_outputs in enumerate(outputs["aux_outputs"]):
-                if matcher_outputs is None:
+                if matcher_outputs is None and pre_indices is None:
                     indices = self.matcher(aux_outputs, targets)
                 for loss in self.losses:
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_masks)

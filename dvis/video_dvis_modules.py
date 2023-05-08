@@ -3,6 +3,8 @@ from torch import nn
 from mask2former_video.modeling.transformer_decoder.video_mask2former_transformer_decoder import SelfAttentionLayer,\
     CrossAttentionLayer, FFNLayer, MLP, _get_activation_fn
 from scipy.optimize import linear_sum_assignment
+import random
+import numpy as np
 
 
 class ReferringCrossAttentionLayer(nn.Module):
@@ -150,7 +152,10 @@ class ReferringTracker(torch.nn.Module):
         self.last_outputs = None
         return
 
-    def forward(self, frame_embeds, mask_features, resume=False, return_indices=False):
+    def forward(self, frame_embeds, mask_features, resume=False, return_indices=False,
+                pre_indices=None,
+                start_frame=None,
+                ):
         """
         :param frame_embeds: the instance queries output by the segmenter
         :param mask_features: the mask features output by the segmenter
@@ -158,6 +163,8 @@ class ReferringTracker(torch.nn.Module):
         :param return_indices: whether return the match indices
         :return: output dict, including masks, classes, embeds.
         """
+        if self.training:
+            assert pre_indices is not None and start_frame is not None
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
@@ -173,7 +180,7 @@ class ReferringTracker(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
-                        ret_indices.append(self.match_embds(single_frame_embeds, single_frame_embeds))
+                        #ret_indices.append(self.match_embds(single_frame_embeds, single_frame_embeds))
                         output = self.transformer_cross_attention_layers[j](
                             single_frame_embeds, single_frame_embeds, single_frame_embeds,
                             memory_mask=None,
@@ -211,11 +218,14 @@ class ReferringTracker(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
-                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        ret_indices.append(indices)
+                        if not self.training:
+                            indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
+                            init_output = self.last_frame_embeds = single_frame_embeds[indices]
+                        else:
+                            init_output = self.add_noise(single_frame_embeds, i, pre_indices, start_frame)
+                        #ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
+                            init_output, self.last_outputs[-1], single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
@@ -271,7 +281,7 @@ class ReferringTracker(torch.nn.Module):
         ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
         cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-        cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
+        cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
         C = 1 - cos_sim
 
         C = C.cpu()
@@ -280,6 +290,19 @@ class ReferringTracker(torch.nn.Module):
         indices = linear_sum_assignment(C.transpose(0, 1))
         indices = indices[1]
         return indices
+
+    def add_noise(self, frame_embeds, cur_frame, pre_indices, start_frame):
+        if random.random() < 0.2:
+            return frame_embeds
+
+        can_add_noise = start_frame < cur_frame
+        pred_indices = pre_indices[cur_frame][0]
+        indices = list(range(len(frame_embeds.size(0))))
+        np.random.shuffle(indices)
+        indices = indices[:len(pred_indices)]
+
+        frame_embeds[pred_indices][can_add_noise] = frame_embeds[indices][can_add_noise]
+        return frame_embeds
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_seg_masks):

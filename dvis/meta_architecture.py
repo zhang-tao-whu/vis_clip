@@ -643,23 +643,40 @@ class DVIS_online(MinVIS):
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 torch.cuda.empty_cache()
-            outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True, resume=self.keep)
-            image_outputs = self.reset_image_output_order(image_outputs, indices)
+            image_outputs, frame_embds = self.pre_match(image_outputs, frame_embds)
+            targets = self.prepare_targets(batched_inputs, images)
+            image_outputs, _, targets = self.frame_decoder_loss_reshape(
+                outputs=None, targets=targets, image_outputs=image_outputs
+            )
+            pre_indices, start_frame = self.pre_forward_matcher(image_outputs, targets)
+            outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True,
+                                            resume=self.keep, pre_indices=pre_indices,
+                                            start_frame=start_frame)
+            #image_outputs = self.reset_image_output_order(image_outputs, indices)
 
         if self.training:
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
             if self.iter < self.max_iter_num // 2:
-                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
-                    outputs, targets, image_outputs=image_outputs
+
+                # image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
+                #     outputs, targets, image_outputs=image_outputs
+                # )
+                _, outputs, _ = self.frame_decoder_loss_reshape(
+                    outputs=outputs, targets=None, image_outputs=None
                 )
+                losses = self.criterion(outputs, targets, pre_indices=pre_indices)
             else:
-                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
-                    outputs, targets, image_outputs=None
+                # image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
+                #     outputs, targets, image_outputs=None
+                # )
+                _, outputs, _ = self.frame_decoder_loss_reshape(
+                    outputs=outputs, targets=None, image_outputs=None
                 )
+                losses = self.criterion(outputs, targets, matcher_outputs=None)
             self.iter += 1
             # bipartite matching-based loss
-            losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
+            # losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
@@ -689,29 +706,57 @@ class DVIS_online(MinVIS):
                 mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size, pred_id
             )
 
-    def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
-        outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-        outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+    def pre_forward_matcher(self, image_outputs, targets):
+        return self.criterion.matcher(image_outputs, targets, return_start=True)
+
+    def frame_decoder_loss_reshape(self, outputs=None, targets=None, image_outputs=None):
+        if outputs is not None:
+            outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
+            outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+            if 'aux_outputs' in outputs:
+                for i in range(len(outputs['aux_outputs'])):
+                    outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
+                        outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
+                    )
+                    outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
+                        outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
+                    )
         if image_outputs is not None:
             image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
             image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
-        if 'aux_outputs' in outputs:
-            for i in range(len(outputs['aux_outputs'])):
-                outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
-                )
-                outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
-                )
-        gt_instances = []
-        for targets_per_video in targets:
-            num_labeled_frames = targets_per_video['ids'].shape[1]
-            for f in range(num_labeled_frames):
-                labels = targets_per_video['labels']
-                ids = targets_per_video['ids'][:, [f]]
-                masks = targets_per_video['masks'][:, [f], :, :]
-                gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
+            if 'aux_outputs' in image_outputs:
+                del image_outputs['aux_outputs']
+
+        if targets is None:
+            gt_instances = None
+        else:
+            gt_instances = []
+            for targets_per_video in targets:
+                num_labeled_frames = targets_per_video['ids'].shape[1]
+                for f in range(num_labeled_frames):
+                    labels = targets_per_video['labels']
+                    ids = targets_per_video['ids'][:, [f]]
+                    masks = targets_per_video['masks'][:, [f], :, :]
+                    gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         return image_outputs, outputs, gt_instances
+
+    def pre_match(self, image_outputs, frame_embds):
+        frame_embds_ = frame_embds[0]  # (c, t, q)
+        frame_embds_ = frame_embds_.permute(1, 2, 0) # (t, q, c)
+        indices = []
+        ref_embeds = frame_embds_[0]
+        for i in range(frame_embds_.size(0)):
+            indices.append(self.match_from_embds(ref_embeds, frame_embds_[i]))
+            ref_embeds = frame_embds_[i][indices[-1]]
+
+        indices = torch.Tensor(indices).to(torch.int64)  # (t, q)
+        frame_indices = torch.range(0, indices.shape[0] - 1).to(indices).unsqueeze(1).repeat(1, indices.shape[1])
+        # pred_masks, shape is (b, q, t, h, w)
+        image_outputs['pred_masks'][0] = image_outputs['pred_masks'][0][indices, frame_indices].transpose(0, 1)
+        # pred logits, shape is (b, t, q, c)
+        image_outputs['pred_logits'][0] = image_outputs['pred_logits'][0][frame_indices, indices]
+        frame_embds[0] = frame_embds[0][:, frame_embds, indices]
+        return image_outputs, frame_embds
 
     def reset_image_output_order(self, output, indices):
         """
