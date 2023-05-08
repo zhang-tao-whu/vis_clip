@@ -224,6 +224,8 @@ class VideoSetCriterion(nn.Module):
             indices = self.matcher(outputs_without_aux, targets)
         else:
             indices = pre_indices
+        for key in outputs_without_aux:
+            print(key, outputs_without_aux[key].shape)
         print(self.matcher(outputs_without_aux, targets))
         # [per image indicates], per image indicates -> (pred inds, gt inds)
 
