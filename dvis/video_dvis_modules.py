@@ -302,6 +302,8 @@ class ReferringTracker(torch.nn.Module):
         indices = indices[:len(pred_indices)]
 
         frame_embeds_ret = frame_embeds.clone().detach()
+        print(pred_indices)
+        print(can_add_noise)
         frame_embeds_ret[pred_indices][can_add_noise] = frame_embeds[indices][can_add_noise]
         return frame_embeds_ret
 
