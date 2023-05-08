@@ -224,7 +224,7 @@ class VideoSetCriterion(nn.Module):
             indices = self.matcher(outputs_without_aux, targets)
         else:
             indices = pre_indices
-        print(indices)
+        print(self.matcher(outputs_without_aux, targets))
         # [per image indicates], per image indicates -> (pred inds, gt inds)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
