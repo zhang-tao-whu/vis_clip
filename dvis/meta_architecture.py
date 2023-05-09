@@ -555,6 +555,7 @@ class DVIS_online(MinVIS):
             decoder_layer_num=cfg.MODEL.TRACKER.DECODER_LAYERS,
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
+            noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER

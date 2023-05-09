@@ -98,6 +98,7 @@ class ReferringTracker(torch.nn.Module):
         decoder_layer_num=6,
         mask_dim=256,
         class_num=25,
+        noise_mode='hard',
     ):
         super(ReferringTracker, self).__init__()
 
@@ -145,6 +146,9 @@ class ReferringTracker(torch.nn.Module):
         # record previous frame information
         self.last_outputs = None
         self.last_frame_embeds = None
+
+        # noise training
+        self.noise_mode = noise_mode
 
     def _clear_memory(self):
         del self.last_outputs
@@ -220,7 +224,9 @@ class ReferringTracker(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
-                        indices, init_output = self.get_noise_embed(self.last_frame_embeds, single_frame_embeds)
+                        indices, init_output = self.get_noise_embed(self.last_frame_embeds,
+                                                                    single_frame_embeds,
+                                                                    mode=self.noise_mode)
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
