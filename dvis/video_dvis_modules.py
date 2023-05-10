@@ -143,9 +143,19 @@ class ReferringTracker(torch.nn.Module):
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
+        # mask features projection
+        self.mask_feature_proj = nn.Conv2d(
+            mask_dim,
+            mask_dim,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+
         # record previous frame information
         self.last_outputs = None
         self.last_frame_embeds = None
+        self.add_noise = False
 
         # noise training
         self.noise_mode = noise_mode
@@ -163,6 +173,10 @@ class ReferringTracker(torch.nn.Module):
         :param return_indices: whether return the match indices
         :return: output dict, including masks, classes, embeds.
         """
+        # mask feature projection
+        mask_features_shape = mask_features.shape
+        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
+
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
@@ -464,6 +478,15 @@ class TemporalRefiner(torch.nn.Module):
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
+        # mask features projection
+        self.mask_feature_proj = nn.Conv2d(
+            mask_dim,
+            mask_dim,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+
         self.activation_proj = nn.Linear(hidden_channel, 1)
 
     def forward(self, instance_embeds, frame_embeds, mask_features):
@@ -560,10 +583,15 @@ class TemporalRefiner(torch.nn.Module):
             decoder_output = self.decoder_norm(clip_outputs)
             decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
             mask_embed = self.mask_embed(decoder_output)
+
+            # mask features projection
+            mask_features_ = mask_features[:, start_idx:end_idx].to(mask_embed.device)
+            mask_features_shape = mask_features_.shape
+            mask_features_ = self.mask_feature_proj(mask_features_.flatten(0, 1)).reshape(*mask_features_shape)
+
             outputs_mask = torch.einsum(
                 "lbtqc,btchw->lbqthw",
-                mask_embed,
-                mask_features[:, start_idx:end_idx].to(mask_embed.device)
+                mask_embed, mask_features_
             )
             outputs_classes.append(decoder_output)
             outputs_masks.append(outputs_mask.cpu().to(torch.float32))
@@ -598,6 +626,11 @@ class TemporalRefiner(torch.nn.Module):
             decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
             outputs_class = self.pred_class(decoder_output)
             mask_embed = self.mask_embed(decoder_output)
+
+            # mask features projection
+            mask_features_shape = mask_features.shape
+            mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
+
             outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         else:
             outputs_class, outputs_mask = self.windows_prediction(outputs, mask_features, windows=self.windows)
