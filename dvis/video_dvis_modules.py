@@ -496,8 +496,8 @@ class TemporalRefiner(torch.nn.Module):
         np.random.shuffle(indices)
         queries_ = queries[:, :, :, indices].clone().detach()
 
-        add_noise = torch.rand(n_batch, n_frames, n_instance).unsqueeze(1).to(queries)
-        add_noise = (add_noise < p).to(queries.device)
+        add_noise = torch.rand(n_batch, n_frames, n_instance).unsqueeze(1).to(queries.device)
+        add_noise = (add_noise < p).to(queries.dtype)
         return queries * (1 - add_noise) + queries_ * add_noise
 
     def forward(self, instance_embeds, frame_embeds, mask_features):
