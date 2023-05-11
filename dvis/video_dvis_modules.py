@@ -307,7 +307,10 @@ class ReferringTracker(torch.nn.Module):
             return indices, cur_embds[indices]
         else:
             # soft mode
-            alpha = random.random() * 0.4 + 0.6
+            n_q, n_b, n_c = ref_embds.size()
+            alpha = torch.rand(n_q, device=cur_embds.device)
+            alpha = torch.clip(alpha + 0.6, 0, 1).unsqueeze(1).unsqueeze(2)
+            #alpha = random.random() * 0.4 + 0.6
             return true_indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
 
     def match_embds(self, ref_embds, cur_embds):
