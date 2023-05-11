@@ -312,8 +312,6 @@ class ReferringTracker(torch.nn.Module):
 
     def match_embds(self, ref_embds, cur_embds):
         # embds (q, b, c)
-        #ref_embds = self.decoder_norm(ref_embds)
-        #cur_embds = self.decoder_norm(cur_embds)
 
         ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
