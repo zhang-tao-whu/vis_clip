@@ -91,4 +91,7 @@ DATASETS:
   TRAIN: ("coco2ovis_train", "ovis_train")
   TEST: ("ovis_val",)
 
+DATALOADER:
+  FILTER_EMPTY_ANNOTATIONS: True
+
 OUTPUT_DIR: './output_MinVIS_R50_OVIS'
