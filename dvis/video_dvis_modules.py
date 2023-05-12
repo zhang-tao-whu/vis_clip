@@ -182,8 +182,8 @@ class ReferringTracker(torch.nn.Module):
         outputs = []
         ret_indices = []
 
-        # if self.training and random.random() < 0.8:
-        if self.training and random.random() < 1.0:
+        if self.training and random.random() < 0.8:
+        # if self.training and random.random() < 1.0:
             self.add_noise = True
         else:
             self.add_noise = False
