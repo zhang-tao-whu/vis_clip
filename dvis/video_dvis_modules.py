@@ -318,7 +318,10 @@ class ReferringTracker(torch.nn.Module):
                 alpha = 1
             if alpha < 0:
                 alpha = 0
-            return true_indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
+            if alpha < 0.5:
+                return true_indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
+            else:
+                return indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
 
     def match_embds(self, ref_embds, cur_embds):
         # embds (q, b, c)
