@@ -359,6 +359,7 @@ class ReferringTracker(torch.nn.Module):
             ms_C = 0
             for i, factor in enumerate([0.1, 0.3, 0.6]):
                 ref_embds = self.last_ms_outputs[i]
+                print(ref_embds.shape)
                 ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
                 ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
                 cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
