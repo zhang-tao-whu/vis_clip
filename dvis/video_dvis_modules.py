@@ -304,7 +304,7 @@ class ReferringTracker(torch.nn.Module):
 
     def get_noise_embed(self, ref_embds, cur_embds, first=False, mode='hard'):
         if not self.training:
-            true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
+            true_indices = self.match_embds(ref_embds, cur_embds, ms=False)
         else:
             true_indices = self.match_embds(ref_embds, cur_embds)
         if first or not self.add_noise:
