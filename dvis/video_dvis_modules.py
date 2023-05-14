@@ -160,9 +160,13 @@ class ReferringTracker(torch.nn.Module):
         # noise training
         self.noise_mode = noise_mode
 
+        # for ms match
+        self.last_ms_outputs = []
+
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
+        self.last_ms_outputs = []
         return
 
     def forward(self, frame_embeds, mask_features, resume=False, return_indices=False):
@@ -299,7 +303,10 @@ class ReferringTracker(torch.nn.Module):
             return out
 
     def get_noise_embed(self, ref_embds, cur_embds, first=False, mode='hard'):
-        true_indices = self.match_embds(ref_embds, cur_embds)
+        if not self.training:
+            true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
+        else:
+            true_indices = self.match_embds(ref_embds, cur_embds)
         if first or not self.add_noise:
             return true_indices, cur_embds[true_indices]
         indices = list(range(cur_embds.shape[0]))
@@ -323,20 +330,58 @@ class ReferringTracker(torch.nn.Module):
             else:
                 return indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
 
-    def match_embds(self, ref_embds, cur_embds):
+    # def match_embds(self, ref_embds, cur_embds):
+    #     # embds (q, b, c)
+    #
+    #     ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
+    #     ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
+    #     cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+    #     cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
+    #     C = 1 - cos_sim
+    #
+    #     C = C.cpu()
+    #     C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
+    #
+    #     indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
+    #     indices = indices[1]  # permutation that makes current aligns to target
+    #     return indices
+
+    def match_embds(self, ref_embds, cur_embds, ms=False):
         # embds (q, b, c)
 
-        ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
-        ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
-        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-        cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
-        C = 1 - cos_sim
+        if len(self.last_ms_outputs) == 0:
+            self.last_ms_outputs += [ref_embds] * 3
+        else:
+            self.last_ms_outputs.append(ref_embds)
+            del self.last_ms_outputs[0]
 
-        C = C.cpu()
-        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
+        if ms:
+            ms_C = 0
+            for i, factor in enumerate([0.1, 0.3, 0.6]):
+                ref_embds = self.last_ms_outputs[i]
+                ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
+                ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
+                cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+                cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
+                C = 1 - cos_sim
 
-        indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
-        indices = indices[1]  # permutation that makes current aligns to target
+                C = C.cpu()
+                C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
+                ms_C = ms_C + C
+            indices = linear_sum_assignment(ms_C.transpose(0, 1))  # target x current
+            indices = indices[1]  # permutation that makes current aligns to target
+        else:
+            ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
+            ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
+            cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+            cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
+            C = 1 - cos_sim
+
+            C = C.cpu()
+            C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
+
+            indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
+            indices = indices[1]  # permutation that makes current aligns to target
         return indices
 
     @torch.jit.unused
