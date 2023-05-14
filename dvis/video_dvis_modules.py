@@ -202,7 +202,7 @@ class ReferringTracker(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
-                        indices, init_output = self.get_noise_embed(single_frame_embeds,
+                        true_indices, indices, init_output = self.get_noise_embed(single_frame_embeds,
                                                                     single_frame_embeds,
                                                                     first=True)
                         ret_indices.append(indices)
@@ -243,10 +243,11 @@ class ReferringTracker(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
-                        indices, init_output = self.get_noise_embed(self.last_frame_embeds,
+                        true_indices, indices, init_output = self.get_noise_embed(self.last_frame_embeds,
                                                                     single_frame_embeds,
                                                                     mode=self.noise_mode)
-                        self.last_frame_embeds = single_frame_embeds[indices]
+                        # self.last_frame_embeds = single_frame_embeds[indices]
+                        self.last_frame_embeds = single_frame_embeds[true_indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
                             init_output, self.last_outputs[-1], single_frame_embeds,
@@ -304,15 +305,15 @@ class ReferringTracker(torch.nn.Module):
 
     def get_noise_embed(self, ref_embds, cur_embds, first=False, mode='hard'):
         if not self.training:
-            true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
+            true_indices = self.match_embds(ref_embds, cur_embds, ms=False)
         else:
             true_indices = self.match_embds(ref_embds, cur_embds)
         if first or not self.add_noise:
-            return true_indices, cur_embds[true_indices]
+            return true_indices, true_indices, cur_embds[true_indices]
         indices = list(range(cur_embds.shape[0]))
         np.random.shuffle(indices)
         if mode == 'hard':
-            return indices, cur_embds[indices]
+            return true_indices, indices, cur_embds[indices]
         else:
             # soft mode
             # n_q, n_b, n_c = ref_embds.size()
@@ -326,9 +327,9 @@ class ReferringTracker(torch.nn.Module):
             if alpha < 0:
                 alpha = 0
             if alpha < 0.5:
-                return true_indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
+                return true_indices, true_indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
             else:
-                return indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
+                return true_indices, indices, cur_embds[true_indices] * (1 - alpha) + cur_embds[indices] * alpha
 
     # def match_embds(self, ref_embds, cur_embds):
     #     # embds (q, b, c)
@@ -357,7 +358,7 @@ class ReferringTracker(torch.nn.Module):
 
         if ms:
             ms_C = 0
-            for i, factor in enumerate([0.0, 0.0, 0.6]):
+            for i, factor in enumerate([0.1, 0.3, 0.6]):
                 if i == 0:
                     cur_embds = cur_embds.detach()[:, 0, :]
                     cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
