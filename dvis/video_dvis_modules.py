@@ -304,8 +304,6 @@ class ReferringTracker(torch.nn.Module):
 
     def get_noise_embed(self, ref_embds, cur_embds, first=False, mode='hard'):
         if not self.training:
-            if first:
-                assert len(self.last_ms_outputs) == 0
             true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
         else:
             true_indices = self.match_embds(ref_embds, cur_embds)
@@ -356,11 +354,10 @@ class ReferringTracker(torch.nn.Module):
         else:
             self.last_ms_outputs.append(ref_embds)
             del self.last_ms_outputs[0]
-        print(len(self.last_ms_outputs))
 
         if ms:
             ms_C = 0
-            for i, factor in enumerate([0.1, 0.3, 0.6]):
+            for i, factor in enumerate([0.0, 0.0, 0.6]):
                 if i == 0:
                     cur_embds = cur_embds.detach()[:, 0, :]
                     cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
