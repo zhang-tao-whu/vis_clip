@@ -501,7 +501,7 @@ class TemporalRefiner(torch.nn.Module):
         self.activation_proj = nn.Linear(hidden_channel, 1)
         self.add_noise = False
 
-    def get_noised_init_embeds(self, queries, p=0.2):
+    def get_noised_init_embeds(self, queries, p=0.3):
         if not self.add_noise:
             return queries
         n_batch, n_channel, n_frames, n_instance = queries.size()
@@ -509,9 +509,10 @@ class TemporalRefiner(torch.nn.Module):
         np.random.shuffle(indices)
         queries_ = queries[:, :, :, indices].clone().detach()
 
-        add_noise = torch.rand(n_batch, n_frames, n_instance).unsqueeze(1).to(queries.device)
+        add_noise = torch.rand(n_batch, n_frames).unsqueeze(1).unsqueeze(3).to(queries.device)
         add_noise = (add_noise < p).to(queries.dtype)
-        return queries * (1 - add_noise) + queries_ * add_noise
+        ret = queries * (1 - add_noise) + queries_ * add_noise
+        return ret.detach()
 
     def forward(self, instance_embeds, frame_embeds, mask_features):
         """
@@ -521,7 +522,7 @@ class TemporalRefiner(torch.nn.Module):
         :return: output dict, including masks, classes, embeds.
         """
 
-        if self.training and random.random() < 0.8:
+        if self.training:
             self.add_noise = True
         else:
             self.add_noise = False
