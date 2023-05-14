@@ -501,20 +501,35 @@ class TemporalRefiner(torch.nn.Module):
         self.activation_proj = nn.Linear(hidden_channel, 1)
         self.add_noise = False
 
+    # def get_noised_init_embeds(self, queries, p=0.3):
+    #     if not self.add_noise:
+    #         return queries
+    #     n_batch, n_channel, n_frames, n_instance = queries.size()
+    #     indices = torch.arange(0, n_instance).to(queries.device).to(torch.int64)
+    #     np.random.shuffle(indices)
+    #     queries_ = queries[:, :, :, indices].clone().detach()
+    #
+    #     add_noise = torch.rand(n_batch, n_frames).unsqueeze(1).unsqueeze(3).to(queries.device)
+    #     add_noise = (add_noise < p).to(queries.dtype)
+    #     ret = queries * (1 - add_noise) + queries_ * add_noise
+    #     return ret.detach()
+
     def get_noised_init_embeds(self, queries, p=0.3):
         if not self.add_noise:
-            return queries
+            return queries, None
         n_batch, n_channel, n_frames, n_instance = queries.size()
-        indices = torch.arange(0, n_instance).to(queries.device).to(torch.int64)
-        np.random.shuffle(indices)
-        queries_ = queries[:, :, :, indices].clone().detach()
+        frames_indices = []
+        for i in range(n_frames):
+            indices = torch.arange(0, n_instance)
+            if random.random() < p:
+                np.random.shuffle(indices)
+                queries[:, :, i] = queries[:, :, i, indices]
+                frames_indices.append(indices)
+            else:
+                frames_indices.append(indices)
+        return queries.detach(), frames_indices
 
-        add_noise = torch.rand(n_batch, n_frames).unsqueeze(1).unsqueeze(3).to(queries.device)
-        add_noise = (add_noise < p).to(queries.dtype)
-        ret = queries * (1 - add_noise) + queries_ * add_noise
-        return ret.detach()
-
-    def forward(self, instance_embeds, frame_embeds, mask_features):
+    def forward(self, instance_embeds, frame_embeds, mask_features, return_indices=False):
         """
         :param instance_embeds: the aligned instance queries output by the tracker, shape is (b, c, t, q)
         :param frame_embeds: the instance queries processed by the tracker.frame_forward function, shape is (b, c, t, q)
@@ -531,7 +546,7 @@ class TemporalRefiner(torch.nn.Module):
 
         outputs = []
         #output = instance_embeds
-        output = self.get_noised_init_embeds(instance_embeds)
+        output, ret_indices = self.get_noised_init_embeds(instance_embeds)
         frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
 
         for i in range(self.num_layers):
@@ -588,6 +603,8 @@ class TemporalRefiner(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # (b, c, t, q)
         }
+        if return_indices:
+            return out, ret_indices
         return out
 
     @torch.jit.unused

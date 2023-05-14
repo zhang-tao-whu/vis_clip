@@ -1207,7 +1207,8 @@ class DVIS_offline(DVIS_online):
                     del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
                 torch.cuda.empty_cache()
             # do temporal refine
-            outputs = self.refiner(instance_embeds, frame_embds_, mask_features)
+            outputs, ret_indices = self.refiner(instance_embeds, frame_embds_, mask_features, return_indices=True)
+            image_outputs = self.reset_image_output_order(image_outputs, ret_indices)
 
         if self.training:
             # mask classification target
