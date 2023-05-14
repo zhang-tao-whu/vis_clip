@@ -358,17 +358,17 @@ class ReferringTracker(torch.nn.Module):
         if ms:
             ms_C = 0
             for i, factor in enumerate([0.1, 0.3, 0.6]):
-                ref_embds = self.last_ms_outputs[i]
-                print(ref_embds.shape)
-                ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
+                if i == 0:
+                    cur_embds = cur_embds.detach()[:, 0, :]
+                    cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+                ref_embds = self.last_ms_outputs[i].detach()[:, 0, :]
                 ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
-                cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
                 cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
                 C = 1 - cos_sim
 
                 C = C.cpu()
                 C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
-                ms_C = ms_C + C
+                ms_C = ms_C + C * factor
             indices = linear_sum_assignment(ms_C.transpose(0, 1))  # target x current
             indices = indices[1]  # permutation that makes current aligns to target
         else:
