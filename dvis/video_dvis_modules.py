@@ -520,7 +520,7 @@ class TemporalRefiner(torch.nn.Module):
         n_batch, n_channel, n_frames, n_instance = queries.size()
         frames_indices = []
         for i in range(n_frames):
-            indices = torch.arange(0, n_instance)
+            indices = list(range(n_instance))
             if random.random() < p:
                 np.random.shuffle(indices)
                 queries[:, :, i] = queries[:, :, i, indices]
