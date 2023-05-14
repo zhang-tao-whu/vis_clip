@@ -18,11 +18,27 @@ MODEL:
     NUM_OBJECT_QUERIES: 200
 SOLVER:
   IMS_PER_BATCH: 8
+  STEPS: (14000,)
+  MAX_ITER: 20000
 INPUT:
   MIN_SIZE_TRAIN: (360, 480, 600)
   MAX_SIZE_TRAIN: 1024
   MIN_SIZE_TEST: 480
+  CROP:
+    ENABLED: False
   PSEUDO:
+    CROP:
+      ENABLED: False
     MIN_SIZE_TRAIN: (360, 480, 600)
     MAX_SIZE_TRAIN: 1024
+
+DATASETS:
+  DATASET_RATIO: [1.0, ]
+  DATASET_NEED_MAP: [False, ]
+  DATASET_TYPE: ['video_instance', ]
+  DATASET_TYPE_TEST: ['video_instance', ]
+  # The categories of all datasets will be mapped to the categories of the last dataset
+  TRAIN: ("ovis_train",)
+  TEST: ("ovis_val",)
+
 OUTPUT_DIR: './output_MinVIS_SwinL_OVIS'
