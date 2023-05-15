@@ -83,7 +83,6 @@ class ReferringCrossAttentionLayer(nn.Module):
         query_pos=None
     ):
         # when set "indentify = tgt", ReferringCrossAttentionLayer is same as CrossAttentionLayer
-        tgt = tgt.detach()
         if self.normalize_before:
             return self.forward_pre(indentify, tgt, memory, memory_mask,
                                     memory_key_padding_mask, pos, query_pos)
