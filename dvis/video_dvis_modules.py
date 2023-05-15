@@ -304,14 +304,14 @@ class ReferringTracker(torch.nn.Module):
             return out
 
     def get_noise_embed(self, ref_embds, cur_embds, first=False, mode='hard'):
-        # if not self.training:
-        #     true_indices = self.match_embds(ref_embds, cur_embds, ms=False)
-        # else:
-        #     true_indices = self.match_embds(ref_embds, cur_embds)
         if not self.training:
-            true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
+            true_indices = self.match_embds(ref_embds, cur_embds, ms=False)
         else:
-            true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
+            true_indices = self.match_embds(ref_embds, cur_embds)
+        # if not self.training:
+        #     true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
+        # else:
+        #     true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
         if first or not self.add_noise:
             return true_indices, true_indices, cur_embds[true_indices]
         indices = list(range(cur_embds.shape[0]))
@@ -565,7 +565,7 @@ class TemporalRefiner(torch.nn.Module):
     #     ret = queries * (1 - add_noise) + queries_ * add_noise
     #     return ret.detach()
 
-    def get_noised_init_embeds(self, queries, p=0.3):
+    def get_noised_init_embeds(self, queries, p=0.6):
         if not self.add_noise:
             return queries, None
         n_batch, n_channel, n_frames, n_instance = queries.size()
