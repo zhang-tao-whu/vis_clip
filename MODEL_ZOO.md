@@ -27,7 +27,7 @@ The "Config" column contains a link to the config file. Running `train_net_video
  <tr><td align="center">DVIS_online</td>
 <td align="center">R50</td>
 <td align="center">100</td>
-<td align="center">480P</td>
+<td align="center">360P</td>
 <td align="center">30.4</td>
 <td align="center">54.9</td>
 <td align="center">29.7</td>
@@ -74,7 +74,7 @@ The "Config" column contains a link to the config file. Running `train_net_video
  <tr><td align="center">DVIS_offline</td>
 <td align="center">R50</td>
 <td align="center">100</td>
-<td align="center">480P</td>
+<td align="center">360P</td>
 <td align="center">33.7</td>
 <td align="center">59.6</td>
 <td align="center">33.7</td>
@@ -99,11 +99,11 @@ The "Config" column contains a link to the config file. Running `train_net_video
 <td align="center">SwinL(IN21k)</td>
 <td align="center">200</td>
 <td align="center">480P</td>
-<td align="center">47.9</td>
-<td align="center">73.7</td>
-<td align="center">50.1</td>
+<td align="center">48.8</td>
+<td align="center">74.8</td>
+<td align="center">50.7</td>
 <td align="center"><a href="configs/ovis/swin/DVIS_Offline_SwinL.yaml">yaml</a></td>
-<td align="center"><a href="https://pan.baidu.com/s/1X3gh-CJj5z0OesN-0wB62w">model</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1z0WtqvIXCCrnERANt3GqVg">model</a></td>
 <td align="center">dvis</td>
 </tr>
 <!-- ROW: SwinL Offline 720p -->
@@ -119,6 +119,76 @@ The "Config" column contains a link to the config file. Running `train_net_video
 <td align="center">dvis</td>
 </tr>
 </tbody></table>
+
+### YouTubeVIS 2019
+
+<table><tbody>
+<!-- START TABLE -->
+<!-- TABLE HEADER -->
+<th valign="bottom">Model</th>
+<th valign="bottom">Backbone</th>
+<th valign="bottom">Queries</th>
+<th valign="bottom">Video</th>
+<th valign="bottom">AP</th>
+<th valign="bottom">AP50</th>
+<th valign="bottom">AP75</th>
+<th valign="bottom">Config</th>
+<th valign="bottom">Download</th>
+<th valign="bottom">Password</th>
+<!-- TABLE BODY -->
+<!-- ROW: R50 Online -->
+ <tr><td align="center">DVIS_online</td>
+<td align="center">R50</td>
+<td align="center">100</td>
+<td align="center">360P</td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"><a href="">yaml</a></td>
+<td align="center"><a href="">model</a></td>
+<td align="center">dvis</td>
+</tr>
+<!-- ROW: SwinL Online 480p -->
+ <tr><td align="center">DVIS_online</td>
+<td align="center">SwinL(IN21k)</td>
+<td align="center">200</td>
+<td align="center">480P</td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"><a href="">yaml</a></td>
+<td align="center"><a href="">model</a></td>
+<td align="center">dvis</td>
+</tr>
+<!-- ROW: R50 Offline -->
+ <tr><td align="center">DVIS_offline</td>
+<td align="center">R50</td>
+<td align="center">100</td>
+<td align="center">360P</td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"><a href="">yaml</a></td>
+<td align="center"><a href="">model</a></td>
+<td align="center">dvis</td>
+</tr>
+<!-- ROW: SwinL Offline -->
+ <tr><td align="center">DVIS_offline</td>
+<td align="center">SwinL(IN21k)</td>
+<td align="center">200</td>
+<td align="center">480P</td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"><a href="">yaml</a></td>
+<td align="center"><a href="">model</a></td>
+<td align="center">dvis</td>
+</tr>
+</tbody></table>
+
+
+
+
 
 ### YouTubeVIS 2019
 

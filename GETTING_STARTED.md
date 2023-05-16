@@ -73,7 +73,7 @@ python demo_long_video.py \
   --output /path/to/output_folder \  
   --opts MODEL.WEIGHTS /path/to/checkpoint_file.pth
 
-# if the video if long (> 300 frames), plese set the `windows_size`
+# if the video if long (> 300 frames), plese set the 'windows_size'
 python demo_long_video.py \
   --config-file /path/to/config.yaml \
   --input /path/to/images_folder \

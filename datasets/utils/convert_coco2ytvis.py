@@ -11,6 +11,7 @@ from dvis.data_video.datasets.ytvis import (
 )
 
 _root = os.getenv("DETECTRON2_DATASETS", "datasets")
+_root = os.path.join('../..', _root)
 
 convert_list = [
     (COCO_TO_YTVIS_2019, 

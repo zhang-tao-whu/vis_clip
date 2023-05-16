@@ -87,7 +87,7 @@ class SemanticDatasetVideoMapper:
 
         # Assume always applies to the training set.
         dataset_names = cfg.DATASETS.TRAIN
-        meta = MetadataCatalog.get(dataset_names[0])
+        meta = MetadataCatalog.get(dataset_names[-1])
         ignore_label = meta.ignore_label
 
         #######
