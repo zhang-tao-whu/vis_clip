@@ -439,6 +439,9 @@ class ReferringTracker(torch.nn.Module):
         #     true_indices = self.match_embds(ref_embds, cur_embds, ms=True)
         if first or not self.add_noise:
             return true_indices, true_indices, cur_embds[true_indices]
+        if mode == 'difficult':
+            indices = self.get_difficult_indices(ref_embds, cur_embds)
+            return true_indices, indices, cur_embds[indices]
         indices = list(range(cur_embds.shape[0]))
         np.random.shuffle(indices)
         if mode == 'hard':
@@ -475,6 +478,19 @@ class ReferringTracker(torch.nn.Module):
     #     indices = linear_sum_assignment(C.transpose(0, 1))  # target x current
     #     indices = indices[1]  # permutation that makes current aligns to target
     #     return indices
+
+    def get_difficult_indices(self, ref_embds, cur_embds, range=5):
+        # embds (q, b, c)
+        ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
+        ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
+        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+
+        cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
+        C = 1 - cos_sim  # (q, q)
+        sorted_indices = torch.argsort(C, dim=-1)
+        rand_indices = torch.randint(low=0, high=range, size=(sorted_indices.size(1), ))
+        ret_indices = sorted_indices.index_select(1, rand_indices.to(sorted_indices.device))
+        return ret_indices
 
     def match_embds(self, ref_embds, cur_embds, ms=False):
         # embds (q, b, c)

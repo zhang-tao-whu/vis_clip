@@ -548,17 +548,7 @@ class DVIS_online(MinVIS):
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
 
-        # tracker = ReferringTracker(
-        #     hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
-        #     feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
-        #     num_head=cfg.MODEL.MASK_FORMER.NHEADS,
-        #     decoder_layer_num=cfg.MODEL.TRACKER.DECODER_LAYERS,
-        #     mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
-        #     class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
-        #     noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
-        # )
-
-        tracker = MrReferringTracker(
+        tracker = ReferringTracker(
             hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
             num_head=cfg.MODEL.MASK_FORMER.NHEADS,
@@ -566,8 +556,18 @@ class DVIS_online(MinVIS):
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
             noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
-            n_ref_frames=3,
         )
+
+        # tracker = MrReferringTracker(
+        #     hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
+        #     feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
+        #     num_head=cfg.MODEL.MASK_FORMER.NHEADS,
+        #     decoder_layer_num=cfg.MODEL.TRACKER.DECODER_LAYERS,
+        #     mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
+        #     class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
+        #     noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
+        #     n_ref_frames=3,
+        # )
 
         max_iter_num = cfg.SOLVER.MAX_ITER
 
