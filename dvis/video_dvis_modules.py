@@ -489,7 +489,7 @@ class ReferringTracker(torch.nn.Module):
         C = 1 - cos_sim  # (q, q)
         sorted_indices = torch.argsort(C, dim=-1)
         rand_indices = torch.randint(low=0, high=range, size=(sorted_indices.size(0), ))
-        ret_indices = sorted_indices[:, rand_indices]
+        ret_indices = sorted_indices[torch.arange(0, rand_indices.size(0)), rand_indices]
         return ret_indices
 
     def match_embds(self, ref_embds, cur_embds, ms=False):
