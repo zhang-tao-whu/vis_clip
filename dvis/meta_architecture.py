@@ -670,6 +670,9 @@ class DVIS_online(MinVIS):
                     outputs, targets, image_outputs=None
                 )
             self.iter += 1
+
+            self.tracker.noise_range = 1 - self.iter / (self.max_iter_num + 1.0)
+
             # bipartite matching-based loss
             losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
 

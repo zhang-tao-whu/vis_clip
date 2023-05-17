@@ -288,6 +288,8 @@ class ReferringTracker(torch.nn.Module):
         # for ms match
         self.last_ms_outputs = []
 
+        self.noise_range = 1.0
+
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
@@ -311,8 +313,8 @@ class ReferringTracker(torch.nn.Module):
         outputs = []
         ret_indices = []
 
-        if self.training and random.random() < 0.8:
-        # if self.training and random.random() < 1.0:
+        # if self.training and random.random() < 0.8:
+        if self.training and random.random() < 1.0:
             self.add_noise = True
         else:
             self.add_noise = False
@@ -488,6 +490,9 @@ class ReferringTracker(torch.nn.Module):
         cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
         C = 1 - cos_sim  # (q, q)
         sorted_indices = torch.argsort(C, dim=-1)
+
+        range = int(self.noise_range * C.size(1))
+
         rand_indices = torch.randint(low=0, high=range, size=(sorted_indices.size(0), ))
         ret_indices = sorted_indices[torch.arange(0, rand_indices.size(0)), rand_indices]
         return ret_indices
