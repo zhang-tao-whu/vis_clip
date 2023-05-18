@@ -39,7 +39,7 @@ class ReferringCrossAttentionLayer(nn.Module):
     def _fuse(self, id, tgt2):
         # q, b, c
         nq, nb, nc = id.size()
-        ret = tgt2 + self.dropout(self.fuse(torch.cat([id, tgt2], dim=2).flatten(0, 1)).reshape(nq, nb, nc))
+        ret = id + self.dropout(self.fuse(torch.cat([id, tgt2], dim=2).flatten(0, 1)).reshape(nq, nb, nc))
         return ret
 
     def forward_post(
@@ -503,7 +503,7 @@ class ReferringTracker(torch.nn.Module):
         C = 1 - cos_sim  # (q, q)
         sorted_indices = torch.argsort(C, dim=-1)
 
-        range = int(self.noise_range * C.size(1))
+        range = max(int(self.noise_range * C.size(1)), 1)
 
         rand_indices = torch.randint(low=0, high=range, size=(sorted_indices.size(0), ))
         ret_indices = sorted_indices[torch.arange(0, rand_indices.size(0)), rand_indices]
