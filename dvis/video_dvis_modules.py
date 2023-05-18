@@ -24,9 +24,9 @@ class ReferringCrossAttentionLayer(nn.Module):
         self.normalize_before = normalize_before
         self._reset_parameters()
 
-        self.fuse = nn.Sequential(nn.Linear(d_model * 2, d_model, bias=True),
-                                  nn.ReLU(),
-                                  nn.Linear(d_model, d_model, bias=True))
+        # self.fuse = nn.Sequential(nn.Linear(d_model * 2, d_model, bias=True),
+        #                           nn.ReLU(),
+        #                           nn.Linear(d_model, d_model, bias=True))
 
     def _reset_parameters(self):
         for p in self.parameters():
@@ -57,8 +57,8 @@ class ReferringCrossAttentionLayer(nn.Module):
             key=self.with_pos_embed(memory, pos),
             value=memory, attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask)[0]
-        #tgt = indentify + self.dropout(tgt2)
-        tgt = self._fuse(indentify, tgt2)
+        tgt = indentify + self.dropout(tgt2)
+        # tgt = self._fuse(indentify, tgt2)
         tgt = self.norm(tgt)
 
         return tgt
@@ -79,8 +79,8 @@ class ReferringCrossAttentionLayer(nn.Module):
             key=self.with_pos_embed(memory, pos),
             value=memory, attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask)[0]
-        #tgt = indentify + self.dropout(tgt2)
-        tgt = self._fuse(indentify, tgt2)
+        tgt = indentify + self.dropout(tgt2)
+        # tgt = self._fuse(indentify, tgt2)
 
         return tgt
 
