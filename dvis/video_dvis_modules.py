@@ -405,7 +405,8 @@ class ReferringTracker(torch.nn.Module):
                         #     memory_key_padding_mask=None,
                         #     pos=None, query_pos=None
                         # )
-                        if j >= 3:
+                        # if j >= 3:
+                        if j % 2 == 1:
                             output = self.transformer_cross_attention_layers[j](
                                 ms_output[-1], ms_output[-1], single_frame_embeds,
                                 memory_mask=None,
