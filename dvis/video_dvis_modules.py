@@ -24,10 +24,6 @@ class ReferringCrossAttentionLayer(nn.Module):
         self.normalize_before = normalize_before
         self._reset_parameters()
 
-        # self.fuse = nn.Sequential(nn.Linear(d_model * 2, d_model, bias=True),
-        #                           nn.ReLU(),
-        #                           nn.Linear(d_model, d_model, bias=True))
-
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -58,7 +54,6 @@ class ReferringCrossAttentionLayer(nn.Module):
             value=memory, attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask)[0]
         tgt = indentify + self.dropout(tgt2)
-        # tgt = self._fuse(indentify, tgt2)
         tgt = self.norm(tgt)
 
         return tgt
@@ -80,7 +75,6 @@ class ReferringCrossAttentionLayer(nn.Module):
             value=memory, attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask)[0]
         tgt = indentify + self.dropout(tgt2)
-        # tgt = self._fuse(indentify, tgt2)
 
         return tgt
 
@@ -405,12 +399,26 @@ class ReferringTracker(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
+                        # output = self.transformer_cross_attention_layers[j](
+                        #     ms_output[-1], self.last_outputs[-1], single_frame_embeds,
+                        #     memory_mask=None,
+                        #     memory_key_padding_mask=None,
+                        #     pos=None, query_pos=None
+                        # )
+                        if j >= 3:
+                            output = self.transformer_cross_attention_layers[j](
+                                ms_output[-1], ms_output[-1], single_frame_embeds,
+                                memory_mask=None,
+                                memory_key_padding_mask=None,
+                                pos=None, query_pos=None
+                            )
+                        else:
+                            output = self.transformer_cross_attention_layers[j](
+                                ms_output[-1], self.last_outputs[-1], single_frame_embeds,
+                                memory_mask=None,
+                                memory_key_padding_mask=None,
+                                pos=None, query_pos=None
+                            )
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
