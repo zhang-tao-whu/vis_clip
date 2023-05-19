@@ -343,7 +343,6 @@ class ReferringTracker(torch.nn.Module):
         for i in range(n_frame):
             ms_output = []
             single_frame_embeds = frame_embeds[i]  # q b c
-            print(valid_masks)
             single_frame_masks = valid_masks[i] if valid_masks is not None else None
             # the first frame of a video
             if i == 0 and resume is False:

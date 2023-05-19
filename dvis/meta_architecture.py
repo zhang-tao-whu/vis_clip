@@ -737,6 +737,7 @@ class DVIS_online(MinVIS):
         pred_logits = pred_logits[0]  # (t, q, c)
         scores = F.softmax(pred_logits, dim=-1)
         max_scores = torch.max(scores, dim=2)
+        print(max_scores.shape, scores.shape)
         valid_mask = max_scores != scores[:, :, -1]  # (t, q)
         return valid_mask
 
