@@ -738,8 +738,7 @@ class DVIS_online(MinVIS):
         scores = F.softmax(pred_logits, dim=-1)
         max_scores = torch.max(scores, dim=2)[0]
         valid_mask = max_scores != scores[:, :, -1]  # (t, q)
-        print(valid_mask[1])
-        return valid_mask
+        return valid_mask.cpu()
 
     def reset_image_output_order(self, output, indices):
         """
