@@ -343,6 +343,7 @@ class ReferringTracker(torch.nn.Module):
         for i in range(n_frame):
             ms_output = []
             single_frame_embeds = frame_embeds[i]  # q b c
+            print(valid_masks)
             single_frame_masks = valid_masks[i] if valid_masks is not None else None
             # the first frame of a video
             if i == 0 and resume is False:
@@ -491,6 +492,10 @@ class ReferringTracker(torch.nn.Module):
         # embed (q, b, c), mask (q)
         indices = np.array(list(range(cur_embds.shape[0])))
         indices = indices[mask]
+        if len(indices) == 0:
+            indices = list(range(cur_embds.shape[0]))
+            np.random.shuffle(indices)
+            return indices
         rand_indices = torch.randint(low=0, high=len(indices), size=(cur_embds.shape[0],))
         return list(indices[rand_indices])
 
