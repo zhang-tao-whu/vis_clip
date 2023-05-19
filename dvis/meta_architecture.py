@@ -651,11 +651,15 @@ class DVIS_online(MinVIS):
             with torch.no_grad():
                 features = self.backbone(images.tensor)
                 image_outputs = self.sem_seg_head(features)
+
+                valid_masks = self._get_valid_instance_mask(image_outputs['pred_logits'])
+
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 torch.cuda.empty_cache()
-            outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True, resume=self.keep)
+            outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True, resume=self.keep,
+                                            valid_masks=valid_masks)
             image_outputs = self.reset_image_output_order(image_outputs, indices)
 
         if self.training:
@@ -727,6 +731,14 @@ class DVIS_online(MinVIS):
                 masks = targets_per_video['masks'][:, [f], :, :]
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         return image_outputs, outputs, gt_instances
+
+    def _get_valid_instance_mask(self, pred_logits):
+        # b, t, q, c
+        pred_logits = pred_logits[0]  # (t, q, c)
+        scores = F.softmax(pred_logits, dim=-1)
+        max_scores = torch.max(scores, dim=2)
+        valid_mask = max_scores != scores[:, :, -1]  # (t, q)
+        return valid_mask
 
     def reset_image_output_order(self, output, indices):
         """

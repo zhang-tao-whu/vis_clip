@@ -239,7 +239,7 @@ class ReferringTracker(torch.nn.Module):
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
 
-        self.transformer_cross_attention_layers_mix = nn.ModuleList()
+        # self.transformer_cross_attention_layers_mix = nn.ModuleList()
 
         self.transformer_ffn_layers = nn.ModuleList()
 
@@ -262,14 +262,14 @@ class ReferringTracker(torch.nn.Module):
                 )
             )
 
-            self.transformer_cross_attention_layers_mix.append(
-                ReferringCrossAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
+            # self.transformer_cross_attention_layers_mix.append(
+            #     ReferringCrossAttentionLayer(
+            #         d_model=hidden_channel,
+            #         nhead=num_head,
+            #         dropout=0.0,
+            #         normalize_before=False,
+            #     )
+            # )
 
             self.transformer_ffn_layers.append(
                 FFNLayer(
@@ -309,7 +309,7 @@ class ReferringTracker(torch.nn.Module):
         self.noise_range = 1.0
 
         # first proj
-        self.first_proj = nn.Linear(hidden_channel, hidden_channel)
+        # self.first_proj = nn.Linear(hidden_channel, hidden_channel)
 
     def _clear_memory(self):
         del self.last_outputs
@@ -317,7 +317,7 @@ class ReferringTracker(torch.nn.Module):
         self.last_ms_outputs = []
         return
 
-    def forward(self, frame_embeds, mask_features, resume=False, return_indices=False):
+    def forward(self, frame_embeds, mask_features, resume=False, return_indices=False, valid_masks=None):
         """
         :param frame_embeds: the instance queries output by the segmenter
         :param mask_features: the mask features output by the segmenter
@@ -343,6 +343,7 @@ class ReferringTracker(torch.nn.Module):
         for i in range(n_frame):
             ms_output = []
             single_frame_embeds = frame_embeds[i]  # q b c
+            single_frame_masks = valid_masks[i] if valid_masks is not None else None
             # the first frame of a video
             if i == 0 and resume is False:
                 self._clear_memory()
@@ -355,18 +356,19 @@ class ReferringTracker(torch.nn.Module):
                                                                     first=True)
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
-                            init_output, self.first_proj(single_frame_embeds), single_frame_embeds,
+                            # init_output, self.first_proj(single_frame_embeds), single_frame_embeds,
+                            init_output, single_frame_embeds, single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
 
-                        output = self.transformer_cross_attention_layers_mix[j](
-                            output, single_frame_embeds, output,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
+                        # output = self.transformer_cross_attention_layers_mix[j](
+                        #     output, single_frame_embeds, output,
+                        #     memory_mask=None,
+                        #     memory_key_padding_mask=None,
+                        #     pos=None, query_pos=None
+                        # )
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -386,12 +388,12 @@ class ReferringTracker(torch.nn.Module):
                             pos=None, query_pos=None
                         )
 
-                        output = self.transformer_cross_attention_layers_mix[j](
-                            output, ms_output[-1], output,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
+                        # output = self.transformer_cross_attention_layers_mix[j](
+                        #     output, ms_output[-1], output,
+                        #     memory_mask=None,
+                        #     memory_key_padding_mask=None,
+                        #     pos=None, query_pos=None
+                        #)
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -409,7 +411,8 @@ class ReferringTracker(torch.nn.Module):
                         ms_output.append(single_frame_embeds)
                         true_indices, indices, init_output = self.get_noise_embed(self.last_frame_embeds,
                                                                     single_frame_embeds,
-                                                                    mode=self.noise_mode)
+                                                                    mode=self.noise_mode,
+                                                                    mask=single_frame_masks)
                         # self.last_frame_embeds = single_frame_embeds[indices]
                         self.last_frame_embeds = single_frame_embeds[true_indices]
                         ret_indices.append(indices)
@@ -420,12 +423,12 @@ class ReferringTracker(torch.nn.Module):
                             pos=None, query_pos=None
                         )
 
-                        output = self.transformer_cross_attention_layers_mix[j](
-                            output, self.last_outputs[-1], output,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
+                        # output = self.transformer_cross_attention_layers_mix[j](
+                        #     output, self.last_outputs[-1], output,
+                        #     memory_mask=None,
+                        #     memory_key_padding_mask=None,
+                        #     pos=None, query_pos=None
+                        # )
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -445,12 +448,12 @@ class ReferringTracker(torch.nn.Module):
                             pos=None, query_pos=None
                         )
 
-                        output = self.transformer_cross_attention_layers_mix[j](
-                            output, self.last_outputs[-1], output,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
+                        # output = self.transformer_cross_attention_layers_mix[j](
+                        #     output, self.last_outputs[-1], output,
+                        #     memory_mask=None,
+                        #     memory_key_padding_mask=None,
+                        #     pos=None, query_pos=None
+                        # )
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -483,7 +486,15 @@ class ReferringTracker(torch.nn.Module):
         else:
             return out
 
-    def get_noise_embed(self, ref_embds, cur_embds, first=False, mode='hard'):
+    def get_filter_hard_indices(self, ref_embds, cur_embds, mask=None):
+        assert mask is not None
+        # embed (q, b, c), mask (q)
+        indices = np.array(list(range(cur_embds.shape[0])))
+        indices = indices[mask]
+        rand_indices = torch.randint(low=0, high=len(indices), size=(cur_embds.shape[0],))
+        return list(indices[rand_indices])
+
+    def get_noise_embed(self, ref_embds, cur_embds, first=False, mode='hard', mask=None):
         if not self.training:
             true_indices = self.match_embds(ref_embds, cur_embds, ms=False)
         else:
@@ -496,6 +507,9 @@ class ReferringTracker(torch.nn.Module):
             return true_indices, true_indices, cur_embds[true_indices]
         if mode == 'difficult':
             indices = self.get_difficult_indices(ref_embds, cur_embds)
+            return true_indices, indices, cur_embds[indices]
+        if mode == 'filter_hard':
+            indices = self.get_filter_hard_indices(ref_embds, cur_embds, mask=mask)
             return true_indices, indices, cur_embds[indices]
         indices = list(range(cur_embds.shape[0]))
         np.random.shuffle(indices)
