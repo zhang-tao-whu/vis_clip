@@ -486,9 +486,13 @@ class ReferringTracker(torch.nn.Module):
         else:
             return out
 
-    def get_filter_hard_indices(self, ref_embds, cur_embds, mask=None):
+    def get_filter_hard_indices(self, ref_embds, cur_embds, mask=None, balance=False):
         assert mask is not None
         # embed (q, b, c), mask (q)
+        if balance and random.random() > 0.5:
+            indices = list(range(cur_embds.shape[0]))
+            np.random.shuffle(indices)
+            return indices
         indices = np.array(list(range(cur_embds.shape[0])))
         indices = indices[mask]
         if len(indices) == 0:
@@ -514,6 +518,9 @@ class ReferringTracker(torch.nn.Module):
             return true_indices, indices, cur_embds[indices]
         if mode == 'filter_hard':
             indices = self.get_filter_hard_indices(ref_embds, cur_embds, mask=mask)
+            return true_indices, indices, cur_embds[indices]
+        if mode == 'filter_hard_balance':
+            indices = self.get_filter_hard_indices(ref_embds, cur_embds, mask=mask, balance=True)
             return true_indices, indices, cur_embds[indices]
         indices = list(range(cur_embds.shape[0]))
         np.random.shuffle(indices)
