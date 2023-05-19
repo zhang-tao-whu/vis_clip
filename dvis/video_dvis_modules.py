@@ -238,6 +238,9 @@ class ReferringTracker(torch.nn.Module):
         self.num_layers = decoder_layer_num
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
+
+        self.transformer_cross_attention_layers_mix = nn.ModuleList()
+
         self.transformer_ffn_layers = nn.ModuleList()
 
         for _ in range(self.num_layers):
@@ -251,6 +254,15 @@ class ReferringTracker(torch.nn.Module):
             )
 
             self.transformer_cross_attention_layers.append(
+                ReferringCrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_cross_attention_layers_mix.append(
                 ReferringCrossAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
@@ -296,6 +308,9 @@ class ReferringTracker(torch.nn.Module):
 
         self.noise_range = 1.0
 
+        # first proj
+        self.first_proj = nn.Linear(hidden_channel, hidden_channel)
+
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
@@ -340,11 +355,19 @@ class ReferringTracker(torch.nn.Module):
                                                                     first=True)
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
-                            init_output, single_frame_embeds, single_frame_embeds,
+                            init_output, self.first_proj(single_frame_embeds), single_frame_embeds,
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
+
+                        output = self.transformer_cross_attention_layers_mix[j](
+                            output, single_frame_embeds, output,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
+                        )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -362,6 +385,14 @@ class ReferringTracker(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
+
+                        output = self.transformer_cross_attention_layers_mix[j](
+                            output, ms_output[-1], output,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
+                        )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -388,6 +419,14 @@ class ReferringTracker(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
+
+                        output = self.transformer_cross_attention_layers_mix[j](
+                            output, self.last_outputs[-1], output,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
+                        )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -399,27 +438,20 @@ class ReferringTracker(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
-                        # output = self.transformer_cross_attention_layers[j](
-                        #     ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                        #     memory_mask=None,
-                        #     memory_key_padding_mask=None,
-                        #     pos=None, query_pos=None
-                        # )
-                        if j >= 3:
-                        # if j % 2 == 1:
-                            output = self.transformer_cross_attention_layers[j](
-                                ms_output[-1], ms_output[-1], single_frame_embeds,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=None, query_pos=None
-                            )
-                        else:
-                            output = self.transformer_cross_attention_layers[j](
-                                ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=None, query_pos=None
-                            )
+                        output = self.transformer_cross_attention_layers[j](
+                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
+                        )
+
+                        output = self.transformer_cross_attention_layers_mix[j](
+                            output, self.last_outputs[-1], output,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
+                        )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
