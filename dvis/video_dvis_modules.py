@@ -413,8 +413,8 @@ class ReferringTracker(torch.nn.Module):
                                                                     single_frame_embeds,
                                                                     mode=self.noise_mode,
                                                                     mask=single_frame_masks)
-                        # self.last_frame_embeds = single_frame_embeds[indices]
-                        self.last_frame_embeds = single_frame_embeds[true_indices]
+                        self.last_frame_embeds = single_frame_embeds[indices]
+                        #self.last_frame_embeds = single_frame_embeds[true_indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
                             init_output, self.last_outputs[-1], single_frame_embeds,
