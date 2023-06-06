@@ -845,7 +845,7 @@ class DVIS_online(MinVIS):
         if aux_pred_cls is not None:
             aux_pred_cls = F.softmax(aux_pred_cls, dim=-1)[:, :-1]
             pred_cls[:, :-1] = torch.maximum(pred_cls[:, :-1], aux_pred_cls.to(pred_cls))
-        mask_pred = pred_masks.sigmoid()
+        mask_pred = pred_masks
         scores, labels = pred_cls.max(-1)
 
         # filter out the background prediction
@@ -859,7 +859,7 @@ class DVIS_online(MinVIS):
         cur_masks = F.interpolate(
             cur_masks, size=first_resize_size, mode="bilinear", align_corners=False
         )
-        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]]
+        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]].sigmoid()
         cur_masks = F.interpolate(
             cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
         )
@@ -930,12 +930,12 @@ class DVIS_online(MinVIS):
         if aux_pred_cls is not None:
             aux_pred_cls = F.softmax(aux_pred_cls, dim=-1)[:, :-1]
             mask_cls[..., :-1] = torch.maximum(mask_cls[..., :-1], aux_pred_cls.to(mask_cls))
-        mask_pred = pred_masks.sigmoid()
+        mask_pred = pred_masks
         # interpolation to original image size
         cur_masks = F.interpolate(
             mask_pred, size=first_resize_size, mode="bilinear", align_corners=False
         )
-        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]]
+        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]].sigmoid()
         cur_masks = F.interpolate(
             cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
         )
