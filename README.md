@@ -5,6 +5,9 @@
 <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/pipeline.png" width="800"/>
 </div>
 
+## News
+- DVIS achieved **1st place** in the VPS Track of the PVUW challenge at CVPR 2023. `2023.5.25`
+
 ## Features
 - DVIS is a universal video segmentation framework that supports VIS, VPS and VSS.
 - DVIS can run in both online and offline modes. 
