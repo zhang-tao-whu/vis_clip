@@ -47,7 +47,7 @@ class Noiser:
                     rand_indices = torch.randint(low=0, high=_cls_embeds.size(0), size=(self.memory_max_len,))
                     self.memory_bank[_cls] = _cls_embeds[rand_indices]
                 else:
-                    self.memory_bank[_cls] = torch.cat(self.memory_bank[_cls], cur_embeds[cur_classes == _cls], dim=0)
+                    self.memory_bank[_cls] = torch.cat([self.memory_bank[_cls], cur_embeds[cur_classes == _cls]], dim=0)
                     indices = list(range(self.memory_bank[_cls].shape[0]))
                     np.random.shuffle(indices)
                     self.memory_bank[_cls] = self.memory_bank[_cls][indices]
