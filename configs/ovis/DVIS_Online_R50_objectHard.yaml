@@ -4,7 +4,7 @@ MODEL:
   MASK_FORMER:
     TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_dvis"
   TRACKER:
-      NOISE_MODE: "overall_class_hard"
+      NOISE_MODE: "object_hard"
 
 SOLVER:
   IMS_PER_BATCH: 8
