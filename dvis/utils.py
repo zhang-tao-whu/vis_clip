@@ -36,7 +36,8 @@ class Noiser:
         return indices, noise_init
 
     def _push_new_embeds(self, cur_embeds, cur_classes):
-        unique_cls = torch.unique(cur_classes, sorted=False).cpu().numpy()
+        unique_cls = list(torch.unique(cur_classes, sorted=False).cpu().numpy())
+        unique_cls = [int(item) for item in unique_cls]
         for _cls in unique_cls:
             _cls = _cls.data
             if _cls == -1:
@@ -57,7 +58,8 @@ class Noiser:
         self._push_new_embeds(cur_embeds, cur_classes)
         rand_indices = torch.randint(low=0, high=self.memory_max_len, size=(cur_embeds.shape[0],))
         noise_init = torch.zeros_like(cur_embeds)
-        unique_cls = torch.unique(cur_classes).cpu().numpy()
+        unique_cls = list(torch.unique(cur_classes).cpu().numpy())
+        unique_cls = [int(item) for item in unique_cls]
         for _cls in unique_cls:
             if _cls == -1:
                 if len(unique_cls) == 1:
