@@ -87,7 +87,7 @@ class Noiser:
             return matched_indices, matched_indices, cur_embeds[matched_indices]
         else:
             if self.mode == 'hard':
-                indices, noise_init = self._hard_noise_forward(self, cur_embeds)
+                indices, noise_init = self._hard_noise_forward(cur_embeds)
                 return matched_indices, indices, noise_init
             elif self.mode == 'object_hard':
                 indices, noise_init = self._object_hard_noise_forward(cur_embeds, cur_classes)
