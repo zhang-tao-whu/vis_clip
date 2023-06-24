@@ -405,7 +405,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         self.last_outputs = None
         self.last_frame_embeds = None
 
-        self.noiser = Noiser(noise_ratio=0.8, mode='hard')
+        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
     def _clear_memory(self):
         del self.last_outputs
