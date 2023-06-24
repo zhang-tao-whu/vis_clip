@@ -443,7 +443,7 @@ class ReferringTracker_noiser(torch.nn.Module):
                             activate=False,
                             cur_classes=single_frame_classes
                         )
-                        ms_output.append(true_indices)
+                        ms_output.append(single_frame_embeds[true_indices])
                         self.last_frame_embeds = single_frame_embeds[true_indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
