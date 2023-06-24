@@ -639,11 +639,13 @@ class DVIS_online(MinVIS):
             with torch.no_grad():
                 features = self.backbone(images.tensor)
                 image_outputs = self.sem_seg_head(features)
+                object_labels = self._get_instance_labels(image_outputs['pred_logits'])
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 torch.cuda.empty_cache()
-            outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True, resume=self.keep)
+            outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True,
+                                            resume=self.keep, frame_classes=object_labels)
             image_outputs = self.reset_image_output_order(image_outputs, indices)
 
         if self.training:
@@ -688,6 +690,14 @@ class DVIS_online(MinVIS):
             return retry_if_cuda_oom(self.inference_video_task)(
                 mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size, pred_id
             )
+
+    def _get_instance_labels(self, pred_logits):
+        # b, t, q, c
+        pred_logits = pred_logits[0]  # (t, q, c)
+        scores = F.softmax(pred_logits, dim=-1)
+        labels = torch.argmax(scores, dim=2)  # (t, q)
+        labels[labels == pred_logits.size(2) - 1] = -1
+        return labels
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')

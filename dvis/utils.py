@@ -1,0 +1,99 @@
+import torch
+import random
+import numpy as np
+from scipy.optimize import linear_sum_assignment
+
+class Noiser:
+    def __init__(self, noise_ratio=0.8, mode='hard', memory_max_len=100):
+        assert mode in ['hard', 'object_hard', 'overall_class_hard']
+        self.mode = mode
+        self.noise_ratio = noise_ratio
+
+        if self.mode == 'overall_class_hard':
+            self.memory_bank = {}
+            self.memory_max_len = memory_max_len
+
+    def _hard_noise_forward(self, cur_embeds):
+        indices = list(range(cur_embeds.shape[0]))
+        np.random.shuffle(indices)
+        noise_init = cur_embeds[indices]
+        return indices, noise_init
+
+    def _object_hard_noise_forward(self, cur_embeds, cur_classes):
+
+        assert cur_classes is not None
+        # embeds (q, b, c), classes (q)
+        mask = cur_classes != -1
+        indices = np.array(list(range(cur_embeds.shape[0])))
+        indices = indices[mask.cpu().numpy()]
+        if len(indices) == 0:
+            indices = list(range(cur_embeds.shape[0]))
+            np.random.shuffle(indices)
+            return indices, cur_embeds[indices]
+        rand_indices = torch.randint(low=0, high=len(indices), size=(cur_embeds.shape[0],))
+        indices = list(indices[rand_indices])
+        noise_init = cur_embeds[indices]
+        return indices, noise_init
+
+    def _push_new_embeds(self, cur_embeds, cur_classes):
+        unique_cls = torch.unique(cur_classes, sorted=False)
+        for _cls in unique_cls:
+            if _cls == -1:
+                pass
+            else:
+                if _cls not in self.memory_bank.keys():
+                    _cls_embeds = cur_embeds[cur_classes == _cls]
+                    rand_indices = torch.randint(low=0, high=_cls_embeds.size(0), size=(self.memory_max_len,))
+                    self.memory_bank[_cls] = _cls_embeds[rand_indices]
+                else:
+                    self.memory_bank[_cls] = torch.cat(self.memory_bank[_cls], cur_embeds[cur_classes == _cls], dim=0)
+                    indices = list(range(self.memory_bank[_cls].shape[0]))
+                    np.random.shuffle(indices)
+                    self.memory_bank[_cls] = self.memory_bank[_cls][indices]
+        return
+
+    def _overall_class_hard_forward(self, cur_embeds, cur_classes):
+        self._push_new_embeds(cur_embeds, cur_classes)
+        rand_indices = torch.randint(low=0, high=self.memory_max_len, size=(cur_embeds.shape[0],))
+        noise_init = torch.zeros_like(cur_embeds)
+        unique_cls = torch.unique(cur_classes)
+        for _cls in unique_cls:
+            if _cls == -1:
+                rand_cls = torch.randint(low=0, high=len(unique_cls), size=(1,))
+                rand_cls = unique_cls[rand_cls[0]]
+                noise_init[cur_classes == _cls] = self.memory_bank[rand_cls][rand_indices[cur_classes == _cls]]
+            else:
+                noise_init[cur_classes == _cls] = self.memory_bank[_cls][rand_indices[cur_classes == _cls]]
+        return None, noise_init
+
+    def match_embds(self, ref_embds, cur_embds):
+        #  embeds (q, b, c)
+        ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
+        ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
+        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
+        cos_sim = torch.mm(cur_embds, ref_embds.transpose(0, 1))
+        C = 1 - cos_sim
+
+        C = C.cpu()
+        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
+
+        indices = linear_sum_assignment(C.transpose(0, 1))
+        indices = indices[1]
+        return indices
+
+    def __call__(self, ref_embeds, cur_embeds, activate=False, cur_classes=None):
+        matched_indices = self.match_embds(ref_embeds, cur_embeds)
+        if not activate or random.random() > self.noise_ratio:
+            return matched_indices, matched_indices, cur_embeds[matched_indices]
+        else:
+            if self.mode == 'hard':
+                indices, noise_init = self._hard_noise_forward(self, cur_embeds)
+                return matched_indices, indices, noise_init
+            elif self.mode == 'object_hard':
+                indices, noise_init = self._object_hard_noise_forward(cur_embeds, cur_classes)
+                return matched_indices, indices, noise_init
+            elif self.mode == 'overall_class_hard':
+                indices, noise_init = self._overall_class_hard_forward(cur_embeds, cur_classes)
+                return matched_indices, matched_indices, noise_init
+            else:
+                raise NotImplementedError
