@@ -38,6 +38,7 @@ class Noiser:
     def _push_new_embeds(self, cur_embeds, cur_classes):
         unique_cls = torch.unique(cur_classes, sorted=False)
         for _cls in unique_cls:
+            _cls = _cls.data
             if _cls == -1:
                 pass
             else:
