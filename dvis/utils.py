@@ -39,7 +39,6 @@ class Noiser:
         unique_cls = list(torch.unique(cur_classes, sorted=False).cpu().numpy())
         unique_cls = [int(item) for item in unique_cls]
         for _cls in unique_cls:
-            _cls = _cls.data
             if _cls == -1:
                 pass
             else:
