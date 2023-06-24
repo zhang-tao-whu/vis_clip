@@ -57,11 +57,15 @@ class Noiser:
         rand_indices = torch.randint(low=0, high=self.memory_max_len, size=(cur_embeds.shape[0],))
         noise_init = torch.zeros_like(cur_embeds)
         unique_cls = torch.unique(cur_classes)
+        unique_cls_pop = unique_cls[unique_cls != -1]
         for _cls in unique_cls:
             if _cls == -1:
-                rand_cls = torch.randint(low=0, high=len(unique_cls), size=(1,))
-                rand_cls = unique_cls[rand_cls[0]]
-                noise_init[cur_classes == _cls] = self.memory_bank[rand_cls][rand_indices[cur_classes == _cls]]
+                if len(unique_cls) == 1:
+                    noise_init[cur_classes == _cls] = cur_embeds[cur_classes == _cls]
+                else:
+                    rand_cls = torch.randint(low=0, high=len(unique_cls_pop), size=(1,))
+                    rand_cls = unique_cls_pop[rand_cls[0]]
+                    noise_init[cur_classes == _cls] = self.memory_bank[rand_cls][rand_indices[cur_classes == _cls]]
             else:
                 noise_init[cur_classes == _cls] = self.memory_bank[_cls][rand_indices[cur_classes == _cls]]
         return None, noise_init
