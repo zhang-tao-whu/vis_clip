@@ -356,6 +356,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         decoder_layer_num=6,
         mask_dim=256,
         class_num=25,
+        noise_mode='hard',
     ):
         super(ReferringTracker, self).__init__()
 
