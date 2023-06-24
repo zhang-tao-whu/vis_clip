@@ -61,6 +61,7 @@ class Noiser:
         print(unique_cls, unique_cls.shape)
         print(list(self.memory_bank.keys())[0])
         for _cls in unique_cls:
+            print(_cls in self.memory_bank.keys())
             if _cls == -1:
                 if len(unique_cls) == 1:
                     noise_init[cur_classes == _cls] = cur_embeds[cur_classes == _cls]
