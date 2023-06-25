@@ -9,7 +9,7 @@ import torch.utils.checkpoint
 from torch.nn.init import trunc_normal_
 from urllib.parse import urlparse
 
-from .layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
+from layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
 
 logger = logging.getLogger("dinov2")
 
@@ -406,5 +406,5 @@ def get_models(name='vitl', weight=None):
 
 if __name__ == '__main__':
     model = get_models(name='vitb')
-    weight = torch.load('.\dinov2_vitb14_pretrain.pth')
+    weight = torch.load('/home/zhangtao19/noise_train/vis_clip/work_dirs')
     print(weight.keys())
