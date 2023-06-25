@@ -406,5 +406,19 @@ def get_models(name='vitl', weight=None):
 
 if __name__ == '__main__':
     model = get_models(name='vitb')
+    import torch._utils
+
+    try:
+        torch._utils._rebuild_tensor_v2
+    except AttributeError:
+        def _rebuild_tensor_v2(storage, storage_offset, size, stride, requires_grad, backward_hooks):
+            tensor = torch._utils._rebuild_tensor(storage, storage_offset, size, stride)
+            tensor.requires_grad = requires_grad
+            tensor._backward_hooks = backward_hooks
+            return tensor
+
+
+        torch._utils._rebuild_tensor_v2 = _rebuild_tensor_v2
+        
     weight = torch.load('/home/zhangtao19/noise_train/vis_clip/work_dirs/dinov2_vitb14_pretrain.pth')
     print(weight.keys())
