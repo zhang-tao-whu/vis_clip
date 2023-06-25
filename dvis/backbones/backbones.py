@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.utils.checkpoint
 from torch.nn.init import trunc_normal_
 from urllib.parse import urlparse
-
+import torch.nn.functional as F
 from layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
 
 logger = logging.getLogger("dinov2")
@@ -371,25 +371,32 @@ def vit_giant2(patch_size=16, **kwargs):
     return model
 
 def load_pretrained_weights(model, pretrained_weights, checkpoint_key):
-    if urlparse(pretrained_weights).scheme:  # If it looks like an URL
-        state_dict = torch.hub.load_state_dict_from_url(pretrained_weights, map_location="cpu")
-    else:
-        state_dict = torch.load(pretrained_weights, map_location="cpu")
-    if checkpoint_key is not None and checkpoint_key in state_dict:
-        logger.info(f"Take key {checkpoint_key} in provided checkpoint dict")
-        state_dict = state_dict[checkpoint_key]
-    # remove `module.` prefix
-    state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
-    # remove `backbone.` prefix induced by multicrop wrapper
-    state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
-    msg = model.load_state_dict(state_dict, strict=False)
-    logger.info("Pretrained weights found at {} and loaded with msg: {}".format(pretrained_weights, msg))
+    # if urlparse(pretrained_weights).scheme:  # If it looks like an URL
+    #     state_dict = torch.hub.load_state_dict_from_url(pretrained_weights, map_location="cpu")
+    # else:
+    #     state_dict = torch.load(pretrained_weights, map_location="cpu")
+    # if checkpoint_key is not None and checkpoint_key in state_dict:
+    #     logger.info(f"Take key {checkpoint_key} in provided checkpoint dict")
+    #     state_dict = state_dict[checkpoint_key]
+    # # remove `module.` prefix
+    # state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+    # # remove `backbone.` prefix induced by multicrop wrapper
+    # state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
+    # msg = model.load_state_dict(state_dict, strict=False)
+    # logger.info("Pretrained weights found at {} and loaded with msg: {}".format(pretrained_weights, msg))
+    weight = torch.load(pretrained_weights)
+    interpolated_weight = F.interpolate(weight['patch_embed.proj.weight'],
+                                        size=(16, 16), mode='bilinear',
+                                        align_corners=True)
+    weight['patch_embed.proj.weight'] = interpolated_weight
+    model.load_state_dict(weight)
+    return
 
 def get_models(name='vitl', weight=None):
     model_dicts = {'vitg': vit_giant2, 'vitl': vit_large, 'vitb': vit_base, 'vits': vit_small}
     vit_kwargs = dict(
-        img_size=224,
-        patch_size=14,
+        img_size=592,
+        patch_size=16,
         init_values=1.0e-05,
         ffn_layer="mlp",
         block_chunks=0,
@@ -405,20 +412,15 @@ def get_models(name='vitl', weight=None):
     return model
 
 if __name__ == '__main__':
+    import torch.nn.functional as F
     model = get_models(name='vitb')
     import torch._utils
-
-    try:
-        torch._utils._rebuild_tensor_v2
-    except AttributeError:
-        def _rebuild_tensor_v2(storage, storage_offset, size, stride, requires_grad, backward_hooks):
-            tensor = torch._utils._rebuild_tensor(storage, storage_offset, size, stride)
-            tensor.requires_grad = requires_grad
-            tensor._backward_hooks = backward_hooks
-            return tensor
-
-
-        torch._utils._rebuild_tensor_v2 = _rebuild_tensor_v2
-        
-    weight = torch.load('/home/zhangtao19/noise_train/vis_clip/work_dirs/dinov2_vitb14_pretrain.pth')
+    # weight = torch.load('/home/zhangtao19/noise_train/vis_clip/work_dirs/dinov2_vitb14_pretrain.pth')
+    weight = torch.load('./dinov2_vitb14_pretrain.pth')
     print(weight.keys())
+    print(weight['patch_embed.proj.weight'].shape)
+    interpolated_weight = F.interpolate(weight['patch_embed.proj.weight'], size=(16, 16), mode='bilinear', align_corners=True)
+    weight['patch_embed.proj.weight'] = interpolated_weight
+    print(interpolated_weight.shape)
+    print(weight['patch_embed.proj.bias'].shape)
+    model.load_state_dict(weight)
