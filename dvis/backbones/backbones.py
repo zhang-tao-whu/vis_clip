@@ -9,7 +9,7 @@ import torch.utils.checkpoint
 from torch.nn.init import trunc_normal_
 from urllib.parse import urlparse
 import torch.nn.functional as F
-from layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
+from .layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
 
 logger = logging.getLogger("dinov2")
 
@@ -201,16 +201,22 @@ class DinoVisionTransformer(nn.Module):
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
         return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
 
-    def prepare_tokens_with_masks(self, x, masks=None):
+    def prepare_tokens_with_masks(self, x, masks=None, return_HW=False):
         B, nc, w, h = x.shape
-        x = self.patch_embed(x)  # B, HW, C
+        if return_HW:
+            x, H, W = self.patch_embed(x)  # B, HW, C
+        else:
+            x = self.patch_embed(x)  # B, HW, C
         if masks is not None:
             x = torch.where(masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x)
 
         x = torch.cat((self.cls_token.expand(x.shape[0], -1, -1), x), dim=1)
         x = x + self.interpolate_pos_encoding(x, w, h)
 
+        if return_HW:
+            return x, H, W
         return x  # (B, 1 + HW, C)
+
 
     def forward_features_list(self, x_list, masks_list):
         x = [self.prepare_tokens_with_masks(x, masks) for x, masks in zip(x_list, masks_list)]

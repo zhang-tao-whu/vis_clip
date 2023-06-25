@@ -305,7 +305,9 @@ class SpatialPriorModule(nn.Module):
             outs = _inner_forward(x)
         return outs
 
-def get_adapter_configs(name='vitl', backbone_weight=None):
+def get_adapter_models(name='vitl', backbone_weight=None, freeze_backbone=False):
+    if freeze_backbone:
+        assert backbone_weight is not None
     vit_backbone = get_models(name, backbone_weight)
     bg_configs = vit_backbone.configs_dict
     if name == 'vitl':
@@ -342,7 +344,9 @@ def get_adapter_configs(name='vitl', backbone_weight=None):
         }
     else:
         raise NotImplementedError
-    return adapter_args
+    adapter_args.update({'freeze_backbone': freeze_backbone})
+    adapter_model = DinoV2ViTAdapter(**adapter_args)
+    return adapter_model
 
 class DinoV2ViTAdapter(nn.Module):
     def __init__(
@@ -360,10 +364,10 @@ class DinoV2ViTAdapter(nn.Module):
         add_vit_feature=True,
         use_extra_extractor=True,
         with_cp=False,
+        freeze_backbone=False,
     ):
         super().__init__()
 
-        # self.num_classes = 80
         self.num_block = len(vit_module.blocks)
         self.pretrain_size = (pretrain_size, pretrain_size)
         self.interaction_indexes = interaction_indexes
@@ -395,6 +399,11 @@ class DinoV2ViTAdapter(nn.Module):
         normal_(self.level_embed)
 
         self.vit_module = vit_module
+        self.blocks = self.vit_module.blocks
+        if freeze_backbone:
+            for p in self.vit_module.parameters():
+                p.requires_grad_(False)
+        self.freeze_backbone = freeze_backbone
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -429,6 +438,8 @@ class DinoV2ViTAdapter(nn.Module):
         return c2, c3, c4
 
     def forward(self, x):
+        if self.freeze_backbone:
+            self.vit_module.eval()
         deform_inputs1, deform_inputs2 = deform_inputs(x)
 
         # SPM forward
@@ -437,10 +448,8 @@ class DinoV2ViTAdapter(nn.Module):
         c = torch.cat([c2, c3, c4], dim=1)
 
         # Patch Embedding forward
-        x, H, W = self.patch_embed(x)
+        x, H, W = self.vit_module.prepare_tokens_with_masks(x, masks=None, return_HW=True)
         bs, n, dim = x.shape
-        pos_embed = self._get_pos_embed(self.pos_embed[:, 1:], H, W)
-        x = self.pos_drop(x + pos_embed)
 
         # Interaction
         outs = list()

@@ -66,7 +66,7 @@ class PatchEmbed(nn.Module):
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW)
         self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, return_HW=False) -> Tensor:
         _, _, H, W = x.shape
         patch_H, patch_W = self.patch_size
 
@@ -79,7 +79,10 @@ class PatchEmbed(nn.Module):
         x = self.norm(x)
         if not self.flatten_embedding:
             x = x.reshape(-1, H, W, self.embed_dim)  # B H W C
-        return x
+        if return_HW:
+            return x, H, W
+        else:
+            return x
 
     def flops(self) -> float:
         Ho, Wo = self.patches_resolution
