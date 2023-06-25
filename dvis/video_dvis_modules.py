@@ -400,6 +400,14 @@ class ReferringTracker_noiser(torch.nn.Module):
         # init heads
         self.class_embed = nn.Linear(hidden_channel, class_num + 1)
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+        # mask features projection
+        self.mask_feature_proj = nn.Conv2d(
+            mask_dim,
+            mask_dim,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
 
         # record previous frame information
         self.last_outputs = None
@@ -420,6 +428,10 @@ class ReferringTracker_noiser(torch.nn.Module):
         :param return_indices: whether return the match indices
         :return: output dict, including masks, classes, embeds.
         """
+        # mask feature projection
+        mask_features_shape = mask_features.shape
+        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
+
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
@@ -443,8 +455,10 @@ class ReferringTracker_noiser(torch.nn.Module):
                             activate=False,
                             cur_classes=single_frame_classes
                         )
-                        ms_output.append(single_frame_embeds[true_indices])
-                        self.last_frame_embeds = single_frame_embeds[true_indices]
+                        # ms_output.append(single_frame_embeds[true_indices])
+                        # self.last_frame_embeds = single_frame_embeds[true_indices]
+                        ms_output.append(single_frame_embeds[indices])
+                        self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
                             noised_init, single_frame_embeds, single_frame_embeds,
@@ -488,8 +502,10 @@ class ReferringTracker_noiser(torch.nn.Module):
                             activate=self.training,
                             cur_classes=single_frame_classes
                         )
-                        ms_output.append(single_frame_embeds[true_indices])
-                        self.last_frame_embeds = single_frame_embeds[true_indices]
+                        # ms_output.append(single_frame_embeds[true_indices])
+                        # self.last_frame_embeds = single_frame_embeds[true_indices]
+                        ms_output.append(single_frame_embeds[indices])
+                        self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
                             noised_init, self.last_outputs[-1], single_frame_embeds,
