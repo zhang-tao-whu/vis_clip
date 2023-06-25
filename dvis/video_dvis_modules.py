@@ -485,7 +485,7 @@ class ReferringTracker_noiser(torch.nn.Module):
                         true_indices, indices, noised_init = self.noiser(
                             self.last_frame_embeds,
                             single_frame_embeds,
-                            activate=True,
+                            activate=self.training,
                             cur_classes=single_frame_classes
                         )
                         ms_output.append(single_frame_embeds[true_indices])
