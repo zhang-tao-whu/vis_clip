@@ -406,5 +406,5 @@ def get_models(name='vitl', weight=None):
 
 if __name__ == '__main__':
     model = get_models(name='vitb')
-    weight = torch.load('/home/zhangtao19/noise_train/vis_clip/work_dirs')
+    weight = torch.load('/home/zhangtao19/noise_train/vis_clip/work_dirs/dinov2_vitb14_pretrain.pth')
     print(weight.keys())
