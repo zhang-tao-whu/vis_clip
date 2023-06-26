@@ -18,7 +18,7 @@ from mask2former_video.utils.memory import retry_if_cuda_oom
 
 from scipy.optimize import linear_sum_assignment
 
-from.video_dvis_modules import ReferringTracker, TemporalRefiner, ReferringTracker_noiser
+from.video_dvis_modules import ReferringTracker, TemporalRefiner, ReferringTracker_noiser, ReferringTracker_explore
 
 logger = logging.getLogger(__name__)
 
@@ -549,7 +549,8 @@ class DVIS_online(MinVIS):
         )
 
         # tracker = ReferringTracker(
-        tracker = ReferringTracker_noiser(
+        # tracker = ReferringTracker_noiser(
+        tracker = ReferringTracker_explore(
             hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
             num_head=cfg.MODEL.MASK_FORMER.NHEADS,

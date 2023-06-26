@@ -88,9 +88,7 @@ class Noiser:
 
     def __call__(self, ref_embeds, cur_embeds, activate=False, cur_classes=None):
         matched_indices = self.match_embds(ref_embeds, cur_embeds)
-        if not activate or random.random() > self.noise_ratio:
-            return matched_indices, matched_indices, cur_embeds[matched_indices]
-        else:
+        if activate and random.random() < self.noise_ratio:
             if self.mode == 'hard':
                 indices, noise_init = self._hard_noise_forward(cur_embeds)
                 return matched_indices, indices, noise_init
@@ -102,3 +100,5 @@ class Noiser:
                 return matched_indices, matched_indices, noise_init
             else:
                 raise NotImplementedError
+        else:
+            return matched_indices, matched_indices, cur_embeds[matched_indices]
