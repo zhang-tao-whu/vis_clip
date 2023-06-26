@@ -549,8 +549,7 @@ class DVIS_online(MinVIS):
         )
 
         # tracker = ReferringTracker(
-        # tracker = ReferringTracker_noiser(
-        tracker = ReferringTracker_explore(
+        tracker = ReferringTracker_noiser(
             hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
             num_head=cfg.MODEL.MASK_FORMER.NHEADS,
