@@ -5,7 +5,7 @@ from scipy.optimize import linear_sum_assignment
 
 class Noiser:
     def __init__(self, noise_ratio=0.8, mode='hard', memory_max_len=100):
-        assert mode in ['hard', 'object_hard', 'overall_class_hard']
+        assert mode in ['none', 'hard', 'object_hard', 'overall_class_hard']
         self.mode = mode
         self.noise_ratio = noise_ratio
 
@@ -91,14 +91,16 @@ class Noiser:
         if activate and random.random() < self.noise_ratio:
             if self.mode == 'hard':
                 indices, noise_init = self._hard_noise_forward(cur_embeds)
-                return matched_indices, indices, noise_init
+                return indices, noise_init
             elif self.mode == 'object_hard':
                 indices, noise_init = self._object_hard_noise_forward(cur_embeds, cur_classes)
-                return matched_indices, indices, noise_init
+                return indices, noise_init
             elif self.mode == 'overall_class_hard':
                 indices, noise_init = self._overall_class_hard_forward(cur_embeds, cur_classes)
-                return matched_indices, matched_indices, noise_init
+                return matched_indices, noise_init
+            elif self.mode == 'none':
+                return matched_indices, cur_embeds[matched_indices]
             else:
                 raise NotImplementedError
         else:
-            return matched_indices, matched_indices, cur_embeds[matched_indices]
+            return matched_indices, cur_embeds[matched_indices]
