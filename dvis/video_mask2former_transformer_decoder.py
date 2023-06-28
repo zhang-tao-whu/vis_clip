@@ -126,6 +126,7 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis(VideoMultiScaleMaskedTransfor
         for i in range(len(predictions_class)):
             predictions_class[i] = einops.rearrange(predictions_class[i], '(b t) q c -> b t q c', t=t)
 
+        pred_embds_without_norm = einops.rearrange(output, 'q (b t) c -> b c t q', t=t)
         pred_embds = self.decoder_norm(output)
         pred_embds = einops.rearrange(pred_embds, 'q (b t) c -> b c t q', t=t)
 
@@ -136,6 +137,7 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis(VideoMultiScaleMaskedTransfor
                 predictions_class if self.mask_classification else None, predictions_mask
             ),
             'pred_embds': pred_embds,
+            'pred_embds_without_norm': pred_embds_without_norm,
             'mask_features': mask_features
         }
         
