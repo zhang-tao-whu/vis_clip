@@ -642,8 +642,7 @@ class DVIS_online(MinVIS):
                 features = self.backbone(images.tensor)
                 image_outputs = self.sem_seg_head(features)
                 object_labels = self._get_instance_labels(image_outputs['pred_logits'])
-                frame_embds_with_norm = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
-                frame_embds = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
+                frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 torch.cuda.empty_cache()

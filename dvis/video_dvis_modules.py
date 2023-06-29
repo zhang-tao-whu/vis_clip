@@ -456,7 +456,6 @@ class ReferringTracker_noiser(torch.nn.Module):
                             single_frame_embeds,
                             activate=False,
                             cur_classes=single_frame_classes,
-                            normer=self.decoder_norm,
                         )
                         ms_output.append(single_frame_embeds[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
@@ -502,7 +501,6 @@ class ReferringTracker_noiser(torch.nn.Module):
                             single_frame_embeds,
                             activate=self.training,
                             cur_classes=single_frame_classes,
-                            normer=self.decoder_norm,
                         )
                         ms_output.append(single_frame_embeds[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
