@@ -654,10 +654,12 @@ class DVIS_online(MinVIS):
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
             if self.iter < self.max_iter_num // 2:
+                self.tracker.noiser.mode = 'hard'
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
                     outputs, targets, image_outputs=image_outputs
                 )
             else:
+                self.tracker.noiser.mode = 'overall_class_hard'
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
                     outputs, targets, image_outputs=None
                 )
