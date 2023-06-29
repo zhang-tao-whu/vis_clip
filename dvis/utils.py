@@ -97,7 +97,10 @@ class Noiser:
                 return indices, noise_init
             elif self.mode == 'overall_class_hard':
                 indices, noise_init = self._overall_class_hard_forward(cur_embeds, cur_classes)
-                return matched_indices, noise_init
+                indices = list(range(cur_embeds.shape[0]))
+                np.random.shuffle(indices)
+                # return matched_indices, noise_init
+                return indices, noise_init
             elif self.mode == 'none':
                 return matched_indices, cur_embeds[matched_indices]
             else:
