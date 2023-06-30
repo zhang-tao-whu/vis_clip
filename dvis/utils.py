@@ -86,21 +86,23 @@ class Noiser:
         indices = indices[1]
         return indices
 
-    def __call__(self, ref_embeds, cur_embeds, activate=False, cur_classes=None):
+    def __call__(self, ref_embeds, cur_embeds, cur_embeds_no_norm=None, activate=False, cur_classes=None):
+        if cur_embeds_no_norm is None:
+            cur_embeds_no_norm = cur_embeds
         matched_indices = self.match_embds(ref_embeds, cur_embeds)
         if activate and random.random() < self.noise_ratio:
             if self.mode == 'hard':
-                indices, noise_init = self._hard_noise_forward(cur_embeds)
+                indices, noise_init = self._hard_noise_forward(cur_embeds_no_norm)
                 return indices, noise_init
             elif self.mode == 'object_hard':
-                indices, noise_init = self._object_hard_noise_forward(cur_embeds, cur_classes)
+                indices, noise_init = self._object_hard_noise_forward(cur_embeds_no_norm, cur_classes)
                 return indices, noise_init
             elif self.mode == 'overall_class_hard':
-                indices, noise_init = self._overall_class_hard_forward(cur_embeds, cur_classes)
+                indices, noise_init = self._overall_class_hard_forward(cur_embeds_no_norm, cur_classes)
                 return matched_indices, noise_init
             elif self.mode == 'none':
-                return matched_indices, cur_embeds[matched_indices]
+                return matched_indices, cur_embeds_no_norm[matched_indices]
             else:
                 raise NotImplementedError
         else:
-            return matched_indices, cur_embeds[matched_indices]
+            return matched_indices, cur_embeds_no_norm[matched_indices]

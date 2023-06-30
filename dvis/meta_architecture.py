@@ -643,23 +643,23 @@ class DVIS_online(MinVIS):
                 image_outputs = self.sem_seg_head(features)
                 object_labels = self._get_instance_labels(image_outputs['pred_logits'])
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
+                frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 torch.cuda.empty_cache()
             outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True,
-                                            resume=self.keep, frame_classes=object_labels)
+                                            resume=self.keep, frame_classes=object_labels,
+                                            frame_embeds_no_norm=frame_embds_no_norm)
             image_outputs = self.reset_image_output_order(image_outputs, indices)
 
         if self.training:
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
             if self.iter < self.max_iter_num // 2:
-                self.tracker.noiser.mode = 'hard'
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
                     outputs, targets, image_outputs=image_outputs
                 )
             else:
-                self.tracker.noiser.mode = 'overall_class_hard'
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
                     outputs, targets, image_outputs=None
                 )
@@ -775,11 +775,13 @@ class DVIS_online(MinVIS):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
             # referring tracker inference
             frame_embds = out['pred_embds']  # (b, c, t, q)
+            frame_embds_no_norm = out['pred_embds_without_norm']
             mask_features = out['mask_features'].unsqueeze(0)
             if i != 0 or self.keep:
-                track_out = self.tracker(frame_embds, mask_features, resume=True)
+                track_out = self.tracker(frame_embds, mask_features,
+                                         resume=True, frame_embeds_no_norm=frame_embds_no_norm)
             else:
-                track_out = self.tracker(frame_embds, mask_features)
+                track_out = self.tracker(frame_embds, mask_features, frame_embeds_no_norm=frame_embds_no_norm)
             # remove unnecessary variables to save GPU memory
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
