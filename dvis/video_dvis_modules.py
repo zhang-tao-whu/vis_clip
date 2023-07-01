@@ -133,8 +133,10 @@ class GatedReferringCrossAttentionLayer(nn.Module):
             key=self.with_pos_embed(memory, pos),
             value=memory, attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask)[0]
-        gate = self.gate(torch.cat([tgt, indentify], dim=-1)).sigmoid()
-        tgt = indentify * gate + self.dropout(tgt2) * (1 - gate)
+        # gate = self.gate(torch.cat([tgt, indentify], dim=-1)).sigmoid()
+        # tgt = indentify * gate + self.dropout(tgt2) * (1 - gate)
+        gate = self.gate(torch.cat([tgt, indentify], dim=-1)).tanh()
+        tgt = indentify * (1 + gate) / 2. + self.dropout(tgt2)
         tgt = self.norm(tgt)
 
         return tgt
@@ -155,8 +157,10 @@ class GatedReferringCrossAttentionLayer(nn.Module):
             key=self.with_pos_embed(memory, pos),
             value=memory, attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask)[0]
-        gate = self.gate(torch.cat([tgt, indentify], dim=-1)).sigmoid()
-        tgt = indentify * gate + self.dropout(tgt2) * (1 - gate)
+        # gate = self.gate(torch.cat([tgt, indentify], dim=-1)).sigmoid()
+        # tgt = indentify * gate + self.dropout(tgt2) * (1 - gate)
+        gate = self.gate(torch.cat([tgt, indentify], dim=-1)).tanh()
+        tgt = indentify * (1 + gate) / 2. + self.dropout(tgt2)
 
         return tgt
 
