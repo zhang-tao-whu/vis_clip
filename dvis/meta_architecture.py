@@ -1104,7 +1104,7 @@ class DVIS_offline(DVIS_online):
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
 
-        tracker = ReferringTracker(
+        tracker = ReferringTracker_noiser(
             hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
             num_head=cfg.MODEL.MASK_FORMER.NHEADS,
@@ -1206,14 +1206,21 @@ class DVIS_offline(DVIS_online):
             with torch.no_grad():
                 # due to GPU memory limitations, the segmenter processes the video clip by clip.
                 image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
+                object_labels = self._get_instance_labels(image_outputs['pred_logits'])
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
+                frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
 
                 # perform tracker/alignment
-                image_outputs = self.tracker(frame_embds, mask_features, resume=self.keep)
+                image_outputs = self.tracker(
+                    frame_embds, mask_features,
+                    resume=self.keep, frame_classes=object_labels,
+                    frame_embeds_no_norm=frame_embds_no_norm
+                )
                 online_pred_logits = image_outputs['pred_logits']  # (b, t, q, c)
-                frame_embds_ = self.tracker.frame_forward(frame_embds)
+                # frame_embds_ = self.tracker.frame_forward(frame_embds)
+                frame_embds_ = frame_embds_no_norm
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
 
                 del frame_embds

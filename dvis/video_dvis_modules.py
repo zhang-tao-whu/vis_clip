@@ -471,8 +471,8 @@ class ReferringTracker_noiser(torch.nn.Module):
             )
 
             self.transformer_cross_attention_layers.append(
-                # ReferringCrossAttentionLayer(
-                GatedReferringCrossAttentionLayer(
+                ReferringCrossAttentionLayer(
+                # GatedReferringCrossAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
                     dropout=0.0,
@@ -646,7 +646,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         if not self.training:
             outputs = outputs[:, -1:]
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
-        outputs = self.decoder_norm(outputs)
+        #outputs = self.decoder_norm(outputs)
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
            'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
