@@ -32,7 +32,7 @@ def _is_power_of_2(n):
 
 
 class MSDeformAttn(nn.Module):
-    def __init__(self, d_model=256, n_levels=4, n_heads=8, n_points=4):
+    def __init__(self, d_model=256, n_levels=4, n_heads=8, n_points=4, ratio=1.0):
         """
         Multi-Scale Deformable Attention Module
         :param d_model      hidden dimension
