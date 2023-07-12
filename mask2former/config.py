@@ -89,6 +89,14 @@ def add_maskformer2_config(cfg):
     cfg.MODEL.SWIN.OUT_FEATURES = ["res2", "res3", "res4", "res5"]
     cfg.MODEL.SWIN.USE_CHECKPOINT = False
 
+    # vit adapter backbone
+    cfg.MODEL.VIT_ADAPTER = CN()
+    cfg.MODEL.VIT_ADAPTER.NAME = "vitl"
+    cfg.MODEL.VIT_ADAPTER.VIT_WEIGHT = "dinov2_vitl14_pretrain.pth"
+    cfg.MODEL.VIT_ADAPTER.FREEZE_VIT = True
+    cfg.MODEL.VIT_ADAPTER.FINETUNE = False
+    cfg.MODEL.VIT_ADAPTER.FINETUNE_INDEXES = [0, ]
+
     # NOTE: maskformer2 extra configs
     # transformer module
     cfg.MODEL.MASK_FORMER.TRANSFORMER_DECODER_NAME = "MultiScaleMaskedTransformerDecoder"
