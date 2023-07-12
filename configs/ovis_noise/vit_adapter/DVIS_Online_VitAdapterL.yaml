@@ -4,7 +4,6 @@ MODEL:
     NAME: "D2VitAdapterDinoV2"
   VIT_ADAPTER:
     FINETUNE: False
-    FINETUNE_INDEXES: []
     NAME: 'vitl'
     VIT_WEIGHT: 'dinov2_vitl14_pretrain.pth'
     FREEZE_VIT: True
