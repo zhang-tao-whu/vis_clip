@@ -26,6 +26,8 @@ _PREDEFINED_SPLITS_YTVIS_2021 = {
                          "ytvis_2021/train.json"),
     "ytvis_2021_val": ("ytvis_2021/valid/JPEGImages",
                        "ytvis_2021/valid.json"),
+    "ytvis_2023_val": ("ytvis_2023/valid/JPEGImages",
+                       "ytvis_2023/valid/instance.json"),
     "ytvis_2021_test": ("ytvis_2021/test/JPEGImages",
                         "ytvis_2021/test.json"),
 }
