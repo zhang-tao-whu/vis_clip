@@ -1235,7 +1235,7 @@ class DVIS_offline(DVIS_online):
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
             # use the online prediction results to guide the matching process during early training phase
-            if self.iter < self.max_iter_num // 2:
+            if self.iter < min(self.max_iter_num // 2, 2000):
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
                     outputs, targets, image_outputs=image_outputs
                 )
