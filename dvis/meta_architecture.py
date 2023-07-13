@@ -1299,6 +1299,8 @@ class DVIS_offline(DVIS_online):
 
         image_outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in outs_list], dim=2).detach()
         image_outputs['mask_features'] = torch.cat([x['mask_features'] for x in outs_list], dim=0).detach()
+        image_outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in outs_list], dim=1).detach()
+        image_outputs['pred_embds_without_norm'] = torch.cat([x['pred_embds_without_norm'] for x in outs_list], dim=2).detach()
         return image_outputs
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
