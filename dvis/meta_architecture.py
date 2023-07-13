@@ -1292,7 +1292,7 @@ class DVIS_offline(DVIS_online):
             out = self.sem_seg_head(features)
 
             del features['res2'], features['res3'], features['res4'], features['res5']
-            del out['pred_masks'], out['pred_logits']
+            del out['pred_masks']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
             outs_list.append(out)
@@ -1342,20 +1342,25 @@ class DVIS_offline(DVIS_online):
             out = self.sem_seg_head(features)
 
             del features['res2'], features['res3'], features['res4'], features['res5']
-            del out['pred_masks'], out['pred_logits']
+            del out['pred_masks']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
 
+            object_labels = self._get_instance_labels(out['pred_logits'])
             frame_embds = out['pred_embds']  # (b, c, t, q)
+            frame_embds_no_norm = out['pred_embds_without_norm']
             mask_features = out['mask_features'].unsqueeze(0)
             overall_mask_features.append(mask_features.cpu())
-            overall_frame_embds.append(frame_embds)
+            overall_frame_embds.append(frame_embds_no_norm)
 
             # referring tracker inference
             if i != 0:
-                track_out = self.tracker(frame_embds, mask_features, resume=True)
+                track_out = self.tracker(frame_embds, mask_features, resume=True,
+                                         frame_classes=object_labels,
+                                         frame_embeds_no_norm=frame_embds_no_norm)
             else:
-                track_out = self.tracker(frame_embds, mask_features)
+                track_out = self.tracker(frame_embds, mask_features, frame_classes=object_labels,
+                                         frame_embeds_no_norm=frame_embds_no_norm)
             online_pred_logits.append(track_out['pred_logits'].clone())
 
             del track_out['pred_masks'], track_out['pred_logits']
@@ -1369,9 +1374,9 @@ class DVIS_offline(DVIS_online):
         overall_instance_embds = torch.cat(overall_instance_embds, dim=2)
         overall_mask_features = torch.cat(overall_mask_features, dim=1)
         online_pred_logits = torch.cat(online_pred_logits, dim=1)
-        overall_frame_embds_ = self.tracker.frame_forward(overall_frame_embds)
-        del overall_frame_embds
+        #overall_frame_embds_ = self.tracker.frame_forward(overall_frame_embds)
+        #del overall_frame_embds
 
         # temporal refiner inference
-        outputs = self.refiner(overall_instance_embds, overall_frame_embds_, overall_mask_features)
+        outputs = self.refiner(overall_instance_embds, overall_frame_embds, overall_mask_features)
         return outputs, online_pred_logits
