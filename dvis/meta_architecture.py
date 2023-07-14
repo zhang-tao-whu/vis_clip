@@ -1225,7 +1225,7 @@ class DVIS_offline(DVIS_online):
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
 
                 del frame_embds, frame_embds_no_norm
-                del image_outputs['pred_embds'], image_outputs['pred_masks']
+                del image_outputs['pred_embds']
                 for j in range(len(image_outputs['aux_outputs'])):
                     del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
                 torch.cuda.empty_cache()
