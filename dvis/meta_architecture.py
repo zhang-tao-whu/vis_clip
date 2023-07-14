@@ -1210,7 +1210,8 @@ class DVIS_offline(DVIS_online):
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
                 frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
-                del image_outputs['mask_features']
+                del image_outputs['mask_features'], image_outputs['pred_embds_without_norm'],\
+                    image_outputs['pred_logits'], image_outputs['pred_embds']
 
                 # perform tracker/alignment
                 image_outputs = self.tracker(
@@ -1220,11 +1221,11 @@ class DVIS_offline(DVIS_online):
                 )
                 online_pred_logits = image_outputs['pred_logits']  # (b, t, q, c)
                 # frame_embds_ = self.tracker.frame_forward(frame_embds)
-                frame_embds_ = frame_embds_no_norm
+                frame_embds_ = frame_embds_no_norm.clone().detach()
                 instance_embeds = image_outputs['pred_embds'].clone().detach()
 
-                del frame_embds
-                del image_outputs['pred_embds']
+                del frame_embds, frame_embds_no_norm
+                del image_outputs['pred_embds'], image_outputs['pred_masks']
                 for j in range(len(image_outputs['aux_outputs'])):
                     del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
                 torch.cuda.empty_cache()
