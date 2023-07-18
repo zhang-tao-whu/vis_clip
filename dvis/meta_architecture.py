@@ -1120,7 +1120,9 @@ class DVIS_offline(DVIS_online):
             decoder_layer_num=cfg.MODEL.REFINER.DECODER_LAYERS,
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
-            windows=cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE
+            windows=cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
+            mask_agu=cfg.MODEL.REFINER.MASK_AGU,
+            mask_ratio=cfg.MODEL.REFINER.MASK_RATIO,
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER

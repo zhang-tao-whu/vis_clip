@@ -21,6 +21,8 @@ def add_dvis_config(cfg):
     cfg.MODEL.TRACKER.NOISE_MODE = 'none'
     cfg.MODEL.REFINER = CN()
     cfg.MODEL.REFINER.DECODER_LAYERS = 6
+    cfg.MODEL.REFINER.MASK_AGU = False
+    cfg.MODEL.REFINER.MASK_RATIO = 0.4
 
     cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE = 3
     cfg.MODEL.MASK_FORMER.TEST.TASK = 'vis'

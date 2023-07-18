@@ -735,7 +735,9 @@ class TemporalRefiner(torch.nn.Module):
         decoder_layer_num=6,
         mask_dim=256,
         class_num=25,
-        windows=5
+        windows=5,
+        mask_agu=False,
+        mask_ratio=0.4,
     ):
         super(TemporalRefiner, self).__init__()
 
@@ -811,6 +813,10 @@ class TemporalRefiner(torch.nn.Module):
 
         self.activation_proj = nn.Linear(hidden_channel, 1)
 
+        # mask agumentation
+        self.mask_agu = mask_agu
+        self.mask_ratio = mask_ratio
+
     def forward(self, instance_embeds, frame_embeds, mask_features):
         """
         :param instance_embeds: the aligned instance queries output by the tracker, shape is (b, c, t, q)
@@ -819,6 +825,12 @@ class TemporalRefiner(torch.nn.Module):
         :return: output dict, including masks, classes, embeds.
         """
         n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
+
+        if self.training and self.mask_agu:
+            temporal_mask = torch.bernoulli(torch.full((n_frames, n_frames, ), self.mask_ratio)).to(instance_embeds)
+            temporal_mask = temporal_mask.to(torch.bool)
+        else:
+            temporal_mask = None
 
         outputs = []
         output = instance_embeds
@@ -830,7 +842,7 @@ class TemporalRefiner(torch.nn.Module):
 
             # do long temporal attention
             output = self.transformer_time_self_attention_layers[i](
-                output, tgt_mask=None,
+                output, tgt_mask=temporal_mask,
                 tgt_key_padding_mask=None,
                 query_pos=None
             )
