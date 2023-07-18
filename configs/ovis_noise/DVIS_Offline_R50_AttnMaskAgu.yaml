@@ -15,4 +15,4 @@ INPUT:
   SAMPLING_FRAME_RANGE: 10
   REVERSE_AGU: True
 
-OUTPUT_DIR: './output_DVIS_Offline_R50_OVIS'
+OUTPUT_DIR: './output_DVIS_Offline_R50_OVIS_AttnMaskAgu'

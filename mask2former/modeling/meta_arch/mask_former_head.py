@@ -129,4 +129,8 @@ class MaskFormerHead(nn.Module):
                 predictions = self.predictor(mask_features, mask_features, mask)
             else:
                 predictions = self.predictor(features[self.transformer_in_feature], mask_features, mask)
+        # if transformer_encoder_features is not None:
+        #     predictions['transformer_features'] = transformer_encoder_features
+        # else:
+        #     predictions['transformer_features'] = multi_scale_features[0]
         return predictions
