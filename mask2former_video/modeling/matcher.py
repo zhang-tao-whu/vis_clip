@@ -284,6 +284,9 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
                 if len(used_query_idx) != 0:
                     C[used_query_idx, :] = 1e6
                 indice1, indice2 = linear_sum_assignment(C)
+
+                used_query_idx += list(indice1)
+
                 indice2 = np.array(used_tgt)[indice2]
                 matched_indices[0] += list(indice1)
                 matched_indices[1] += list(indice2)
