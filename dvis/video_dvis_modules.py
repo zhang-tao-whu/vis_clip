@@ -721,7 +721,7 @@ class ReferringTracker_noiser(torch.nn.Module):
                     output, single_frame_feature, mask_features[0, i: i + 1], self.memory_feature
                 )
                 ms_output.append(output)
-                mask_features_.append(single_frame_embeds)
+                mask_features_.append(single_frame_mask_feature)
 
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
@@ -761,7 +761,6 @@ class ReferringTracker_noiser(torch.nn.Module):
     def prediction(self, outputs, mask_features):
         # outputs (t, l, q, b, c)
         # mask_features (b, t, c, h, w)
-        print(mask_features.shape)
         decoder_output = self.decoder_norm(outputs)
         decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
         outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (l, b, q, t, cls+1)
