@@ -580,7 +580,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         )
 
         feature = feature.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
-        feature = F.interpolate(feature, size=(hm, hm), mode='bilinear', align_corners=True)
+        feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
         mask_features = mask_features + self.feature_proj(feature)
         return self.query_proj(query), mask_features, memory_feature
 
