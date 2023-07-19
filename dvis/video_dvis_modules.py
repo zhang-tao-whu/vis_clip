@@ -716,9 +716,9 @@ class ReferringTracker_noiser(torch.nn.Module):
                         ms_output.append(output)
             # do fusion
             if self.feature_refusion:
-                single_frame_feature = cur_feature[i]  # (1, c, h, w)
+                single_frame_feature = cur_feature[i: i + 1]  # (1, c, h, w)
                 output, single_frame_mask_feature, self.memory_feature = self.feature_query_fusion(
-                    output, single_frame_feature, mask_features[0, i], self.memory_feature
+                    output, single_frame_feature, mask_features[0, i: i + 1], self.memory_feature
                 )
                 ms_output.append(output)
                 mask_features_.append(single_frame_embeds)
