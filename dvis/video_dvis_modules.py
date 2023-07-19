@@ -761,6 +761,7 @@ class ReferringTracker_noiser(torch.nn.Module):
     def prediction(self, outputs, mask_features):
         # outputs (t, l, q, b, c)
         # mask_features (b, t, c, h, w)
+        print(mask_features.shape)
         decoder_output = self.decoder_norm(outputs)
         decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
         outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (l, b, q, t, cls+1)
