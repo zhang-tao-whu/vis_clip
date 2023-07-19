@@ -53,6 +53,7 @@ class MaskFormerHead(nn.Module):
         pixel_decoder: nn.Module,
         loss_weight: float = 1.0,
         ignore_value: int = -1,
+        return_transformer_feature: bool  = False,
         # extra parameters
         transformer_predictor: nn.Module,
         transformer_in_feature: str,
@@ -77,6 +78,7 @@ class MaskFormerHead(nn.Module):
         self.ignore_value = ignore_value
         self.common_stride = 4
         self.loss_weight = loss_weight
+        self.return_transformer_feature = return_transformer_feature
 
         self.pixel_decoder = pixel_decoder
         self.predictor = transformer_predictor
@@ -101,6 +103,7 @@ class MaskFormerHead(nn.Module):
                 k: v for k, v in input_shape.items() if k in cfg.MODEL.SEM_SEG_HEAD.IN_FEATURES
             },
             "ignore_value": cfg.MODEL.SEM_SEG_HEAD.IGNORE_VALUE,
+            "return_transformer_feature": cfg.MODEL.SEM_SEG_HEAD.RETURN_TRANSFORMER_FEATURE,
             "num_classes": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
             "pixel_decoder": build_pixel_decoder(cfg, input_shape),
             "loss_weight": cfg.MODEL.SEM_SEG_HEAD.LOSS_WEIGHT,
@@ -129,8 +132,9 @@ class MaskFormerHead(nn.Module):
                 predictions = self.predictor(mask_features, mask_features, mask)
             else:
                 predictions = self.predictor(features[self.transformer_in_feature], mask_features, mask)
-        # if transformer_encoder_features is not None:
-        #     predictions['transformer_features'] = transformer_encoder_features
-        # else:
-        #     predictions['transformer_features'] = multi_scale_features[0]
+        if self.return_transformer_feature:
+            if transformer_encoder_features is not None:
+                predictions['transformer_features'] = transformer_encoder_features
+            else:
+                predictions['transformer_features'] = multi_scale_features[0]
         return predictions

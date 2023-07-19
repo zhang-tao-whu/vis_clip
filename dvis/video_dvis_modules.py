@@ -6,6 +6,7 @@ from scipy.optimize import linear_sum_assignment
 from .utils import Noiser
 import random
 import numpy as np
+import torch.nn.functional as F
 
 class ReferringCrossAttentionLayer(nn.Module):
 
@@ -450,6 +451,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         mask_dim=256,
         class_num=25,
         noise_mode='hard',
+        feature_refusion=False,
     ):
         super(ReferringTracker_noiser, self).__init__()
 
@@ -509,13 +511,83 @@ class ReferringTracker_noiser(torch.nn.Module):
 
         self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
+        self.feature_refusion = feature_refusion
+        if feature_refusion:
+            self.memory_feature = None
+            self.mem_cur_feature_fusion = SelfAttentionLayer(
+                d_model=hidden_channel,
+                nhead=num_head,
+                dropout=0.0,
+                normalize_before=False,
+            )
+            self.feature2query_fusion = CrossAttentionLayer(
+                d_model=hidden_channel,
+                nhead=num_head,
+                dropout=0.0,
+                normalize_before=False,
+            )
+            self.query2feature_fusion = CrossAttentionLayer(
+                d_model=hidden_channel,
+                nhead=num_head,
+                dropout=0.0,
+                normalize_before=False,
+            )
+            self.feature_proj = nn.Conv2d(
+                mask_dim,
+                mask_dim,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            )
+            self.query_proj = FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
+        if self.feature_refusion:
+            del self.memory_feature
+            self.memory_feature = None
         return
 
+    def feature_query_fusion(self, query, feature, mask_features, memory_feature=None):
+        # query (q, b, c)
+        # feature (b, c, h, w)
+        b, c, hf, wf = feature.size()
+        _, _, hm, wm = mask_features.size()
+
+        feature = feature.flatten(2).permute(2, 0, 1)  # (hw, b, c)
+        if memory_feature is None:
+            memory_feature = feature
+
+        # do mem_cur_feature_fusion
+        mem_cur_feature = torch.cat([memory_feature, feature], dim=0)  # (2hw, b, c)
+        mem_cur_feature = self.mem_cur_feature_fusion(
+            mem_cur_feature, tgt_mask=None,
+            tgt_key_padding_mask=None,
+            query_pos=None
+        )
+        mem_cur_feature, feature = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
+        query = self.feature2query_fusion(
+            query, feature,
+        )
+        feature = self.query2feature_fusion(
+            feature, query,
+        )
+
+        feature = feature.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
+        feature = F.interpolate(feature, size=(hm, hm), mode='bilinear', align_corners=True)
+        mask_features = mask_features + self.feature_proj(feature)
+        return self.query_proj(query), mask_features, memory_feature
+
+
     def forward(self, frame_embeds, mask_features, resume=False,
-                return_indices=False, frame_classes=None, frame_embeds_no_norm=None):
+                return_indices=False, frame_classes=None,
+                frame_embeds_no_norm=None, cur_feature=None):
         """
         :param frame_embeds: the instance queries output by the segmenter
         :param mask_features: the mask features output by the segmenter
@@ -524,8 +596,11 @@ class ReferringTracker_noiser(torch.nn.Module):
         :return: output dict, including masks, classes, embeds.
         """
         # mask feature projection
+        if self.feature_refusion:
+            assert cur_feature is not None
         mask_features_shape = mask_features.shape
-        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)
+        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)  # (b, t, c, h, w)
+        mask_features_ = []
 
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         if frame_embeds_no_norm is not None:
@@ -639,13 +714,27 @@ class ReferringTracker_noiser(torch.nn.Module):
                             output
                         )
                         ms_output.append(output)
+            # do fusion
+            if self.feature_refusion:
+                single_frame_feature = cur_feature[i]  # (1, c, h, w)
+                output, single_frame_mask_feature, self.memory_feature = self.feature_query_fusion(
+                    output, single_frame_feature, mask_features[0, i], self.memory_feature
+                )
+                ms_output.append(output)
+                mask_features_.append(single_frame_embeds)
+
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
             outputs.append(ms_output[1:])
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
+        if self.feature_refusion:
+            mask_features_ = torch.cat(mask_features_, dim=0).unsqueeze(0)
+        else:
+            mask_features_ = mask_features
         if not self.training:
             outputs = outputs[:, -1:]
-        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
+            del mask_features
+        outputs_class, outputs_masks = self.prediction(outputs, mask_features_)
         #outputs = self.decoder_norm(outputs)
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)

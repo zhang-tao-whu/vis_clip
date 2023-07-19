@@ -16,9 +16,11 @@ def add_minvis_config(cfg):
 
 def add_dvis_config(cfg):
     cfg.INPUT.REVERSE_AGU = False
+    cfg.MODEL.SEM_SEG_HEAD.RETURN_TRANSFORMER_FEATURE = False
     cfg.MODEL.TRACKER = CN()
     cfg.MODEL.TRACKER.DECODER_LAYERS = 6
     cfg.MODEL.TRACKER.NOISE_MODE = 'none'
+    cfg.MODEL.TRACKER.FEATURE_FUSION = False
     cfg.MODEL.REFINER = CN()
     cfg.MODEL.REFINER.DECODER_LAYERS = 6
     cfg.MODEL.REFINER.MASK_AGU = False

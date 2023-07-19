@@ -557,6 +557,7 @@ class DVIS_online(MinVIS):
             noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
+            feature_refusion=cfg.MODEL.TRACKER.FEATURE_FUSION,
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER
@@ -641,6 +642,10 @@ class DVIS_online(MinVIS):
             with torch.no_grad():
                 features = self.backbone(images.tensor)
                 image_outputs = self.sem_seg_head(features)
+                if 'transformer_features' in image_outputs.keys():
+                    cur_features = image_outputs['transformer_features']
+                else:
+                    cur_features = None
                 object_labels = self._get_instance_labels(image_outputs['pred_logits'])
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
                 frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
@@ -649,7 +654,8 @@ class DVIS_online(MinVIS):
                 torch.cuda.empty_cache()
             outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True,
                                             resume=self.keep, frame_classes=object_labels,
-                                            frame_embeds_no_norm=frame_embds_no_norm)
+                                            frame_embeds_no_norm=frame_embds_no_norm,
+                                            cur_feature=cur_features)
             image_outputs = self.reset_image_output_order(image_outputs, indices)
 
         if self.training:
