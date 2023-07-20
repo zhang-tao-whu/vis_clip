@@ -611,7 +611,7 @@ class ReferringTracker_noiser(torch.nn.Module):
             else:
                 single_frame_classes = frame_classes[i]
             if self.feature_refusion:
-                single_frame_feature = cur_feature[i: i + 1].flattem(2).permute(2, 0, 1)
+                single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
             # the first frame of a video
             if i == 0 and resume is False:
                 self._clear_memory()
