@@ -930,7 +930,8 @@ class TemporalRefiner(torch.nn.Module):
         n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
 
         if self.training and self.mask_agu:
-            temporal_mask = torch.bernoulli(torch.full((n_frames, n_frames, ), self.mask_ratio)).to(instance_embeds)
+            temporal_mask = torch.bernoulli(torch.full((n_frames, n_frames, ),
+                                                       1 - self.mask_ratio)).to(instance_embeds)
             temporal_mask = temporal_mask.to(torch.bool)
         else:
             temporal_mask = None
