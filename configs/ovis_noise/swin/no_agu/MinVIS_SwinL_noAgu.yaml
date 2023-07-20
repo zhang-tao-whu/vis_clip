@@ -1,4 +1,4 @@
-_BASE_: ../MinVIS_R50.yaml
+_BASE_: ../../MinVIS_R50.yaml
 MODEL:
   BACKBONE:
     NAME: "D2SwinTransformer"

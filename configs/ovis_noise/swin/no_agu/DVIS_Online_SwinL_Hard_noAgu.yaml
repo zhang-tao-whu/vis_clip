@@ -1,4 +1,4 @@
-_BASE_: ../DVIS_Online_R50.yaml
+_BASE_: ../../DVIS_Online_R50.yaml
 MODEL:
   BACKBONE:
     NAME: "D2SwinTransformer"
