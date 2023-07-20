@@ -461,8 +461,36 @@ class ReferringTracker_noiser(torch.nn.Module):
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
+        if feature_refusion:
+            self.memory_feature = None
+            self.feature2query_fusion_layers = nn.ModuleList()
+
+            self.mem_cur_feature_fusion = SelfAttentionLayer(
+                d_model=hidden_channel,
+                nhead=num_head,
+                dropout=0.0,
+                normalize_before=False,
+            )
+
+            self.feature_proj = nn.Conv2d(
+                mask_dim,
+                mask_dim,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            )
 
         for _ in range(self.num_layers):
+            if feature_refusion:
+                self.feature2query_fusion_layers.append(
+                    ReferringCrossAttentionLayer(
+                        d_model=hidden_channel,
+                        nhead=num_head,
+                        dropout=0.0,
+                        normalize_before=False,
+                    )
+                )
+
             self.transformer_self_attention_layers.append(
                 SelfAttentionLayer(
                     d_model=hidden_channel,
@@ -512,39 +540,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
         self.feature_refusion = feature_refusion
-        if feature_refusion:
-            self.memory_feature = None
-            self.mem_cur_feature_fusion = SelfAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
-            self.feature2query_fusion = CrossAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
-            self.query2feature_fusion = CrossAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
-            self.feature_proj = nn.Conv2d(
-                mask_dim,
-                mask_dim,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            )
-            self.query_proj = FFNLayer(
-                    d_model=hidden_channel,
-                    dim_feedforward=feedforward_channel,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
+
 
     def _clear_memory(self):
         del self.last_outputs
@@ -554,7 +550,7 @@ class ReferringTracker_noiser(torch.nn.Module):
             self.memory_feature = None
         return
 
-    def feature_query_fusion(self, query, feature, mask_features, memory_feature=None):
+    def feature_query_fusion(self, feature, mask_features, memory_feature=None):
         # query (q, b, c)
         # feature (b, c, h, w)
         b, c, hf, wf = feature.size()
@@ -572,17 +568,11 @@ class ReferringTracker_noiser(torch.nn.Module):
             query_pos=None
         )
         mem_cur_feature, feature = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
-        query = self.feature2query_fusion(
-            query, feature,
-        )
-        feature = self.query2feature_fusion(
-            feature, query,
-        )
 
         feature = feature.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
         feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
         mask_features = mask_features + self.feature_proj(feature)
-        return self.query_proj(query), mask_features, memory_feature
+        return mask_features, memory_feature
 
 
     def forward(self, frame_embeds, mask_features, resume=False,
@@ -620,6 +610,8 @@ class ReferringTracker_noiser(torch.nn.Module):
                 single_frame_classes = None
             else:
                 single_frame_classes = frame_classes[i]
+            if self.feature_refusion:
+                single_frame_feature = cur_feature[i: i + 1].flattem(2).permute(2, 0, 1)
             # the first frame of a video
             if i == 0 and resume is False:
                 self._clear_memory()
@@ -641,6 +633,12 @@ class ReferringTracker_noiser(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
+                        # refusion
+                        if self.feature_refusion:
+                            output = self.feature2query_fusion_layers[j](
+                                output, single_frame_embeds_no_norm, single_frame_feature
+                            )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -658,6 +656,12 @@ class ReferringTracker_noiser(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
+                        # refusion
+                        if self.feature_refusion:
+                            output = self.feature2query_fusion_layers[j](
+                                output, ms_output[-1], single_frame_feature
+                            )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -687,6 +691,11 @@ class ReferringTracker_noiser(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
+                        # refusion
+                        if self.feature_refusion:
+                            output = self.feature2query_fusion_layers[j](
+                                output, self.last_outputs[-1], single_frame_feature
+                            )
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -704,6 +713,12 @@ class ReferringTracker_noiser(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
+                        # refusion
+                        if self.feature_refusion:
+                            output = self.feature2query_fusion_layers[j](
+                                output, self.last_outputs[-1], single_frame_feature
+                            )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -717,10 +732,9 @@ class ReferringTracker_noiser(torch.nn.Module):
             # do fusion
             if self.feature_refusion:
                 single_frame_feature = cur_feature[i: i + 1]  # (1, c, h, w)
-                output, single_frame_mask_feature, self.memory_feature = self.feature_query_fusion(
-                    output, single_frame_feature, mask_features[0, i: i + 1], self.memory_feature
+                single_frame_mask_feature, self.memory_feature = self.feature_query_fusion(
+                    single_frame_feature, mask_features[0, i: i + 1], self.memory_feature
                 )
-                ms_output.append(output)
                 mask_features_.append(single_frame_mask_feature)
 
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
