@@ -567,12 +567,12 @@ class ReferringTracker_noiser(torch.nn.Module):
             tgt_key_padding_mask=None,
             query_pos=None
         )
-        mem_cur_feature, feature = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
+        feature_ = mem_cur_feature[hf*wf:]
 
-        feature = feature.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
+        feature = feature_.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
         feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
         mask_features = mask_features + self.feature_proj(feature)
-        return mask_features, memory_feature
+        return mask_features, feature_
 
 
     def forward(self, frame_embeds, mask_features, resume=False,
@@ -610,11 +610,21 @@ class ReferringTracker_noiser(torch.nn.Module):
                 single_frame_classes = None
             else:
                 single_frame_classes = frame_classes[i]
-            if self.feature_refusion:
-                single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
-            # the first frame of a video
             if i == 0 and resume is False:
                 self._clear_memory()
+            # do fusion
+            if self.feature_refusion:
+                single_frame_feature = cur_feature[i: i + 1]  # (1, c, h, w)
+                single_frame_mask_feature, self.memory_feature = self.feature_query_fusion(
+                    single_frame_feature, mask_features[0, i: i + 1], self.memory_feature
+                )
+                mask_features_.append(single_frame_mask_feature)
+            if self.feature_refusion:
+                # single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
+                single_frame_feature = self.memory_feature
+            # the first frame of a video
+            if i == 0 and resume is False:
+                # self._clear_memory()
                 for j in range(self.num_layers):
                     if j == 0:
                         indices, noised_init = self.noiser(
@@ -729,13 +739,6 @@ class ReferringTracker_noiser(torch.nn.Module):
                             output
                         )
                         ms_output.append(output)
-            # do fusion
-            if self.feature_refusion:
-                single_frame_feature = cur_feature[i: i + 1]  # (1, c, h, w)
-                single_frame_mask_feature, self.memory_feature = self.feature_query_fusion(
-                    single_frame_feature, mask_features[0, i: i + 1], self.memory_feature
-                )
-                mask_features_.append(single_frame_mask_feature)
 
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
