@@ -566,10 +566,10 @@ class ReferringTracker_noiser(torch.nn.Module):
             tgt_key_padding_mask=None,
             query_pos=None
         )
-        memory_feature, feature_ = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
-        print(feature_.shape)
-        print((hf, wf, b, c))
-        feature = feature_.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
+        memory_feature, feature = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
+        print(feature.shape, (hf, wf, b, c))
+        feature_ = feature.clone()
+        feature = feature.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
         feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
         mask_features = mask_features + self.feature_proj(feature)
         return feature_, mask_features, memory_feature
