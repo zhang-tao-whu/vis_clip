@@ -555,20 +555,23 @@ class ReferringTracker_noiser(torch.nn.Module):
         # feature (b, c, h, w)
         b, c, hf, wf = feature.size()
         _, _, hm, wm = mask_features.size()
-
+        print(feature.shape)
         feature = feature.flatten(2).permute(2, 0, 1)  # (hw, b, c)
+        print(feature.shape)
         if memory_feature is None:
             memory_feature = feature
 
         # do mem_cur_feature_fusion
         mem_cur_feature = torch.cat([memory_feature, feature], dim=0)  # (2hw, b, c)
+        print(mem_cur_feature.shape)
         mem_cur_feature = self.mem_cur_feature_fusion(
             mem_cur_feature, tgt_mask=None,
             tgt_key_padding_mask=None,
             query_pos=None
         )
+        print(mem_cur_feature.shape)
         memory_feature, feature_ = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
-
+        print(feature_.shape)
         feature = feature_.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
         feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
         mask_features = mask_features + self.feature_proj(feature)
