@@ -3,7 +3,8 @@ from torch import nn
 from mask2former_video.modeling.transformer_decoder.video_mask2former_transformer_decoder import SelfAttentionLayer,\
     CrossAttentionLayer, FFNLayer, MLP, _get_activation_fn
 from scipy.optimize import linear_sum_assignment
-
+import random
+import numpy as np
 
 class ReferringCrossAttentionLayer(nn.Module):
 
@@ -211,7 +212,7 @@ class ReferringTracker(torch.nn.Module):
                 for j in range(self.num_layers):
                     if j == 0:
                         ms_output.append(single_frame_embeds)
-                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
+                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds, add_noise=True)
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
@@ -266,7 +267,11 @@ class ReferringTracker(torch.nn.Module):
         else:
             return out
 
-    def match_embds(self, ref_embds, cur_embds):
+    def match_embds(self, ref_embds, cur_embds, add_noise=False):
+        if self.training and add_noise and random.random() < 0.8:
+            indices = list(range(cur_embds.shape[0]))
+            np.random.shuffle(indices)
+            return indices
         #  embeds (q, b, c)
         ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
         ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
