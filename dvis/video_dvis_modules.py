@@ -463,7 +463,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         self.transformer_ffn_layers = nn.ModuleList()
         if feature_refusion:
             self.memory_feature = None
-            # self.feature2query_fusion_layers = nn.ModuleList()
+            self.feature2query_fusion_layers = nn.ModuleList()
             #
             # self.mem_cur_feature_fusion = SelfAttentionLayer(
             #     d_model=hidden_channel,
