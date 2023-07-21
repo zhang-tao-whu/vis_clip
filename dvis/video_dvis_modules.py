@@ -567,7 +567,6 @@ class ReferringTracker_noiser(torch.nn.Module):
             query_pos=None
         )
         memory_feature, feature = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
-        print(feature.shape, (hf, wf, b, c))
         feature_ = feature.clone()
         feature = feature.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
         feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
@@ -600,6 +599,8 @@ class ReferringTracker_noiser(torch.nn.Module):
         ret_indices = []
 
         for i in range(n_frame):
+            if i == 0 and resume is False:
+                self._clear_memory()
             ms_output = []
             single_frame_embeds = frame_embeds[i]  # q b c
             if frame_embeds_no_norm is not None:
@@ -622,7 +623,7 @@ class ReferringTracker_noiser(torch.nn.Module):
             #     single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
             # the first frame of a video
             if i == 0 and resume is False:
-                self._clear_memory()
+                # self._clear_memory()
                 for j in range(self.num_layers):
                     if j == 0:
                         indices, noised_init = self.noiser(
