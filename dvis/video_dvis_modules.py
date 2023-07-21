@@ -463,14 +463,14 @@ class ReferringTracker_noiser(torch.nn.Module):
         self.transformer_ffn_layers = nn.ModuleList()
         if feature_refusion:
             self.memory_feature = None
-            self.feature2query_fusion_layers = nn.ModuleList()
-
-            self.mem_cur_feature_fusion = SelfAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
+            # self.feature2query_fusion_layers = nn.ModuleList()
+            #
+            # self.mem_cur_feature_fusion = SelfAttentionLayer(
+            #     d_model=hidden_channel,
+            #     nhead=num_head,
+            #     dropout=0.0,
+            #     normalize_before=False,
+            # )
 
             self.feature_proj = nn.Conv2d(
                 mask_dim,
@@ -560,13 +560,14 @@ class ReferringTracker_noiser(torch.nn.Module):
             memory_feature = feature
 
         # do mem_cur_feature_fusion
-        mem_cur_feature = torch.cat([memory_feature, feature], dim=0)  # (2hw, b, c)
-        mem_cur_feature = self.mem_cur_feature_fusion(
-            mem_cur_feature, tgt_mask=None,
-            tgt_key_padding_mask=None,
-            query_pos=None
-        )
-        memory_feature, feature = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
+        # mem_cur_feature = torch.cat([memory_feature, feature], dim=0)  # (2hw, b, c)
+        # mem_cur_feature = self.mem_cur_feature_fusion(
+        #     mem_cur_feature, tgt_mask=None,
+        #     tgt_key_padding_mask=None,
+        #     query_pos=None
+        # )
+        # memory_feature, feature = mem_cur_feature[:hf*wf], mem_cur_feature[hf*wf:]
+
         feature_ = feature.clone()
         feature = feature.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
         feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
