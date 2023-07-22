@@ -155,8 +155,8 @@ class MinVIS(nn.Module):
             # video
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
             "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
-            "segmenter_clip_enable": cfg.MODEL.TEST.SEGMENTER_CLIP_ENABLE,
-            "clip_size": cfg.MODEL.TEST.CLIP_SIZE,
+            "segmenter_clip_enable": cfg.MODEL.MASK_FORMER.TEST.SEGMENTER_CLIP_ENABLE,
+            "clip_size": cfg.MODEL.MASK_FORMER.TEST.CLIP_SIZE,
         }
 
     @property
@@ -611,8 +611,8 @@ class DVIS_online(MinVIS):
             "max_iter_num": max_iter_num,
             "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
-            "segmenter_clip_enable": cfg.MODEL.TEST.SEGMENTER_CLIP_ENABLE,
-            "clip_size": cfg.MODEL.TEST.CLIP_SIZE,
+            "segmenter_clip_enable": cfg.MODEL.MASK_FORMER.TEST.SEGMENTER_CLIP_ENABLE,
+            "clip_size": cfg.MODEL.MASK_FORMER.TEST.CLIP_SIZE,
         }
 
     def forward(self, batched_inputs):
@@ -1205,8 +1205,8 @@ class DVIS_offline(DVIS_online):
             "max_iter_num": max_iter_num,
             "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
-            "segmenter_clip_enable": cfg.MODEL.TEST.SEGMENTER_CLIP_ENABLE,
-            "clip_size": cfg.MODEL.TEST.CLIP_SIZE,
+            "segmenter_clip_enable": cfg.MODEL.MASK_FORMER.TEST.SEGMENTER_CLIP_ENABLE,
+            "clip_size": cfg.MODEL.MASK_FORMER.TEST.CLIP_SIZE,
         }
 
     def forward(self, batched_inputs):
