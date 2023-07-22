@@ -354,7 +354,7 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis_clip(VideoMultiScaleMaskedTra
 @TRANSFORMER_DECODER_REGISTRY.register()
 class VideoMultiScaleMaskedTransformerDecoder_minvis_clip(VideoMultiScaleMaskedTransformerDecoder_dvis_clip):
 
-    def forward(self, x, mask_features, mask=None):
-        out = super(VideoMultiScaleMaskedTransformerDecoder_minvis_clip, self).forward(x, mask_features, mask=mask)
+    def forward(self, x, mask_features, mask=None, clip_size=2):
+        out = super(VideoMultiScaleMaskedTransformerDecoder_minvis_clip, self).forward(x, mask_features, mask=mask, clip_size=clip_size)
         del out['mask_features']
         return out
