@@ -282,7 +282,7 @@ class ReferringTracker(torch.nn.Module):
         C = C.cpu()
         C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
 
-        indices = linear_sum_assignment(C.transpose(0, 1))
+        indices = linear_sum_assignment(C)
         indices = indices[1]
         return indices
 
