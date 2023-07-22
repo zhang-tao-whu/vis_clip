@@ -255,7 +255,7 @@ class MinVIS(nn.Module):
         return outputs, targets
 
     def frame_decoder_loss_reshape(self, outputs, targets):
-        if self.segmenter_clip_enable:
+        if self.segmenter_clip_enable and outputs['clip_size'] != 1:
             return self.frame_decoder_loss_reshape_clip(outputs, targets)
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')

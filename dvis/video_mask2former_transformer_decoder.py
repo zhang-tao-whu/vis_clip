@@ -322,7 +322,8 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis_clip(VideoMultiScaleMaskedTra
             ),
             'pred_embds': pred_embds,
             'pred_embds_without_norm': pred_embds_without_norm,
-            'mask_features': mask_features
+            'mask_features': mask_features,
+            'clip_size': clip_size,
         }
 
         return out
