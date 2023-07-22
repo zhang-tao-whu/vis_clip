@@ -47,6 +47,8 @@ class MinVIS(nn.Module):
         # video
         num_frames,
         window_inference,
+        segmenter_clip_enable,
+        clip_size,
     ):
         """
         Args:
@@ -90,6 +92,9 @@ class MinVIS(nn.Module):
 
         self.num_frames = num_frames
         self.window_inference = window_inference
+
+        self.segmenter_clip_enable = segmenter_clip_enable
+        self.clip_size = clip_size
 
     @classmethod
     def from_config(cls, cfg):
@@ -149,7 +154,9 @@ class MinVIS(nn.Module):
             "pixel_std": cfg.MODEL.PIXEL_STD,
             # video
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
-            "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE
+            "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
+            "segmenter_clip_enable": cfg.MODEL.TEST.SEGMENTER_CLIP_ENABLE,
+            "clip_size": cfg.MODEL.TEST.CLIP_SIZE,
         }
 
     @property
@@ -190,10 +197,16 @@ class MinVIS(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=3)
+            if self.segmenter_clip_enable:
+                outputs = self.run_window_inference(images.tensor, window_size=self.clip_size)
+            else:
+                outputs = self.run_window_inference(images.tensor, window_size=3)
         else:
             features = self.backbone(images.tensor)
-            outputs = self.sem_seg_head(features)
+            if self.segmenter_clip_enable:
+                outputs = self.sem_seg_head(features, clip_size=self.clip_size)
+            else:
+                outputs = self.sem_seg_head(features)
 
         if self.training:
             # mask classification target
@@ -313,7 +326,10 @@ class MinVIS(nn.Module):
             end_idx = (i+1) * window_size
 
             features = self.backbone(images_tensor[start_idx:end_idx])
-            out = self.sem_seg_head(features)
+            if self.segmenter_clip_enable:
+                out = self.sem_seg_head(features, clip_size=window_size)
+            else:
+                out = self.sem_seg_head(features)
             del features['res2'], features['res3'], features['res4'], features['res5']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
@@ -430,6 +446,8 @@ class DVIS_online(MinVIS):
         max_iter_num,
         window_size,
         task,
+        segmenter_clip_enable,
+        clip_size,
     ):
         """
         Args:
@@ -476,6 +494,8 @@ class DVIS_online(MinVIS):
             # video
             num_frames=num_frames,
             window_inference=window_inference,
+            segmenter_clip_enable=segmenter_clip_enable,
+            clip_size=clip_size
         )
         # frozen the segmenter
         for p in self.backbone.parameters():
@@ -582,6 +602,8 @@ class DVIS_online(MinVIS):
             "max_iter_num": max_iter_num,
             "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
+            "segmenter_clip_enable": cfg.MODEL.TEST.SEGMENTER_CLIP_ENABLE,
+            "clip_size": cfg.MODEL.TEST.CLIP_SIZE,
         }
 
     def forward(self, batched_inputs):
@@ -635,13 +657,19 @@ class DVIS_online(MinVIS):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=self.window_size)
+            if self.segmenter_clip_enable:
+                outputs = self.run_window_inference(images.tensor, window_size=self.clip_size)
+            else:
+                outputs = self.run_window_inference(images.tensor, window_size=self.window_size)
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
             with torch.no_grad():
                 features = self.backbone(images.tensor)
-                image_outputs = self.sem_seg_head(features)
+                if self.segmenter_clip_enable:
+                    image_outputs = self.sem_seg_head(features, clip_size=self.clip_size)
+                else:
+                    image_outputs = self.sem_seg_head(features)
                 if 'transformer_features' in image_outputs.keys():
                     cur_features = image_outputs['transformer_features']
                 else:
@@ -775,7 +803,10 @@ class DVIS_online(MinVIS):
             end_idx = (i+1) * window_size
             # segmeter inference
             features = self.backbone(images_tensor[start_idx:end_idx])
-            out = self.sem_seg_head(features)
+            if self.segmenter_clip_enable:
+                out = self.sem_seg_head(features, clip_size=window_size)
+            else:
+                out = self.sem_seg_head(features)
             if 'transformer_features' in out.keys():
                 cur_features = out['transformer_features']
             else:
@@ -1008,6 +1039,8 @@ class DVIS_offline(DVIS_online):
         max_iter_num,
         window_size,
         task,
+        segmenter_clip_enable,
+        clip_size,
     ):
         """
         Args:
@@ -1060,6 +1093,8 @@ class DVIS_offline(DVIS_online):
             max_iter_num=max_iter_num,
             window_size=window_size,
             task=task,
+            segmenter_clip_enable=segmenter_clip_enable,
+            clip_size=clip_size,
         )
         # frozen the referring tracker
         for p in self.tracker.parameters():
@@ -1161,6 +1196,8 @@ class DVIS_offline(DVIS_online):
             "max_iter_num": max_iter_num,
             "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
+            "segmenter_clip_enable": cfg.MODEL.TEST.SEGMENTER_CLIP_ENABLE,
+            "clip_size": cfg.MODEL.TEST.CLIP_SIZE,
         }
 
     def forward(self, batched_inputs):
@@ -1216,11 +1253,17 @@ class DVIS_offline(DVIS_online):
         self.tracker.eval()
 
         if not self.training and self.window_inference:
-            outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=self.window_size)
+            if self.segmenter_clip_enable:
+                outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=self.clip_size)
+            else:
+                outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=self.window_size)
         else:
             with torch.no_grad():
                 # due to GPU memory limitations, the segmenter processes the video clip by clip.
-                image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
+                if self.segmenter_clip_enable:
+                    image_outputs = self.segmentor_windows_inference(images.tensor, window_size=self.clip_size)
+                else:
+                    image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
                 object_labels = self._get_instance_labels(image_outputs['pred_logits'])
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
                 frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
@@ -1305,7 +1348,10 @@ class DVIS_offline(DVIS_online):
             end_idx = (i + 1) * window_size
 
             features = self.backbone(images_tensor[start_idx:end_idx])
-            out = self.sem_seg_head(features)
+            if self.segmenter_clip_enable:
+                out = self.sem_seg_head(features, clip_size=window_size)
+            else:
+                out = self.sem_seg_head(features)
 
             del features['res2'], features['res3'], features['res4'], features['res5']
             del out['pred_masks']
@@ -1357,7 +1403,10 @@ class DVIS_offline(DVIS_online):
 
             # sementer inference
             features = self.backbone(images_tensor[start_idx:end_idx])
-            out = self.sem_seg_head(features)
+            if self.segmenter_clip_enable:
+                out = self.sem_seg_head(features, clip_size=window_size)
+            else:
+                out = self.sem_seg_head(features)
 
             del features['res2'], features['res3'], features['res4'], features['res5']
             del out['pred_masks']
