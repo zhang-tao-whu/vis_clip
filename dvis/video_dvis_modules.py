@@ -620,8 +620,7 @@ class ReferringTracker_noiser(torch.nn.Module):
                 )
                 mask_features_.append(single_frame_mask_feature)
             if self.feature_refusion:
-                # single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
-                single_frame_feature = self.memory_feature
+                single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
             # the first frame of a video
             if i == 0 and resume is False:
                 # self._clear_memory()
