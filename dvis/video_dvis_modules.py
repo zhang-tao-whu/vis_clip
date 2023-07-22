@@ -492,7 +492,14 @@ class ReferringTracker_noiser(torch.nn.Module):
                 )
 
             self.transformer_self_attention_layers.append(
-                SelfAttentionLayer(
+                # SelfAttentionLayer(
+                #     d_model=hidden_channel,
+                #     nhead=num_head,
+                #     dropout=0.0,
+                #     normalize_before=False,
+                # )
+                ReferringCrossAttentionLayer(
+                    # GatedReferringCrossAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
                     dropout=0.0,
@@ -649,9 +656,13 @@ class ReferringTracker_noiser(torch.nn.Module):
                             )
 
                         output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
+                            # output, tgt_mask=None,
+                            # tgt_key_padding_mask=None,
+                            # query_pos=None
+                            output, output, torch.cat([output, single_frame_embeds_no_norm], dim=0),
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
                         )
                         # FFN
                         output = self.transformer_ffn_layers[j](
@@ -672,9 +683,13 @@ class ReferringTracker_noiser(torch.nn.Module):
                             )
 
                         output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
+                            # output, tgt_mask=None,
+                            # tgt_key_padding_mask=None,
+                            # query_pos=None
+                            output, output, torch.cat([output, ms_output[-1]], dim=0),
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
                         )
                         # FFN
                         output = self.transformer_ffn_layers[j](
@@ -706,9 +721,13 @@ class ReferringTracker_noiser(torch.nn.Module):
                                 output, self.last_outputs[-1], single_frame_feature
                             )
                         output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
+                            # output, tgt_mask=None,
+                            # tgt_key_padding_mask=None,
+                            # query_pos=None
+                            output, output, torch.cat([output, self.last_outputs[-1]], dim=0),
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
                         )
                         # FFN
                         output = self.transformer_ffn_layers[j](
@@ -729,9 +748,13 @@ class ReferringTracker_noiser(torch.nn.Module):
                             )
 
                         output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
+                            # output, tgt_mask=None,
+                            # tgt_key_padding_mask=None,
+                            # query_pos=None
+                            output, output, torch.cat([output, self.last_outputs[-1]], dim=0),
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
                         )
                         # FFN
                         output = self.transformer_ffn_layers[j](
