@@ -115,8 +115,8 @@ class MaskFormerHead(nn.Module):
             ),
         }
 
-    def forward(self, features, mask=None):
-        return self.layers(features, mask)
+    def forward(self, features, mask=None, clip_size=None):
+        return self.layers(features, mask, clip_size=clip_size)
 
     def layers(self, features, mask=None, clip_size=None):
         mask_features, transformer_encoder_features, multi_scale_features = self.pixel_decoder.forward_features(features)
