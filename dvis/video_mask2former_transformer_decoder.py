@@ -211,9 +211,6 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis_clip(VideoMultiScaleMaskedTra
         N_steps = hidden_dim // 2
         self.pe_layer = PositionEmbeddingSine(N_steps, normalize=True)
 
-    def _reset_clip_size(self, num_frames, clip_size):
-        return num_frames
-
     def forward(self, x, mask_features, mask=None, clip_size=2):
         # x is a list of multi-scale feature
         assert len(x) == self.num_feature_levels
@@ -223,8 +220,9 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis_clip(VideoMultiScaleMaskedTra
             if random.random() < 0.5:
                 clip_size = 1
         else:
-            if self.num_frames % clip_size != 0:
-                clip_size = self._reset_clip_size(self.num_frames, clip_size)
+            if x[0].shape[0] < clip_size:
+                clip_size = x[0].shape[0]
+            assert x[0].shape[0] == clip_size
 
         src = []
         pos = []
