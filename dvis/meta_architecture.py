@@ -1142,7 +1142,7 @@ class DVIS_online_clip(MinVIS):
             cost_mask=mask_weight,
             cost_dice=dice_weight,
             num_points=num_points,
-            frames=cfg.INPUT.SAMPLING_FRAME_NUM
+            frames=cfg.INPUT.SAMPLING_FRAME_NUM // cfg.MODEL.MASK_FORMER.TEST.CLIP_SIZE
         )
 
         weight_dict = {
@@ -1376,7 +1376,7 @@ class DVIS_online_clip(MinVIS):
             num_labeled_frames = targets_per_video['ids'].shape[1]
             for f in range(num_labeled_frames):
                 if f % clip_size != 0:
-                    pass
+                    continue
                 start = f * clip_size
                 end = start + clip_size
                 labels = targets_per_video['labels']
