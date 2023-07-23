@@ -222,7 +222,7 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis_clip(VideoMultiScaleMaskedTra
         else:
             if x[0].shape[0] < clip_size:
                 clip_size = x[0].shape[0]
-            assert x[0].shape[0] == clip_size
+            assert x[0].shape[0] % clip_size == 0
 
         src = []
         pos = []
