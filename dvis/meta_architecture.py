@@ -1383,6 +1383,7 @@ class DVIS_online_clip(MinVIS):
                 ids = targets_per_video['ids'][:, start:end]
                 masks = targets_per_video['masks'][:, start:end, :, :].flatten(1, 2).unsqueeze(1)
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
+        print(len(gt_instances))
         return image_outputs, outputs, gt_instances
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
