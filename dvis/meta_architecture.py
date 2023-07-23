@@ -1141,7 +1141,7 @@ class DVIS_online_clip(MinVIS):
             cost_class=class_weight,
             cost_mask=mask_weight,
             cost_dice=dice_weight,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            num_points=num_points,
             frames=cfg.INPUT.SAMPLING_FRAME_NUM
         )
 
@@ -1176,7 +1176,7 @@ class DVIS_online_clip(MinVIS):
         tracker = ReferringTracker_noiser_clip(
             hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
-            num_head=num_points,
+            num_head=cfg.MODEL.MASK_FORMER.NHEADS,
             decoder_layer_num=cfg.MODEL.TRACKER.DECODER_LAYERS,
             noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
