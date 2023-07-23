@@ -26,7 +26,7 @@ def _get_objects_from_outputs(outputs):
         if 'pred_ids' in outputs.keys():
             pred_ids = outputs['pred_ids']
         else:
-            pred_ids_ = None
+            pred_ids = None
 
         # filter low score instance prediction
         pred_scores_ = []
