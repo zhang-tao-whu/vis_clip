@@ -1228,7 +1228,7 @@ class ReferringTracker_noiser_clip(torch.nn.Module):
 
         for i in range(n_frame):
             if i % clip_size != 0:
-                pass
+                continue
             ms_output = []
             single_frame_embeds = frame_embeds[i]  # q b c
             if frame_embeds_no_norm is not None:
