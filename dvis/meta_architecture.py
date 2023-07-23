@@ -1377,11 +1377,10 @@ class DVIS_online_clip(MinVIS):
             for f in range(num_labeled_frames):
                 if f % clip_size != 0:
                     continue
-                start = f * clip_size
+                start = f
                 end = start + clip_size
                 labels = targets_per_video['labels']
                 ids = targets_per_video['ids'][:, start:end]
-                print(ids)
                 ids = ids.max(keepdim=True, dim=1)
                 masks = targets_per_video['masks'][:, start:end, :, :].flatten(1, 2).unsqueeze(1)
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
