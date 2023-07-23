@@ -1079,7 +1079,7 @@ class ReferringTracker_noiser_clip(torch.nn.Module):
         noise_mode='hard',
         feature_refusion=False,
     ):
-        super(ReferringTracker_noiser, self).__init__()
+        super(ReferringTracker_noiser_clip, self).__init__()
 
         # init transformer layers
         self.num_heads = num_head
