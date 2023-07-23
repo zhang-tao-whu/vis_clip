@@ -1,6 +1,6 @@
 _BASE_: MinVIS_R50_clip.yaml
 MODEL:
-  META_ARCHITECTURE: "DVIS_online"
+  META_ARCHITECTURE: "DVIS_online_clip"
   MASK_FORMER:
     TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_dvis_clip"
   TRACKER:
