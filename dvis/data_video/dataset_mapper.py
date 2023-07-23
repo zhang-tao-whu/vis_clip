@@ -273,10 +273,15 @@ class YTVISDatasetMapper:
             start_idx = max(0, ref_frame-self.sampling_frame_range)
             end_idx = min(video_length, ref_frame+self.sampling_frame_range + 1)
 
+            if end_idx - start_idx >= self.sampling_frame_num:
+                replace = False
+            else:
+                replace = True
+
             selected_idx = np.random.choice(
                 np.array(list(range(start_idx, ref_frame)) + list(range(ref_frame+1, end_idx))),
                 self.sampling_frame_num - 1,
-                replace=False
+                replace=replace
             )
             selected_idx = selected_idx.tolist() + [ref_frame]
             selected_idx = sorted(selected_idx)
@@ -498,10 +503,14 @@ class CocoClipDatasetMapper:
             start_idx = max(0, ref_frame - self.sampling_frame_range)
             end_idx = min(video_length, ref_frame + self.sampling_frame_range + 1)
 
+            if end_idx - start_idx >= self.sampling_frame_num:
+                replace = False
+            else:
+                replace = True
             selected_idx = np.random.choice(
                 np.array(list(range(start_idx, ref_frame)) + list(range(ref_frame + 1, end_idx))),
                 self.sampling_frame_num - 1,
-                replace=False
+                replace=replace
             )
             selected_idx = selected_idx.tolist() + [ref_frame]
             selected_idx = sorted(selected_idx)
