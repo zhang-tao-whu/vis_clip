@@ -569,7 +569,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         return self.memory
 
     def push_memory(self, query):
-        query = query.flatten(0, 1).unsqueeze(0)
+        query = query.detach().flatten(0, 1).unsqueeze(0)
         self.memory = torch.cat([self.memory, query], dim=0)[1:]
         return
 
