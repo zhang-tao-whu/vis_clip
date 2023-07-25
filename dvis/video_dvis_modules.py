@@ -1226,7 +1226,6 @@ class ReferringTracker_noiser_clip(torch.nn.Module):
         outputs = []
         ret_indices = []
 
-        print(frame_embeds[0:4, 0, 0, :10])
         for i in range(n_frame):
             if i % clip_size != 0:
                 continue
