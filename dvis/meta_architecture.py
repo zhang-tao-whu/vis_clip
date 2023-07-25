@@ -588,6 +588,8 @@ class DVIS_online(MinVIS):
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
             feature_refusion=cfg.MODEL.TRACKER.FEATURE_FUSION,
             multi_layer_noise=cfg.MODEL.TRACKER.MULTI_LAYER_NOISE,
+            use_memory=cfg.MODEL.TRACKER.USE_MEMORY,
+            memory_length=cfg.INPUT.SAMPLING_FRAME_NUM - 1,
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER

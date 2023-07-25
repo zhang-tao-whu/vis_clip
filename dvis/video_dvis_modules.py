@@ -453,6 +453,8 @@ class ReferringTracker_noiser(torch.nn.Module):
         noise_mode='hard',
         feature_refusion=False,
         multi_layer_noise=False,
+        use_memory=False,
+        memory_length=4,
     ):
         super(ReferringTracker_noiser, self).__init__()
 
@@ -543,6 +545,33 @@ class ReferringTracker_noiser(torch.nn.Module):
         self.feature_refusion = feature_refusion
         self.multi_layer_noise = multi_layer_noise
 
+        self.use_memory = use_memory
+        if use_memory:
+            self.memory_length = memory_length
+            self.none_embed = nn.Embedding(1, hidden_channel)
+            self.cur_pos = nn.Embedding(1, hidden_channel)
+            self.temporal_pos_embed = nn.Embedding(memory_length, hidden_channel)
+            self.transformer_cross_attention_layers_memory = nn.ModuleList()
+            for _ in range(self.num_layers):
+                self.transformer_cross_attention_layers_memory.append(
+                    CrossAttentionLayer(
+                        d_model=hidden_channel,
+                        nhead=num_head,
+                        dropout=0.0,
+                        normalize_before=False,
+                    )
+                )
+            self.memory = None
+
+    def get_memory(self, bs):
+        if self.memory is None:
+            self.memory = self.none_embed.weight.unsqueeze(0).repeat(self.memory_length, bs, 1)
+        return self.memory
+
+    def push_memory(self, query):
+        query = query.flatten(0, 1).unsqueeze(0)
+        self.memory = torch.cat([self.memory, query], dim=0)[1:]
+        return
 
     def _clear_memory(self):
         del self.last_outputs
@@ -550,6 +579,8 @@ class ReferringTracker_noiser(torch.nn.Module):
         if self.feature_refusion:
             del self.memory_feature
             self.memory_feature = None
+        if self.use_memory:
+            self.memory = None
         return
 
     def feature_query_fusion(self, feature, mask_features, memory_feature=None):
@@ -601,6 +632,10 @@ class ReferringTracker_noiser(torch.nn.Module):
         outputs = []
         ret_indices = []
 
+        if self.use_memory:
+            temporal_pos = self.temporal_pos_embed.weight.unsqueeze(1).repeat(1, n_q * bs, 1)
+            cur_pos = self.cur_pos.weight.unsqueeze(1).repeat(1, n_q * bs, 1)
+
         for i in range(n_frame):
             ms_output = []
             single_frame_embeds = frame_embeds[i]  # q b c
@@ -623,6 +658,8 @@ class ReferringTracker_noiser(torch.nn.Module):
                 mask_features_.append(single_frame_mask_feature)
             if self.feature_refusion:
                 single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
+            if self.use_memory:
+                memory = self.get_memory(bs=n_q * bs)
             # the first frame of a video
             if i == 0 and resume is False:
                 # self._clear_memory()
@@ -650,6 +687,16 @@ class ReferringTracker_noiser(torch.nn.Module):
                                 output, single_frame_embeds_no_norm, single_frame_feature
                             )
 
+                        if self.use_memory:
+                            output = output.flatten(0, 1).unsqueeze(0)
+                            output = self.transformer_cross_attention_layers_memory[j](
+                                output, self.memory,
+                                memory_mask=None,
+                                memory_key_padding_mask=None,
+                                pos=temporal_pos, query_pos=cur_pos
+                            )
+                            output = output.reshape(n_q, bs, -1)
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -672,6 +719,16 @@ class ReferringTracker_noiser(torch.nn.Module):
                             output = self.feature2query_fusion_layers[j](
                                 output, ms_output[-1], single_frame_feature
                             )
+
+                        if self.use_memory:
+                            output = output.flatten(0, 1).unsqueeze(0)
+                            output = self.transformer_cross_attention_layers_memory[j](
+                                output, self.memory,
+                                memory_mask=None,
+                                memory_key_padding_mask=None,
+                                pos=temporal_pos, query_pos=cur_pos
+                            )
+                            output = output.reshape(n_q, bs, -1)
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -707,6 +764,17 @@ class ReferringTracker_noiser(torch.nn.Module):
                             output = self.feature2query_fusion_layers[j](
                                 output, self.last_outputs[-1], single_frame_feature
                             )
+
+                        if self.use_memory:
+                            output = output.flatten(0, 1).unsqueeze(0)
+                            output = self.transformer_cross_attention_layers_memory[j](
+                                output, self.memory,
+                                memory_mask=None,
+                                memory_key_padding_mask=None,
+                                pos=temporal_pos, query_pos=cur_pos
+                            )
+                            output = output.reshape(n_q, bs, -1)
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -738,6 +806,16 @@ class ReferringTracker_noiser(torch.nn.Module):
                                 output, self.last_outputs[-1], single_frame_feature
                             )
 
+                        if self.use_memory:
+                            output = output.flatten(0, 1).unsqueeze(0)
+                            output = self.transformer_cross_attention_layers_memory[j](
+                                output, self.memory,
+                                memory_mask=None,
+                                memory_key_padding_mask=None,
+                                pos=temporal_pos, query_pos=cur_pos
+                            )
+                            output = output.reshape(n_q, bs, -1)
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -748,7 +826,7 @@ class ReferringTracker_noiser(torch.nn.Module):
                             output
                         )
                         ms_output.append(output)
-
+            self.push_memory(output)
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
             outputs.append(ms_output[1:])
