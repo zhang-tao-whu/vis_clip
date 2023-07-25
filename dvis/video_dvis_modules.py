@@ -452,6 +452,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         class_num=25,
         noise_mode='hard',
         feature_refusion=False,
+        multi_layer_noise=False,
     ):
         super(ReferringTracker_noiser, self).__init__()
 
@@ -540,6 +541,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
         self.feature_refusion = feature_refusion
+        self.multi_layer_noise = multi_layer_noise
 
 
     def _clear_memory(self):
@@ -716,12 +718,20 @@ class ReferringTracker_noiser(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds_no_norm,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
+                        if self.multi_layer_noise:
+                            output = self.transformer_cross_attention_layers[j](
+                                self.soft_noise(ms_output[-1]), self.last_outputs[-1], single_frame_embeds_no_norm,
+                                memory_mask=None,
+                                memory_key_padding_mask=None,
+                                pos=None, query_pos=None
+                            )
+                        else:
+                            output = self.transformer_cross_attention_layers[j](
+                                ms_output[-1], self.last_outputs[-1], single_frame_embeds_no_norm,
+                                memory_mask=None,
+                                memory_key_padding_mask=None,
+                                pos=None, query_pos=None
+                            )
                         # refusion
                         if self.feature_refusion:
                             output = self.feature2query_fusion_layers[j](
@@ -764,6 +774,15 @@ class ReferringTracker_noiser(torch.nn.Module):
             return out, ret_indices
         else:
             return out
+
+    def soft_noise(self, queries, ratio=0.5):
+        # queries (q, b, c)
+        indices = list(range(queries.shape[0]))
+        np.random.shuffle(indices)
+        noise = queries.detach()[indices]
+        ratio = ratio * random.random()
+        queries = queries * (1 - ratio) + noise * ratio
+        return queries
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_seg_masks):

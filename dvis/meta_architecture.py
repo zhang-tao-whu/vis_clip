@@ -587,6 +587,7 @@ class DVIS_online(MinVIS):
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
             feature_refusion=cfg.MODEL.TRACKER.FEATURE_FUSION,
+            multi_layer_noise=cfg.MODEL.TRACKER.MULTI_LAYER_NOISE,
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER
