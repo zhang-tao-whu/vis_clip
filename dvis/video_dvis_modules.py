@@ -569,7 +569,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         return self.memory
 
     def push_memory(self, query):
-        query = query.detach().flatten(0, 1).unsqueeze(0)
+        query = query.flatten(0, 1).unsqueeze(0)
         self.memory = torch.cat([self.memory, query], dim=0)[1:]
         return
 
@@ -826,7 +826,8 @@ class ReferringTracker_noiser(torch.nn.Module):
                             output
                         )
                         ms_output.append(output)
-            self.push_memory(output)
+            if self.use_memory:
+                self.push_memory(output)
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
             outputs.append(ms_output[1:])
