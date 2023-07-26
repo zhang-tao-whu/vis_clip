@@ -788,7 +788,7 @@ class ReferringTracker_noiser(torch.nn.Module):
                     else:
                         if self.multi_layer_noise and self.training:
                             output = self.transformer_cross_attention_layers[j](
-                                self.soft_noise(ms_output[-1]), self.last_outputs[-1], single_frame_embeds_no_norm,
+                                self.soft_noise(ms_output[-1], ratio=0.5 / j), self.last_outputs[-1], single_frame_embeds_no_norm,
                                 memory_mask=None,
                                 memory_key_padding_mask=None,
                                 pos=None, query_pos=None
@@ -858,7 +858,7 @@ class ReferringTracker_noiser(torch.nn.Module):
         # queries (q, b, c)
         indices = list(range(queries.shape[0]))
         np.random.shuffle(indices)
-        noise = queries.detach()[indices]
+        noise = queries[indices]
         ratio = ratio * random.random()
         queries = queries * (1 - ratio) + noise * ratio
         return queries
