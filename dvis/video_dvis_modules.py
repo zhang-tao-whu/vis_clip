@@ -786,7 +786,7 @@ class ReferringTracker_noiser(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
-                        if self.multi_layer_noise:
+                        if self.multi_layer_noise and self.training:
                             output = self.transformer_cross_attention_layers[j](
                                 self.soft_noise(ms_output[-1]), self.last_outputs[-1], single_frame_embeds_no_norm,
                                 memory_mask=None,
