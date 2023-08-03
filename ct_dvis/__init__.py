@@ -9,3 +9,4 @@
 # config
 from .config import add_ctdvis_config
 from .transformer_decoder import VideoMultiScaleMaskedTransformerDecoder_ctdvis
+from .meta_architecture import CT_DVIS_online

@@ -18,13 +18,13 @@ from mask2former_video.utils.memory import retry_if_cuda_oom
 
 from scipy.optimize import linear_sum_assignment
 
-from .video_dvis_modules import ReferringTracker, TemporalRefiner, ReferringTracker_noiser, ReferringTracker_noiser_clip
+from .video_dvis_modules import TemporalRefiner, ReferringTracker_noiser
 from dvis.meta_architecture import MinVIS
 
 logger = logging.getLogger(__name__)
 
 @META_ARCH_REGISTRY.register()
-class DVIS_online(MinVIS):
+class CT_DVIS_online(MinVIS):
     """
     Online version of DVIS, including a segmenter and a referring tracker.
     """
@@ -286,13 +286,14 @@ class DVIS_online(MinVIS):
                 object_labels = self._get_instance_labels(image_outputs['pred_logits'])
                 frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
                 frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
+                frame_reid_embeds = image_outputs['pred_reid_embed'].clone().detach()  # (b, c, t, q)
                 mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
                 del image_outputs['mask_features']
                 torch.cuda.empty_cache()
             outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True,
                                             resume=self.keep, frame_classes=object_labels,
                                             frame_embeds_no_norm=frame_embds_no_norm,
-                                            cur_feature=cur_features)
+                                            cur_feature=cur_features, reid_embeds=frame_reid_embeds)
             image_outputs = self.reset_image_output_order(image_outputs, indices)
 
         if self.training:
@@ -427,14 +428,15 @@ class DVIS_online(MinVIS):
             # referring tracker inference
             frame_embds = out['pred_embds']  # (b, c, t, q)
             frame_embds_no_norm = out['pred_embds_without_norm']
+            frame_reid_embeds = out['pred_reid_embed']  # (b, c, t, q)
             mask_features = out['mask_features'].unsqueeze(0)
             if i != 0 or self.keep:
                 track_out = self.tracker(frame_embds, mask_features,
                                          resume=True, frame_embeds_no_norm=frame_embds_no_norm,
-                                         cur_feature=cur_features)
+                                         cur_feature=cur_features, reid_embeds=frame_reid_embeds)
             else:
                 track_out = self.tracker(frame_embds, mask_features, frame_embeds_no_norm=frame_embds_no_norm,
-                                         cur_feature=cur_features)
+                                         cur_feature=cur_features, reid_embeds=frame_reid_embeds)
             # remove unnecessary variables to save GPU memory
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
