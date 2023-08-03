@@ -54,7 +54,7 @@ class VideoMultiScaleMaskedTransformerDecoder_ctdvis(VideoMultiScaleMaskedTransf
         # add ct head
         if num_reid_head_layers > 0:
             self.reid_embed = MLP(
-                self.hidden_dim, reid_hidden_dim, self.hidden_dim, num_reid_head_layers)
+                hidden_dim, reid_hidden_dim, hidden_dim, num_reid_head_layers)
             for layer in self.reid_embed.layers:
                 weight_init.c2_xavier_fill(layer)
         else:
