@@ -187,6 +187,7 @@ class CT_DVIS_online(MinVIS):
             multi_layer_noise=cfg.MODEL.TRACKER.MULTI_LAYER_NOISE,
             use_memory=cfg.MODEL.TRACKER.USE_MEMORY,
             memory_length=cfg.INPUT.SAMPLING_FRAME_NUM - 1,
+            transformer_decoder=sem_seg_head.predictor
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER
