@@ -59,7 +59,7 @@ from dvis import (
     build_detection_train_loader,
     build_detection_test_loader,
 )
-
+from ct_dvis import add_ctdvis_config
 
 class Trainer(DefaultTrainer):
     """
@@ -284,6 +284,7 @@ def setup(args):
     add_maskformer2_video_config(cfg)
     add_minvis_config(cfg)
     add_dvis_config(cfg)
+    add_ctdvis_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
