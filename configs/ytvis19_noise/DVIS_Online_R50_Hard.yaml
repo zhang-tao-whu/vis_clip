@@ -1,9 +1,10 @@
 _BASE_: MinVIS_R50.yaml
-
 MODEL:
   META_ARCHITECTURE: "DVIS_online"
   MASK_FORMER:
-    TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_ctdvis"
+    TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_dvis"
+  TRACKER:
+    NOISE_MODE: "hard"
 
 SOLVER:
   IMS_PER_BATCH: 8
@@ -14,5 +15,4 @@ INPUT:
   SAMPLING_FRAME_NUM: 5
   SAMPLING_FRAME_RANGE: 2
 
-OUTPUT_DIR: './output_CT_DVIS_Online_R50_YTVIS19'
-
+OUTPUT_DIR: './output_DVIS_Online_R50_YTVIS19_Hard'
