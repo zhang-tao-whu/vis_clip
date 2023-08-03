@@ -87,7 +87,7 @@ class VideoMultiScaleMaskedTransformerDecoder_ctdvis(VideoMultiScaleMaskedTransf
 
         ret["num_frames"] = cfg.INPUT.SAMPLING_FRAME_NUM
 
-        ret["num_reid_head_layers"] = cfg.MODEL.MASK_FORMER.REID_HIDDEN_DIM
+        ret["reid_hidden_dim"] = cfg.MODEL.MASK_FORMER.REID_HIDDEN_DIM
         ret["num_reid_head_layers"] = cfg.MODEL.MASK_FORMER.NUM_REID_HEAD_LAYERS
         return ret
 
