@@ -18,6 +18,7 @@ from mask2former_video.modeling.criterion import VideoSetCriterion
 from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from .meta_architecture import MinVIS
+import fvcore.nn.weight_init as weight_init
 from scipy.optimize import linear_sum_assignment
 
 class ReferringCrossAttentionLayer(nn.Module):
@@ -167,8 +168,16 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+        self.ref_proj_out = nn.Linear(hidden_channel, hidden_channel)
         self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         self.ref_fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
+
+        for layer in self.ref_proj.layers:
+            weight_init.c2_xavier_fill(layer)
+        for layer in self.key_proj.layers:
+            weight_init.c2_xavier_fill(layer)
+        for layer in self.ref_proj_out.layers:
+            weight_init.c2_xavier_fill(layer)
 
         # mask features projection
         self.mask_feature_proj = nn.Conv2d(
@@ -373,7 +382,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                outputs_class, outputs_masks
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
-           'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
+           'pred_references': self.ref_proj_out(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_keys': all_frames_keys.permute(2, 3, 0, 1),  # (b, c, t, q),
         }
         if return_indices:
@@ -1027,7 +1036,7 @@ class ClDVIS_online(MinVIS):
             for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
                 gt2key[i_gt.item()] = i_key.item()
 
-            print(gt2ref, '**********', gt2key)
+            #print(gt2ref, '**********', gt2key)
             # per instance
             for i_gt in gt2ref.keys():
                 if gt_ids[i_gt] == -1:
@@ -1037,7 +1046,7 @@ class ClDVIS_online(MinVIS):
                 anchor_embeds = frame_reference[[i_ref]]
                 pos_embeds = frame_key[[i_key]]
                 neg_range = list(range(0, i_key)) + list(range(i_key + 1, frame_key.size(0)))
-                print(neg_range, '---------', i_key)
+                #print(neg_range, '---------', i_key)
                 neg_embeds = frame_key[neg_range]
 
                 num_positive = pos_embeds.shape[0]
