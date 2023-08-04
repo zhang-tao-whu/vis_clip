@@ -1022,10 +1022,10 @@ class ClDVIS_online(MinVIS):
 
             gt2ref = {}
             for i_ref, i_gt in zip(frame_ref_gt_indices[0], frame_ref_gt_indices[1]):
-                gt2ref[i_gt] = i_ref
+                gt2ref[i_gt.item()] = i_ref.item()
             gt2key = {}
             for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
-                gt2key[i_gt] = i_key
+                gt2key[i_gt.item()] = i_key.item()
 
             # per instance
             print(gt2ref)
