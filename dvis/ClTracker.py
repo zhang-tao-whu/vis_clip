@@ -1028,6 +1028,8 @@ class ClDVIS_online(MinVIS):
                 gt2key[i_gt] = i_key
 
             # per instance
+            print(gt2ref)
+            print(gt2key)
             for i_gt in gt2ref.keys():
                 if gt_ids[i_gt] == -1:
                     continue
