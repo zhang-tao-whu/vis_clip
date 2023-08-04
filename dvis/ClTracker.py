@@ -176,8 +176,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             weight_init.c2_xavier_fill(layer)
         for layer in self.key_proj.layers:
             weight_init.c2_xavier_fill(layer)
-        for layer in self.ref_proj_out.layers:
-            weight_init.c2_xavier_fill(layer)
+        weight_init.c2_xavier_fill(self.ref_proj_out)
 
         # mask features projection
         self.mask_feature_proj = nn.Conv2d(
