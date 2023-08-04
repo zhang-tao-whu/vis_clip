@@ -183,8 +183,10 @@ class VideoMultiScaleMaskedTransformerDecoder_ctdvis(VideoMultiScaleMaskedTransf
             'aux_outputs': self._set_aux_loss(
                 predictions_class if self.mask_classification else None, predictions_mask
             ),
-            'pred_embds': pred_embds,
-            'pred_embds_without_norm': pred_embds_without_norm,
+            # 'pred_embds': pred_embds,
+            # 'pred_embds_without_norm': pred_embds_without_norm,
+            'pred_embds': reid_embed,
+            'pred_embds_without_norm': reid_embed,
             'pred_reid_embed': reid_embed,
             'mask_features': mask_features
         }
