@@ -168,7 +168,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
-        self.ref_proj_out = nn.Linear(hidden_channel, hidden_channel)
         self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         self.ref_fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
 
@@ -176,7 +175,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
             weight_init.c2_xavier_fill(layer)
         for layer in self.key_proj.layers:
             weight_init.c2_xavier_fill(layer)
-        weight_init.c2_xavier_fill(self.ref_proj_out)
 
         # mask features projection
         self.mask_feature_proj = nn.Conv2d(
@@ -381,7 +379,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                outputs_class, outputs_masks
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
-           'pred_references': self.ref_proj_out(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
+           'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_keys': all_frames_keys.permute(2, 3, 0, 1),  # (b, c, t, q),
         }
         if return_indices:
@@ -697,6 +695,10 @@ class ClDVIS_online(MinVIS):
             image_outputs_without_aux = {k: v for k, v in image_outputs.items() if k != "aux_outputs"}
             key_match_result = self.criterion.matcher(image_outputs_without_aux, targets)
             losses_cl = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
+            if self.iter < 2000:
+                for item in losses_cl:
+                    val = losses_cl[item].detach().item
+                    losses_cl[item] = losses_cl[item] * 0.0 + val
             losses.update(losses_cl)
 
             self.iter += 1
