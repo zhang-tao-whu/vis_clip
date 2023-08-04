@@ -1027,6 +1027,7 @@ class ClDVIS_online(MinVIS):
             for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
                 gt2key[i_gt.item()] = i_key.item()
 
+            print(gt2ref, '**********', gt2key)
             # per instance
             for i_gt in gt2ref.keys():
                 if gt_ids[i_gt] == -1:
@@ -1036,6 +1037,7 @@ class ClDVIS_online(MinVIS):
                 anchor_embeds = frame_reference[[i_ref]]
                 pos_embeds = frame_key[[i_key]]
                 neg_range = list(range(0, i_key)) + list(range(i_key + 1, frame_key.size(0)))
+                print(neg_range, '---------', i_key)
                 neg_embeds = frame_key[neg_range]
 
                 num_positive = pos_embeds.shape[0]
