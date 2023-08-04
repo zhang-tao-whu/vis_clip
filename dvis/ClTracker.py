@@ -771,6 +771,7 @@ class ClDVIS_online(MinVIS):
         # pred logits, shape is (b, t, q, c)
         output['pred_logits'][0] = output['pred_logits'][0][frame_indices, indices]
 
+        print(pred_keys.shape)
         pred_keys[0] = pred_keys[0][:, frame_indices, indices]
         return output, pred_keys
 
