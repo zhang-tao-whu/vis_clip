@@ -185,8 +185,8 @@ class VideoMultiScaleMaskedTransformerDecoder_ctdvis(VideoMultiScaleMaskedTransf
             ),
             # 'pred_embds': pred_embds,
             # 'pred_embds_without_norm': pred_embds_without_norm,
-            'pred_embds': reid_embed,
-            'pred_embds_without_norm': reid_embed,
+            'pred_embds': torch.cat([pred_embds, reid_embed], dim=1),
+            'pred_embds_without_norm': torch.cat([pred_embds_without_norm, reid_embed], dim=1),
             'pred_reid_embed': reid_embed,
             'mask_features': mask_features
         }
