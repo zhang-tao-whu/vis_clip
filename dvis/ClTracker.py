@@ -697,7 +697,7 @@ class ClDVIS_online(MinVIS):
             losses_cl = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
             if self.iter < 2000:
                 for item in losses_cl:
-                    val = losses_cl[item].detach().item
+                    val = losses_cl[item].detach().item()
                     losses_cl[item] = losses_cl[item] * 0.0 + val
             losses.update(losses_cl)
 
