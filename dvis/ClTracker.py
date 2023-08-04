@@ -544,7 +544,7 @@ class ClDVIS_online(MinVIS):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
 
-        weight_dict.update({'loss_reid': 2, 'loss_aux_reid': 3})
+        weight_dict.update({'loss_reid': 0.2, 'loss_aux_reid': 3})
 
         losses = ["labels", "masks"]
 
@@ -695,10 +695,10 @@ class ClDVIS_online(MinVIS):
             image_outputs_without_aux = {k: v for k, v in image_outputs.items() if k != "aux_outputs"}
             key_match_result = self.criterion.matcher(image_outputs_without_aux, targets)
             losses_cl = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
-            if self.iter < 2000:
-                for item in losses_cl:
-                    val = losses_cl[item].detach().item()
-                    losses_cl[item] = losses_cl[item] * 0.0 + val
+            # if self.iter < 2000:
+            #     for item in losses_cl:
+            #         val = losses_cl[item].detach().item()
+            #         losses_cl[item] = losses_cl[item] * 0.0 + val
             losses.update(losses_cl)
 
             self.iter += 1
