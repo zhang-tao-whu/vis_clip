@@ -1028,8 +1028,6 @@ class ClDVIS_online(MinVIS):
                 gt2key[i_gt.item()] = i_key.item()
 
             # per instance
-            print(gt2ref)
-            print(gt2key)
             for i_gt in gt2ref.keys():
                 if gt_ids[i_gt] == -1:
                     continue
@@ -1064,7 +1062,7 @@ class ClDVIS_online(MinVIS):
                     'cosine_similarity': aux_cosine_similarity,
                     'label': pos_neg_label})
 
-        losses = loss_reid(contrastive_items)
+        losses = loss_reid(contrastive_items, outputs)
         return losses
 
 
