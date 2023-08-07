@@ -11,7 +11,7 @@ class ReferencesMemory:
 
     def append(self, references):
         # references (q, b, c)
-        if len(references) == 0:
+        if len(self.references) == 0:
             self.references.append(references)
             self.similarity_guided_references = references
             self.weighted_references.append(references)
