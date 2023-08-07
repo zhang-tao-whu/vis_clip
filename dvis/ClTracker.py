@@ -168,13 +168,13 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
-        self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+        # self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         #self.ref_fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
 
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
-        for layer in self.key_proj.layers:
-            weight_init.c2_xavier_fill(layer)
+        # for layer in self.key_proj.layers:
+        #     weight_init.c2_xavier_fill(layer)
 
         # mask features projection
         self.mask_feature_proj = nn.Conv2d(
@@ -244,8 +244,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
             else:
                 single_frame_classes = frame_classes[i]
 
-            frame_key = self.key_proj(single_frame_embeds_no_norm)
-            #frame_key = single_frame_embeds_no_norm
+            # frame_key = self.key_proj(single_frame_embeds_no_norm)
+            frame_key = single_frame_embeds_no_norm
 
             # the first frame of a video
             if i == 0 and resume is False:
@@ -546,7 +546,7 @@ class ClDVIS_online(MinVIS):
             weight_dict.update(aux_weight_dict)
 
         weight_dict.update({'loss_reid': 2, 'loss_aux_reid': 3})
-        weight_dict.update({'loss_reid_key': 2, 'loss_aux_reid_key': 3})
+        #weight_dict.update({'loss_reid_key': 2, 'loss_aux_reid_key': 3})
 
         losses = ["labels", "masks"]
 
@@ -699,8 +699,8 @@ class ClDVIS_online(MinVIS):
             #losses_cl = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
             losses_cl = self.get_cl_loss_ref(outputs, targets, reference_match_result, key_match_result)
             losses.update(losses_cl)
-            losses_cl_key = self.get_cl_loss_key(outputs, targets, reference_match_result, key_match_result)
-            losses.update(losses_cl_key)
+            # losses_cl_key = self.get_cl_loss_key(outputs, targets, reference_match_result, key_match_result)
+            # losses.update(losses_cl_key)
 
             self.iter += 1
 
@@ -1144,70 +1144,70 @@ class ClDVIS_online(MinVIS):
         losses_ = {'loss_reid_key': losses['loss_reid'], 'loss_aux_reid_key': losses['loss_aux_reid']}
         return losses_
 
-    def get_cl_loss_key(self, outputs, targets, referecne_match_result, key_match_result):
-        # outputs['pred_keys'] = (b t) q c
-        # outputs['pred_references'] = (b t) q c
-        references = outputs['pred_references']
-        keys = outputs['pred_keys']
-
-        # per frame
-        contrastive_items = []
-        for i in range(references.size(0)):
-            if i == 0:
-                continue
-            frame_key = keys[i]  # (q, c)
-            frame_key_ = keys[i - 1]
-            frame_key_gt_indices = key_match_result[i]
-            frame_key_gt_indices_ = key_match_result[i - 1]
-            gt_ids = targets[i]['ids']  # (N_gt)
-            gt_ids_ = targets[i-1]['ids']  # (N_gt)
-
-            gt2key = {}
-            for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
-                gt2key[i_gt.item()] = i_key.item()
-            gt2key_ = {}
-            for i_key, i_gt in zip(frame_key_gt_indices_[0], frame_key_gt_indices_[1]):
-                gt2key_[i_gt.item()] = i_key.item()
-
-            #print(gt2ref, '**********', gt2key)
-            # per instance
-            for i_gt in gt2key.keys():
-                if gt_ids[i_gt] == -1 or gt_ids_[i_gt] == -1:
-                    continue
-                i_key = gt2key[i_gt]
-                i_key_ = gt2key_[i_gt]
-                anchor_embeds = frame_key[[i_key]]
-                pos_embeds = frame_key_[[i_key_]]
-                neg_range = list(range(0, i_key)) + list(range(i_key + 1, frame_key.size(0)))
-                #print(neg_range, '---------', i_key)
-                neg_embeds = frame_key[neg_range]
-
-                num_positive = pos_embeds.shape[0]
-                # concate pos and neg to get whole constractive samples
-                pos_neg_embedding = torch.cat(
-                    [pos_embeds, neg_embeds], dim=0)
-                # generate label, pos is 1, neg is 0
-                pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
-                                                            dtype=torch.int64)  # noqa
-                pos_neg_label[:num_positive] = 1.
-
-                # dot product
-                dot_product = torch.einsum(
-                    'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
-                aux_normalize_pos_neg_embedding = nn.functional.normalize(
-                    pos_neg_embedding, dim=1)
-                aux_normalize_anchor_embedding = nn.functional.normalize(
-                    anchor_embeds, dim=1)
-
-                aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
-                                                                   aux_normalize_anchor_embedding])
-                contrastive_items.append({
-                    'dot_product': dot_product,
-                    'cosine_similarity': aux_cosine_similarity,
-                    'label': pos_neg_label})
-
-        losses = loss_reid(contrastive_items, outputs)
-        return losses
+    # def get_cl_loss_key(self, outputs, targets, referecne_match_result, key_match_result):
+    #     # outputs['pred_keys'] = (b t) q c
+    #     # outputs['pred_references'] = (b t) q c
+    #     references = outputs['pred_references']
+    #     keys = outputs['pred_keys']
+    #
+    #     # per frame
+    #     contrastive_items = []
+    #     for i in range(references.size(0)):
+    #         if i == 0:
+    #             continue
+    #         frame_key = keys[i]  # (q, c)
+    #         frame_key_ = keys[i - 1]
+    #         frame_key_gt_indices = key_match_result[i]
+    #         frame_key_gt_indices_ = key_match_result[i - 1]
+    #         gt_ids = targets[i]['ids']  # (N_gt)
+    #         gt_ids_ = targets[i-1]['ids']  # (N_gt)
+    #
+    #         gt2key = {}
+    #         for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
+    #             gt2key[i_gt.item()] = i_key.item()
+    #         gt2key_ = {}
+    #         for i_key, i_gt in zip(frame_key_gt_indices_[0], frame_key_gt_indices_[1]):
+    #             gt2key_[i_gt.item()] = i_key.item()
+    #
+    #         #print(gt2ref, '**********', gt2key)
+    #         # per instance
+    #         for i_gt in gt2key.keys():
+    #             if gt_ids[i_gt] == -1 or gt_ids_[i_gt] == -1:
+    #                 continue
+    #             i_key = gt2key[i_gt]
+    #             i_key_ = gt2key_[i_gt]
+    #             anchor_embeds = frame_key[[i_key]]
+    #             pos_embeds = frame_key_[[i_key_]]
+    #             neg_range = list(range(0, i_key)) + list(range(i_key + 1, frame_key.size(0)))
+    #             #print(neg_range, '---------', i_key)
+    #             neg_embeds = frame_key[neg_range]
+    #
+    #             num_positive = pos_embeds.shape[0]
+    #             # concate pos and neg to get whole constractive samples
+    #             pos_neg_embedding = torch.cat(
+    #                 [pos_embeds, neg_embeds], dim=0)
+    #             # generate label, pos is 1, neg is 0
+    #             pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
+    #                                                         dtype=torch.int64)  # noqa
+    #             pos_neg_label[:num_positive] = 1.
+    #
+    #             # dot product
+    #             dot_product = torch.einsum(
+    #                 'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
+    #             aux_normalize_pos_neg_embedding = nn.functional.normalize(
+    #                 pos_neg_embedding, dim=1)
+    #             aux_normalize_anchor_embedding = nn.functional.normalize(
+    #                 anchor_embeds, dim=1)
+    #
+    #             aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
+    #                                                                aux_normalize_anchor_embedding])
+    #             contrastive_items.append({
+    #                 'dot_product': dot_product,
+    #                 'cosine_similarity': aux_cosine_similarity,
+    #                 'label': pos_neg_label})
+    #
+    #     losses = loss_reid(contrastive_items, outputs)
+    #     return losses
 
 def loss_reid(qd_items, outputs):
     # outputs only using when have not contrastive items
