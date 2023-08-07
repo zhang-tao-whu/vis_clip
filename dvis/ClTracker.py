@@ -1091,7 +1091,7 @@ class ClDVIS_online(MinVIS):
             if i == 0:
                 continue
             frame_reference, frame_key = references[i], keys[i] # (q, c)
-            frame_reference_  = references[i - 1]  # (q, c)
+            frame_reference_ = references[i - 1]  # (q, c)
             frame_ref_gt_indices = referecne_match_result[i]
             frame_key_gt_indices = key_match_result[i]
             gt_ids = targets[i]['ids']  # (N_gt)
@@ -1107,7 +1107,7 @@ class ClDVIS_online(MinVIS):
             #print(gt2ref, '**********', gt2key)
             # per instance
             for i_gt in gt2ref.keys():
-                if gt_ids[i_gt] == -1 or gt_ids_[i_gt]:
+                if gt_ids[i_gt] == -1 or gt_ids_[i_gt] == -1:
                     continue
                 i_ref = gt2ref[i_gt]
                 i_key = gt2key[i_gt]
@@ -1116,6 +1116,71 @@ class ClDVIS_online(MinVIS):
                 neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
                 #print(neg_range, '---------', i_key)
                 neg_embeds = frame_reference_[neg_range]
+
+                num_positive = pos_embeds.shape[0]
+                # concate pos and neg to get whole constractive samples
+                pos_neg_embedding = torch.cat(
+                    [pos_embeds, neg_embeds], dim=0)
+                # generate label, pos is 1, neg is 0
+                pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
+                                                            dtype=torch.int64)  # noqa
+                pos_neg_label[:num_positive] = 1.
+
+                # dot product
+                dot_product = torch.einsum(
+                    'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
+                aux_normalize_pos_neg_embedding = nn.functional.normalize(
+                    pos_neg_embedding, dim=1)
+                aux_normalize_anchor_embedding = nn.functional.normalize(
+                    anchor_embeds, dim=1)
+
+                aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
+                                                                   aux_normalize_anchor_embedding])
+                contrastive_items.append({
+                    'dot_product': dot_product,
+                    'cosine_similarity': aux_cosine_similarity,
+                    'label': pos_neg_label})
+
+        losses = loss_reid(contrastive_items, outputs)
+        return losses
+
+    def get_cl_loss_key(self, outputs, targets, referecne_match_result, key_match_result):
+        # outputs['pred_keys'] = (b t) q c
+        # outputs['pred_references'] = (b t) q c
+        references = outputs['pred_references']
+        keys = outputs['pred_keys']
+
+        # per frame
+        contrastive_items = []
+        for i in range(references.size(0)):
+            if i == 0:
+                continue
+            frame_key = keys[i]  # (q, c)
+            frame_key_ = keys[i - 1]
+            frame_key_gt_indices = key_match_result[i]
+            frame_key_gt_indices_ = key_match_result[i - 1]
+            gt_ids = targets[i]['ids']  # (N_gt)
+            gt_ids_ = targets[i-1]['ids']  # (N_gt)
+
+            gt2key = {}
+            for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
+                gt2key[i_gt.item()] = i_key.item()
+            gt2key_ = {}
+            for i_key, i_gt in zip(frame_key_gt_indices_[0], frame_key_gt_indices_[1]):
+                gt2key_[i_gt.item()] = i_key.item()
+
+            #print(gt2ref, '**********', gt2key)
+            # per instance
+            for i_gt in gt2key.keys():
+                if gt_ids[i_gt] == -1 or gt_ids_[i_gt] == -1:
+                    continue
+                i_key = gt2key[i_gt]
+                i_key_ = gt2key_[i_gt]
+                anchor_embeds = frame_key[[i_key]]
+                pos_embeds = frame_key_[[i_key_]]
+                neg_range = list(range(0, i_key)) + list(range(i_key + 1, frame_key.size(0)))
+                #print(neg_range, '---------', i_key)
+                neg_embeds = frame_key[neg_range]
 
                 num_positive = pos_embeds.shape[0]
                 # concate pos and neg to get whole constractive samples
