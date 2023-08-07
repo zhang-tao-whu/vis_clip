@@ -15,4 +15,4 @@ INPUT:
   SAMPLING_FRAME_NUM: 5
   SAMPLING_FRAME_RANGE: 2
 
-OUTPUT_DIR: './output_CT_ClDVIS_Online_R50_YTVIS19_Hard_combine'
+OUTPUT_DIR: './output_CT_ClDVIS_Online_R50_YTVIS19_Hard_combine_debug'
