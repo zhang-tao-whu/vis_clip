@@ -1141,8 +1141,7 @@ class ClDVIS_online(MinVIS):
                     'label': pos_neg_label})
 
         losses = loss_reid(contrastive_items, outputs)
-        losses_ = {'loss_reid_key': losses['loss_reid'], 'loss_aux_reid_key': losses['loss_aux_reid']}
-        return losses_
+        return losses
 
     # def get_cl_loss_key(self, outputs, targets, referecne_match_result, key_match_result):
     #     # outputs['pred_keys'] = (b t) q c
