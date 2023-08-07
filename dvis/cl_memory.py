@@ -27,7 +27,7 @@ class ReferencesMemory:
                                                             dim=-1)), dim=0) / min(self.exist_frames, self.max_len)  # (q, b)
             beta = torch.clamp(similarity, 0, 1).unsqueeze(2)
             # momentum update similarity_guided_reid_embed, maye avoid the negative effect of occlusion
-            self.similarity_guided_references = (1 - beta) * self.similarity_guided_references + beta * positive_embed  # noqa
+            self.similarity_guided_references = (1 - beta) * self.similarity_guided_references + beta * references  # noqa
             self.weighted_references.append(
                 self.similarity_guided_references)
             self.references.append(references)
