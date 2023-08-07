@@ -545,7 +545,7 @@ class ClDVIS_online(MinVIS):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
 
-        #weight_dict.update({'loss_reid': 2, 'loss_aux_reid': 3})
+        weight_dict.update({'loss_reid': 2, 'loss_aux_reid': 3})
 
         losses = ["labels", "masks"]
 
