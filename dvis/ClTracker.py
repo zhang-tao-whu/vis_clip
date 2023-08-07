@@ -263,7 +263,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
-                            noised_init, self.ref_proj(frame_key),
+                            noised_init, self.ref_proj(single_frame_embeds_no_norm),
                             frame_key, single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
@@ -299,7 +299,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             output
                         )
                         ms_output.append(output)
-                self.last_reference = self.ref_proj(frame_key)
+                self.last_reference = self.ref_proj(single_frame_embeds_no_norm)
             else:
                 reference = self.ref_proj(self.last_outputs[-1])
                 #beta = self.ref_fuse(torch.cat([self.last_reference, reference], dim=-1)).sigmoid()
