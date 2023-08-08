@@ -19,6 +19,7 @@ from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHunga
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from .meta_architecture import MinVIS
 import fvcore.nn.weight_init as weight_init
+import random
 from scipy.optimize import linear_sum_assignment
 
 class ReferringCrossAttentionLayer(nn.Module):
@@ -160,7 +161,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 )
             )
 
-        self.use_memory = True
+        self.use_memory = False
         if self.use_memory:
             self.memory_cross_attn = CrossAttentionLayer(
                 d_model=hidden_channel,
@@ -1106,7 +1107,8 @@ class ClDVIS_online(MinVIS):
             if i == 0:
                 continue
             frame_reference, frame_key = references[i], keys[i] # (q, c)
-            frame_reference_ = references[i - 1]  # (q, c)
+            # frame_reference_ = references[i - 1]  # (q, c)
+            frame_reference_ = references[random.randint(0, i - 1)]  # (q, c)
             frame_ref_gt_indices = referecne_match_result[i]
             frame_key_gt_indices = key_match_result[i]
             gt_ids = targets[i]['ids']  # (N_gt)
