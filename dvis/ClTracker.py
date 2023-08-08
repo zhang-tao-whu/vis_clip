@@ -160,6 +160,15 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 )
             )
 
+        self.use_memory = True
+        if self.use_memory:
+            self.memory_cross_attn = CrossAttentionLayer(
+                d_model=hidden_channel,
+                nhead=num_head,
+                dropout=0.0,
+                normalize_before=False,)
+            self.references_memory = None
+
         self.decoder_norm = nn.LayerNorm(hidden_channel)
 
         # init heads
@@ -206,6 +215,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         del self.last_outputs
         self.last_outputs = None
         self.last_reference = None
+        self.references_memory = None
         return
 
     def forward(self, frame_embeds, mask_features, resume=False,
@@ -300,10 +310,18 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         )
                         ms_output.append(output)
                 self.last_reference = self.ref_proj(frame_key)
+                self.references_memory = self.last_reference.flatten(0, 1).unsqueeze(0)  # (1, qb, c)
             else:
                 reference = self.ref_proj(self.last_outputs[-1])
                 #beta = self.ref_fuse(torch.cat([self.last_reference, reference], dim=-1)).sigmoid()
                 #reference = beta * reference + (1 - beta) * self.last_reference
+
+                #do memory attn
+                r_q, r_b, r_c = reference.size()
+                reference_ = self.memory_cross_attn(reference.flatten(0, 1).unsqueeze(0), self.references_memory)
+                self.references_memory = torch.cat([self.references_memory, reference.flatten(0, 1).unsqueeze(0)], dim=0)
+                reference = reference_.reshape(r_q, r_b, r_c)
+
                 self.last_reference = reference
 
                 for j in range(self.num_layers):
