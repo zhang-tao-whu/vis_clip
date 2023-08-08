@@ -1103,8 +1103,8 @@ class ClDVIS_online(MinVIS):
             #print(gt2ref, '**********', gt2key)
             # per instance
             for i_gt in gt2ref.keys():
-                if gt_ids[i_gt] == -1 or gt_ids_[i_gt] == -1:
-                    continue
+                # if gt_ids[i_gt] == -1 or gt_ids_[i_gt] == -1:
+                #     continue
                 i_ref = gt2ref[i_gt]
                 i_key = gt2key[i_gt]
                 anchor_embeds = frame_reference[[i_ref]]
