@@ -565,7 +565,8 @@ class ClDVIS_online(MinVIS):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
 
-        weight_dict.update({'loss_reid': 2, 'loss_aux_reid': 3})
+        # weight_dict.update({'loss_reid': 2, 'loss_aux_reid': 3})
+        weight_dict.update({'loss_reid': 2})
 
         losses = ["labels", "masks"]
 
@@ -1107,8 +1108,8 @@ class ClDVIS_online(MinVIS):
             if i == 0:
                 continue
             frame_reference, frame_key = references[i], keys[i] # (q, c)
-            # frame_reference_ = references[i - 1]  # (q, c)
-            frame_reference_ = references[random.randint(0, i - 1)]  # (q, c)
+            frame_reference_ = references[i - 1]  # (q, c)
+            #frame_reference_ = references[random.randint(0, i - 1)]  # (q, c)
             frame_ref_gt_indices = referecne_match_result[i]
             frame_key_gt_indices = key_match_result[i]
             gt_ids = targets[i]['ids']  # (N_gt)
