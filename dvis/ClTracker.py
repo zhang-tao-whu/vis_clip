@@ -1109,7 +1109,6 @@ class ClDVIS_online(MinVIS):
                 continue
             frame_reference, frame_key = references[i], keys[i] # (q, c)
             frame_reference_ = references[i - 1]  # (q, c)
-            #frame_reference_ = references[random.randint(0, i - 1)]  # (q, c)
             frame_ref_gt_indices = referecne_match_result[i]
             frame_key_gt_indices = key_match_result[i]
             gt_ids = targets[i]['ids']  # (N_gt)
