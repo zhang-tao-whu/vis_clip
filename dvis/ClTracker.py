@@ -1108,7 +1108,14 @@ class ClDVIS_online(MinVIS):
             if i == 0:
                 continue
             frame_reference, frame_key = references[i], keys[i] # (q, c)
-            frame_reference_ = references[i - 1].detach()  # (q, c)
+            # frame_reference_ = references[i - 1].detach()  # (q, c)
+            frame_reference_ = references[i - 1]  # (q, c)
+
+            if i != references.size(0) - 1:
+                frame_reference_next = references[i + 1]
+            else:
+                frame_reference_next = None
+
             frame_ref_gt_indices = referecne_match_result[i]
             frame_key_gt_indices = key_match_result[i]
             gt_ids = targets[i]['ids']  # (N_gt)
@@ -1157,6 +1164,36 @@ class ClDVIS_online(MinVIS):
                     'dot_product': dot_product,
                     'cosine_similarity': aux_cosine_similarity,
                     'label': pos_neg_label})
+
+                if frame_reference_next is not None:
+                    pos_embeds = frame_reference_next[[i_ref]]
+                    neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
+                    # print(neg_range, '---------', i_key)
+                    neg_embeds = frame_reference_next[neg_range]
+
+                    num_positive = pos_embeds.shape[0]
+                    # concate pos and neg to get whole constractive samples
+                    pos_neg_embedding = torch.cat(
+                        [pos_embeds, neg_embeds], dim=0)
+                    # generate label, pos is 1, neg is 0
+                    pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
+                                                                dtype=torch.int64)  # noqa
+                    pos_neg_label[:num_positive] = 1.
+
+                    # dot product
+                    dot_product = torch.einsum(
+                        'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
+                    aux_normalize_pos_neg_embedding = nn.functional.normalize(
+                        pos_neg_embedding, dim=1)
+                    aux_normalize_anchor_embedding = nn.functional.normalize(
+                        anchor_embeds, dim=1)
+
+                    aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
+                                                                       aux_normalize_anchor_embedding])
+                    contrastive_items.append({
+                        'dot_product': dot_product,
+                        'cosine_similarity': aux_cosine_similarity,
+                        'label': pos_neg_label})
 
         losses = loss_reid(contrastive_items, outputs)
         return losses
