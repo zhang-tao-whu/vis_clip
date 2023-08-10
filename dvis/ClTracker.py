@@ -728,8 +728,8 @@ class ClDVIS_online(MinVIS):
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=None, ret_match_result=True)
             image_outputs_without_aux = {k: v for k, v in image_outputs.items() if k != "aux_outputs"}
             key_match_result = self.image_matcher(image_outputs_without_aux, targets)
-            losses_cl_ref2key = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
-            losses.update(losses_cl_ref2key)
+            # losses_cl_ref2key = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
+            # losses.update(losses_cl_ref2key)
 
             losses_cl = self.get_cl_loss_ref(outputs, targets, reference_match_result, key_match_result)
             losses.update(losses_cl)
