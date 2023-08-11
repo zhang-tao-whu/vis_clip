@@ -292,10 +292,18 @@ def _get_ytvis_2019_instances_meta_ov():
     # Mapping from the incontiguous YTVIS category id to an id in [0, 39]
     thing_dataset_id_to_contiguous_id = {k: i for i, k in enumerate(thing_ids)}
     thing_classes = [k["name"] for k in YTVIS_CATEGORIES_2019_OV if k["isthing"] == 1]
+
+    stuff_classes = []
+    stuff_colors = []
+    stuff_dataset_id_to_contiguous_id = {}
+
     ret = {
         "thing_dataset_id_to_contiguous_id": thing_dataset_id_to_contiguous_id,
         "thing_classes": thing_classes,
         "thing_colors": thing_colors,
+        "stuff_classes": stuff_classes,
+        "stuff_colors": stuff_colors,
+        "stuff_dataset_id_to_contiguous_id": stuff_dataset_id_to_contiguous_id,
     }
     return ret
 
