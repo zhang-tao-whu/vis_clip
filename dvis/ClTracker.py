@@ -178,13 +178,13 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
-        #self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+        self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         #self.ref_fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
 
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
-        #for layer in self.key_proj.layers:
-        #    weight_init.c2_xavier_fill(layer)
+        for layer in self.key_proj.layers:
+           weight_init.c2_xavier_fill(layer)
 
         # mask features projection
         self.mask_feature_proj = nn.Conv2d(
@@ -255,8 +255,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
             else:
                 single_frame_classes = frame_classes[i]
 
-            #frame_key = self.key_proj(single_frame_embeds_no_norm)
-            frame_key = single_frame_embeds_no_norm
+            frame_key = self.key_proj(single_frame_embeds_no_norm)
+            # frame_key = single_frame_embeds_no_norm
 
             # the first frame of a video
             if i == 0 and resume is False:
@@ -728,8 +728,8 @@ class ClDVIS_online(MinVIS):
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=None, ret_match_result=True)
             image_outputs_without_aux = {k: v for k, v in image_outputs.items() if k != "aux_outputs"}
             key_match_result = self.image_matcher(image_outputs_without_aux, targets)
-            # losses_cl_ref2key = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
-            # losses.update(losses_cl_ref2key)
+            losses_cl_ref2key = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
+            losses.update(losses_cl_ref2key)
 
             losses_cl = self.get_cl_loss_ref(outputs, targets, reference_match_result, key_match_result)
             losses.update(losses_cl)
