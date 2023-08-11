@@ -510,7 +510,7 @@ _PREDEFINED_SPLITS_YTVIS_2021 = {
 }
 
 _PREDEFINED_SPLITS_COCO_VIDEO = {
-    "coco_instance_video_ov": ("coco/train2017", "coco/annotations/instances_train.json"),
+    "coco_instance_video_ov": ("coco/train2017", "coco/annotations/instances_train2017.json"),
 }
 
 def register_all_ytvis_2019_ov(root):
