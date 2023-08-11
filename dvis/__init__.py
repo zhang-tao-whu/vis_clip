@@ -18,6 +18,7 @@ from .video_mask2former_transformer_decoder_ov import VideoMultiScaleMaskedTrans
     VideoMultiScaleMaskedTransformerDecoder_dvis_OV
 
 from .meta_architecture_ov import MinVIS_OV, DVIS_online_OV
+from .backbones.clip import CLIP
 
 # video
 from .data_video import (
