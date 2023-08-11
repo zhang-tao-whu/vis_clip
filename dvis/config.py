@@ -64,4 +64,12 @@ def add_dvis_config(cfg):
     cfg.SEED = 42
     cfg.DATALOADER.NUM_WORKERS = 4
 
+    # FC-CLIP model config
+    cfg.MODEL.FC_CLIP = CN()
+    cfg.MODEL.FC_CLIP.CLIP_MODEL_NAME = "convnext_large_d_320"
+    cfg.MODEL.FC_CLIP.CLIP_PRETRAINED_WEIGHTS = "laion2b_s29b_b131k_ft_soup"
+    cfg.MODEL.FC_CLIP.EMBED_DIM = 768
+    cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA = 0.4
+    cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA = 0.8
+
 

@@ -178,6 +178,8 @@ class YTVISDatasetMapper:
         self.sampling_frame_ratio = 1.0
         self.reverse_agu = reverse_agu
 
+        self.name = src_dataset_name
+
         if not is_tgt:
             self.src_metadata = MetadataCatalog.get(src_dataset_name)
             self.tgt_metadata = MetadataCatalog.get(tgt_dataset_name)
@@ -318,6 +320,7 @@ class YTVISDatasetMapper:
             for i, _id in enumerate(_ids):
                 ids[_id] = i
 
+        dataset_dict["name"] = self.name
         dataset_dict["video_len"] = len(video_annos)
         dataset_dict["frame_idx"] = list(selected_idx)
         dataset_dict["image"] = []
@@ -415,6 +418,8 @@ class CocoClipDatasetMapper:
         self.sampling_frame_shuffle = sampling_frame_shuffle
         self.reverse_agu            = reverse_agu
         self.sampling_frame_ratio   = 1.0
+
+        self.name = src_dataset_name
 
         if not is_tgt:
             self.src_metadata = MetadataCatalog.get(src_dataset_name)
@@ -537,6 +542,7 @@ class CocoClipDatasetMapper:
             video_length = self.sampling_frame_num
             selected_idx = range(video_length)
 
+        dataset_dict["name"] = self.name
         dataset_dict["video_len"] = video_length
         dataset_dict["frame_idx"] = selected_idx
         dataset_dict["image"] = []

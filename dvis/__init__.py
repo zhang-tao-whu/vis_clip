@@ -14,6 +14,11 @@ from .video_mask2former_transformer_decoder import\
     VideoMultiScaleMaskedTransformerDecoder_minvis_clip, VideoMultiScaleMaskedTransformerDecoder_dvis_clip
 from .meta_architecture import MinVIS, DVIS_online, DVIS_offline, DVIS_online_clip
 
+from .video_mask2former_transformer_decoder_ov import VideoMultiScaleMaskedTransformerDecoder_minvis_OV, \
+    VideoMultiScaleMaskedTransformerDecoder_dvis_OV
+
+from .meta_architecture_ov import MinVIS_OV, DVIS_online_OV
+
 # video
 from .data_video import (
     YTVISDatasetMapper,
