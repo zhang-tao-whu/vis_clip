@@ -527,7 +527,7 @@ def register_all_coco_video_ov(root):
 
 def get_ytvis19_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(YTVIS_CATEGORIES_2019)
-    coco_id_names = open('./dvis/data/datasets/ov_datasets/ytvis19_instance_with_prompt_eng.txt').read().splitlines()
+    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/ytvis19_instance_with_prompt_eng.txt').read().splitlines()
     coco_idx = 0
     for line in coco_id_names:
         idx, name = line.split(':')
@@ -543,7 +543,7 @@ def get_ytvis19_categories_with_prompt_eng():
 
 def get_coco_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(COCO_CATEGORIES)
-    coco_id_names = open('./dvis/data/datasets/ov_datasets/coco_panoptic_with_prompt_eng.txt').read().splitlines()
+    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/coco_panoptic_with_prompt_eng.txt').read().splitlines()
     coco_idx = 0
     for line in coco_id_names:
         idx, name = line.split(':')
