@@ -149,7 +149,9 @@ class VideoSetCriterion(nn.Module):
         assert "pred_masks" in outputs
 
         src_idx = self._get_src_permutation_idx(indices)
+        print(src_idx)
         src_masks = outputs["pred_masks"]
+        print(src_masks.shape)
         src_masks = src_masks[src_idx]
         # Modified to handle video
         target_masks = torch.cat([t['masks'][i] for t, (_, i) in zip(targets, indices)]).to(src_masks)
