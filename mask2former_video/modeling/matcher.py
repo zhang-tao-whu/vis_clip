@@ -134,6 +134,8 @@ class VideoHungarianMatcher(nn.Module):
             with autocast(enabled=False):
                 out_mask = out_mask.float()
                 tgt_mask = tgt_mask.float()
+                print(out_mask.shape)
+                print(tgt_mask.shape)
                 # Compute the focal loss between masks
                 cost_mask = batch_sigmoid_ce_loss_jit(out_mask, tgt_mask)
 
