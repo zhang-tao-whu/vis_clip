@@ -363,7 +363,6 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis_OV(nn.Module):
         decoder_output = decoder_output.transpose(0, 1)
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_features)
-        b, q, t, _, _ = outputs_mask.shape
 
         # fc-clip class head forward
         # mean pooling
