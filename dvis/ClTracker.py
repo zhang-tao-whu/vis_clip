@@ -255,8 +255,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
             else:
                 single_frame_classes = frame_classes[i]
 
-            frame_key = self.key_proj(single_frame_embeds_no_norm)
-            # frame_key = single_frame_embeds_no_norm
+            # frame_key = self.key_proj(single_frame_embeds_no_norm)
+            frame_key = single_frame_embeds_no_norm
 
             # the first frame of a video
             if i == 0 and resume is False:
@@ -401,7 +401,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
-           'pred_keys': all_frames_keys.permute(2, 3, 0, 1),  # (b, c, t, q),
+           'pred_keys': self.key_proj(all_frames_keys).permute(2, 3, 0, 1),  # (b, c, t, q),
         }
         if return_indices:
             return out, ret_indices
