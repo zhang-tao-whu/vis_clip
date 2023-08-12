@@ -110,9 +110,9 @@ class VideoSetCriterion(nn.Module):
         self.weight_dict = weight_dict
         self.eos_coef = eos_coef
         self.losses = losses
-        empty_weight = torch.ones(self.num_classes + 1)
-        empty_weight[-1] = self.eos_coef
-        self.register_buffer("empty_weight", empty_weight)
+        # empty_weight = torch.ones(self.num_classes + 1)
+        # empty_weight[-1] = self.eos_coef
+        # self.register_buffer("empty_weight", empty_weight)
 
         # pointwise mask loss parameters
         self.num_points = num_points
@@ -130,11 +130,15 @@ class VideoSetCriterion(nn.Module):
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
         target_classes = torch.full(
-            src_logits.shape[:2], self.num_classes, dtype=torch.int64, device=src_logits.device
+            src_logits.shape[:2], src_logits.shape[2], dtype=torch.int64, device=src_logits.device
         )
         target_classes[idx] = target_classes_o.to(target_classes)
 
-        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+        empty_weight = torch.ones(src_logits.shape[2])
+        empty_weight[-1] = self.eos_coef
+        empty_weight = empty_weight.to(src_logits)
+
+        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, empty_weight)
         losses = {"loss_ce": loss_ce}
         return losses
     
