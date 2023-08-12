@@ -291,27 +291,35 @@ class MinVIS_OV(nn.Module):
 
         # get text classifier
         try:
-            class_names = split_labels(metadata.stuff_classes)  # it includes both thing and stuff
+            if len(metadata.stuff_classes_ov) == 0:
+                raise NotImplementedError
+            class_names = split_labels(metadata.stuff_classes_ov)  # it includes both thing and stuff
             if isinstance(train_metadata, list):
                 train_stuff_classes = []
                 for item in train_metadata:
-                    train_stuff_classes += item.stuff_classes
+                    train_stuff_classes += item.stuff_classes_ov
                 if len(train_stuff_classes) != 0:
                     train_class_names = split_labels(train_stuff_classes)
                 else:
                     train_thing_classes = []
                     for item in train_metadata:
-                        train_thing_classes += item.thing_classes
+                        train_thing_classes += item.thing_classes_ov
                     train_class_names = split_labels(train_thing_classes)
             else:
-                if len(train_metadata.stuff_classes) != 0:
-                    train_class_names = split_labels(train_metadata.stuff_classes)
+                if len(train_metadata.stuff_classes_ov) != 0:
+                    train_class_names = split_labels(train_metadata.stuff_classes_ov)
                 else:
-                    train_class_names = split_labels(train_metadata.thing_classes)
+                    train_class_names = split_labels(train_metadata.thing_classes_ov)
         except:
             # this could be for insseg, where only thing_classes are available
-            class_names = split_labels(metadata.thing_classes)
-            train_class_names = split_labels(train_metadata.thing_classes)
+            class_names = split_labels(metadata.thing_classes_ov)
+            if isinstance(train_metadata, list):
+                train_thing_classes = []
+                for item in train_metadata:
+                    train_thing_classes += item.thing_classes_ov
+                train_class_names = split_labels(train_thing_classes)
+            else:
+                train_class_names = split_labels(train_metadata.thing_classes_ov)
         train_class_names = {l for label in train_class_names for l in label}
         category_overlapping_list = []
         for test_class_names in class_names:
