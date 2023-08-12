@@ -398,6 +398,9 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis_OV(nn.Module):
 class VideoMultiScaleMaskedTransformerDecoder_minvis_OV(VideoMultiScaleMaskedTransformerDecoder_dvis_OV):
 
     def forward(self, x, mask_features, mask=None, text_classifier=None, num_templates=None, clip_size=1):
-        out = super(VideoMultiScaleMaskedTransformerDecoder_minvis_OV, self).forward(x, mask_features, mask=mask)
+        out = super(VideoMultiScaleMaskedTransformerDecoder_minvis_OV, self).forward(x, mask_features, mask=mask,
+                                                                                     text_classifier=text_classifier,
+                                                                                     num_templates=num_templates,
+                                                                                     clip_size=clip_size)
         del out['mask_features']
         return out
