@@ -1082,7 +1082,10 @@ class DVIS_online_OV(MinVIS_OV):
             mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
 
             # We ensemble the pred logits of in-vocab and out-vocab
-            clip_feature = features["clip_vis_dense"]
+            if "clip_vis_dense" in outputs.keys():
+                clip_feature = outputs["clip_vis_dense"]
+            else:
+                clip_feature = features["clip_vis_dense"]
             mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
                                              mode='bilinear', align_corners=False)
             pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
@@ -1241,8 +1244,9 @@ class DVIS_online_OV(MinVIS_OV):
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
             track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
-            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
+            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach()
             track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
+            track_out['clip_vis_dense'] = features['clip_vis_dense']
             # track_out['pred_logits'] = track_out['pred_logits'].detach()
             # track_out['pred_masks'] = track_out['pred_masks'].detach()
             # track_out['pred_embds'] = track_out['pred_embds'].detach()
@@ -1253,6 +1257,7 @@ class DVIS_online_OV(MinVIS_OV):
         outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
         outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
+        outputs['clip_vis_dense'] = torch.cat([x['clip_vis_dense'] for x in out_list], dim=0).detach()
 
         return outputs
 
