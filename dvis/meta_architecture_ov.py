@@ -708,13 +708,14 @@ class MinVIS_OV(nn.Module):
         if len(pred_cls) > 0:
             scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             labels = torch.arange(
-                self.sem_seg_head.num_classes,
+                #self.sem_seg_head.num_classes,
+                pred_cls.shape[-1] - 1,
                 device=self.device
             ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-10 predictions
             scores_per_image, topk_indices = scores.flatten(0, 1).topk(10, sorted=False)
             labels_per_image = labels[topk_indices]
-            topk_indices = topk_indices // self.sem_seg_head.num_classes
+            topk_indices = topk_indices // (pred_cls.shape[-1] - 1)
             pred_masks = pred_masks[topk_indices]
 
             pred_masks = F.interpolate(
@@ -1265,12 +1266,13 @@ class DVIS_online_OV(MinVIS_OV):
                 aux_pred_cls = F.softmax(aux_pred_cls, dim=-1)[:, :-1]
                 scores = torch.maximum(scores, aux_pred_cls.to(scores))
             labels = torch.arange(
-                self.sem_seg_head.num_classes, device=self.device
+                # self.sem_seg_head.num_classes, device=self.device
+                pred_cls.shape[-1] - 1, device=self.device
             ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-K predictions
             scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
             labels_per_image = labels[topk_indices]
-            topk_indices = topk_indices // self.sem_seg_head.num_classes
+            topk_indices = topk_indices // (pred_cls.shape[-1] - 1)
             pred_masks = pred_masks[topk_indices]
             pred_ids = pred_id[topk_indices]
 
