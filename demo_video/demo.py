@@ -75,6 +75,12 @@ def get_parser():
 		default=0.5,
 		help="Minimum score for instance predictions to be shown",
 	)
+	parser.add_argument(
+		"--frames",
+		type=int,
+		default=-1,
+		help="only process n_frames frames of the video ",
+	)
 	parser.add_argument('--classes', nargs='+', help='list of additional classes', default=[],)
 	parser.add_argument(
 		"--opts",
@@ -105,6 +111,9 @@ if __name__ == "__main__":
 	frames_path = video_root
 	frames_path = glob.glob(os.path.expanduser(os.path.join(frames_path, '*.???')))
 	frames_path.sort()
+
+	if args.frames > 0:
+		frames_path = frames_path[:args.frames]
 
 	vid_frames = []
 	for path in frames_path:
