@@ -98,10 +98,10 @@ def _get_new_metadata(metadata, additional_classes):
     if len(additional_classes) == 0:
         return metadata
     for i, cls in enumerate(additional_classes):
-        metadata["thing_classes"].append(cls)
-        metadata["thing_classes_ov"].append(cls)
-        metadata["thing_colors"].append(metadata["thing_colors"][i])
-        metadata["thing_dataset_id_to_contiguous_id"].update({1000+i: len(metadata["thing_dataset_id_to_contiguous_id"])})
+        metadata.thing_classes.append(cls)
+        metadata.thing_classes_ov.append(cls)
+        metadata.thing_colors.append(metadata.thing_colors[i])
+        metadata.thing_dataset_id_to_contiguous_id.update({1000+i: len(metadata.thing_dataset_id_to_contiguous_id)})
     return metadata
 
 class VisualizationDemo(object):
