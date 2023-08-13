@@ -123,7 +123,7 @@ class Trainer(DefaultTrainer):
         }
         if dataset_type not in mapper_dict.keys():
             raise NotImplementedError
-        mapper = mapper_dict[dataset_type](cfg, is_train=False)
+        mapper = mapper_dict[dataset_type](cfg, is_train=False, src_dataset_name=dataset_name)
         return build_detection_test_loader(cfg, dataset_name, mapper=mapper)
 
     @classmethod
