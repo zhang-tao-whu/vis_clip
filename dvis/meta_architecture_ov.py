@@ -500,7 +500,10 @@ class MinVIS_OV(nn.Module):
             mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
 
             # We ensemble the pred logits of in-vocab and out-vocab
-            clip_feature = features["clip_vis_dense"]
+            if "clip_vis_dense" in outputs.keys():
+                clip_feature = outputs["clip_vis_dense"]
+            else:
+                clip_feature = features["clip_vis_dense"]
             mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
                                              mode='bilinear', align_corners=False)
             pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
@@ -655,6 +658,7 @@ class MinVIS_OV(nn.Module):
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
             out['pred_masks'] = out['pred_masks'].detach().cpu().to(torch.float32)
+            out['clip_vis_dense'] = features['clip_vis_dense']
             out_list.append(out)
 
         # merge outputs
@@ -662,6 +666,7 @@ class MinVIS_OV(nn.Module):
         outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1).detach()
         outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2).detach()
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).detach()
+        outputs['clip_vis_dense'] = torch.cat([x['clip_vis_dense'] for x in out_list], dim=0).detach()
 
         return outputs
 
