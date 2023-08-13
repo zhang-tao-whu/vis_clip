@@ -1052,7 +1052,10 @@ class ClDVIS_online(MinVIS):
     def get_cl_loss(self, outputs, targets, referecne_match_result, key_match_result):
         # outputs['pred_keys'] = (b t) q c
         # outputs['pred_references'] = (b t) q c
-        references = outputs['pred_references']
+        #references = outputs['pred_references']
+        references = outputs['pred_embds']
+        references = einops.rearrange(references, 'b c t q -> (b t) q c')
+        
         keys = outputs['pred_keys']
 
         # per frame
