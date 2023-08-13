@@ -94,8 +94,18 @@ def _get_objects_from_outputs(outputs):
 
     return pred_masks, pred_labels, pred_scores, pred_ids
 
+def _get_new_metadata(metadata, additional_classes):
+    if len(additional_classes) == 0:
+        return metadata
+    for i, cls in enumerate(additional_classes):
+        metadata["thing_classes"].append(cls)
+        metadata["thing_classes_ov"].append(cls)
+        metadata["thing_colors"].append(metadata["thing_colors"][i])
+        metadata["thing_dataset_id_to_contiguous_id"].update({1000+i: len(metadata["thing_dataset_id_to_contiguous_id"])})
+    return metadata
+
 class VisualizationDemo(object):
-    def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False):
+    def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False, additional_classes=[]):
         """
         Args:
             cfg (CfgNode):
@@ -106,6 +116,8 @@ class VisualizationDemo(object):
         self.metadata = MetadataCatalog.get(
             cfg.DATASETS.TEST[0] if len(cfg.DATASETS.TEST) else "__unused"
         )
+
+        self.metadata = _get_new_metadata(self.metadata, additional_classes)
         self.cpu_device = torch.device("cpu")
         self.instance_mode = instance_mode
 
@@ -116,6 +128,7 @@ class VisualizationDemo(object):
         else:
             self.predictor = VideoPredictor(cfg)
         self.id_memories = {}
+        self.predictor.set_metadata(cfg.DATASETS.TEST[0], self.metadata)
 
     def run_on_video(self, frames):
         """
@@ -221,6 +234,9 @@ class VideoPredictor(DefaultPredictor):
 
         self.input_format = cfg.INPUT.FORMAT
         assert self.input_format in ["RGB", "BGR"], self.input_format
+
+    def set_metadata(self, name, metadata):
+        self.model.set_metadata(name, metadata)
 
     def __call__(self, frames):
         """
