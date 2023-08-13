@@ -208,6 +208,7 @@ class VideoPredictor(DefaultPredictor):
         self.model.eval()
         if len(cfg.DATASETS.TEST):
             self.metadata = MetadataCatalog.get(cfg.DATASETS.TEST[0])
+        self.name = cfg.DATASETS.TEST[0]
 
         weight = torch.load(cfg.MODEL.WEIGHTS)
         if 'model' in weight.keys():
@@ -247,7 +248,7 @@ class VideoPredictor(DefaultPredictor):
                 image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
                 input_frames.append(image)
 
-            inputs = {"image": input_frames, "height": height, "width": width, "keep": keep}
+            inputs = {"image": input_frames, "height": height, "width": width, "keep": keep, 'name': self.name}
             predictions = self.model([inputs])
             return predictions
 
