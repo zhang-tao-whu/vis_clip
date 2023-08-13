@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
 	cfg = setup_cfg(args)
 
-	demo = VisualizationDemo(cfg, args.classes)
+	demo = VisualizationDemo(cfg, additional_classes=args.classes)
 
 	assert args.input and args.output
 
