@@ -81,7 +81,8 @@ def get_parser():
 		default=-1,
 		help="only process n_frames frames of the video ",
 	)
-	parser.add_argument('--classes', nargs='+', help='list of additional classes', default=[],)
+	parser.add_argument('--thing_classes', nargs='+', help='list of additional classes', default=[],)
+	parser.add_argument('--stuff_classes', nargs='+', help='list of additional classes', default=[], )
 	parser.add_argument(
 		"--opts",
 		help="Modify config options using the command-line 'KEY VALUE' pairs",
@@ -99,7 +100,11 @@ if __name__ == "__main__":
 
 	cfg = setup_cfg(args)
 
-	demo = VisualizationDemo(cfg, additional_classes=args.classes)
+	demo = VisualizationDemo(
+		cfg,
+		additional_thing_classes=args.thing_classes,
+		additional_stuff_classes=args.stuff_classes
+	)
 
 	assert args.input and args.output
 

@@ -209,6 +209,7 @@ class MinVIS_OV(nn.Module):
             return self.test_text_classifier, self.test_num_templates
 
     def _set_class_information(self, name, train=True):
+        self.name = name
         if train:
             if name in self.train_text_classifier_dict.keys():
                 return self.train_text_classifier_dict[name], self.train_num_templates_dict[name]
@@ -293,20 +294,15 @@ class MinVIS_OV(nn.Module):
 
         # get text classifier
         try:
-            if len(metadata.stuff_classes_ov) == 0:
-                raise NotImplementedError
-            class_names = split_labels(metadata.stuff_classes_ov)  # it includes both thing and stuff
+            class_names = split_labels(metadata.classes_ov)  # it includes both thing and stuff
             if isinstance(train_metadata, list):
-                train_stuff_classes = []
+                train_classes = []
                 for item in train_metadata:
-                    train_stuff_classes += item.stuff_classes_ov
-                if len(train_stuff_classes) != 0:
-                    train_class_names = split_labels(train_stuff_classes)
+                    train_classes += item.classes_ov
+                if len(train_classes) != 0:
+                    train_class_names = split_labels(train_classes)
                 else:
-                    train_thing_classes = []
-                    for item in train_metadata:
-                        train_thing_classes += item.thing_classes_ov
-                    train_class_names = split_labels(train_thing_classes)
+                    raise NotImplementedError
             else:
                 if len(train_metadata.stuff_classes_ov) != 0:
                     train_class_names = split_labels(train_metadata.stuff_classes_ov)
@@ -1337,7 +1333,7 @@ class DVIS_online_OV(MinVIS_OV):
         scores, labels = pred_cls.max(-1)
 
         # filter out the background prediction
-        keep = labels.ne(self.sem_seg_head.num_classes) & (scores > self.object_mask_threshold)
+        keep = labels.ne(pred_cls.shape[-1] - 1) & (scores > self.object_mask_threshold)
         cur_scores = scores[keep]
         cur_classes = labels[keep]
         cur_ids = pred_id[keep]
@@ -1375,7 +1371,7 @@ class DVIS_online_OV(MinVIS_OV):
             stuff_memory_list = {}
             for k in range(cur_classes.shape[0]):
                 pred_class = cur_classes[k].item()
-                isthing = pred_class < len(self.metadata.thing_dataset_id_to_contiguous_id)
+                isthing = pred_class < len(self.test_metadata[self.name].thing_dataset_id_to_contiguous_id)
                 # filter out the unstable segmentation results
                 mask_area = (cur_mask_ids == k).sum().item()
                 original_area = (cur_masks[k] >= 0.5).sum().item()

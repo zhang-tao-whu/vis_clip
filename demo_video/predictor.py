@@ -94,18 +94,32 @@ def _get_objects_from_outputs(outputs):
 
     return pred_masks, pred_labels, pred_scores, pred_ids
 
-def _get_new_metadata(metadata, additional_classes):
-    if len(additional_classes) == 0:
-        return metadata
-    for i, cls in enumerate(additional_classes):
-        metadata.thing_classes.append(cls)
-        metadata.thing_classes_ov.append(cls)
-        metadata.thing_colors.append(metadata.thing_colors[i])
-        metadata.thing_dataset_id_to_contiguous_id.update({1000+i: len(metadata.thing_dataset_id_to_contiguous_id)})
+def _get_new_metadata(metadata, additional_thing_classes, additional_stuff_classes):
+    thing_classes = metadata.thing_classes
+    stuff_classes = metadata.stuff_classes
+    classes_ov = metadata.classes_ov
+
+    thing_classes_ = thing_classes + additional_thing_classes
+    metadata.thing_colors.append(metadata.thing_colors[:len(additional_thing_classes)])
+    for i in range(len(additional_thing_classes)):
+        metadata.thing_dataset_id_to_contiguous_id.update({i + 10000: len(metadata.thing_dataset_id_to_contiguous_id)})
+
+    stuff_classes_ = stuff_classes + additional_stuff_classes
+    metadata.stuff_colors.append(metadata.stuff_colors[:len(additional_stuff_classes)])
+    for i in range(len(additional_thing_classes), len(additional_thing_classes) + len(additional_stuff_classes)):
+        metadata.stuff_dataset_id_to_contiguous_id.update({i + 10000: len(metadata.stuff_dataset_id_to_contiguous_id)})
+
+    classes_ov = classes_ov[:len(thing_classes)] + additional_thing_classes +\
+                 classes_ov[len(thing_classes):] + additional_stuff_classes
+
+    metadata.thing_classes = thing_classes_
+    metadata.stuff_classes = stuff_classes_
+    metadata.classes_ov = classes_ov
     return metadata
 
 class VisualizationDemo(object):
-    def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False, additional_classes=[]):
+    def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False,
+                 additional_thing_classes=[], additional_stuff_classes=[]):
         """
         Args:
             cfg (CfgNode):
@@ -117,7 +131,7 @@ class VisualizationDemo(object):
             cfg.DATASETS.TEST[0] if len(cfg.DATASETS.TEST) else "__unused"
         )
 
-        self.metadata = _get_new_metadata(self.metadata, additional_classes)
+        self.metadata = _get_new_metadata(self.metadata, additional_thing_classes, additional_stuff_classes)
         self.cpu_device = torch.device("cpu")
         self.instance_mode = instance_mode
 

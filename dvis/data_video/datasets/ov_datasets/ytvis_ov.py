@@ -302,10 +302,9 @@ def _get_ytvis_2019_instances_meta_ov():
     ret = {
         "thing_dataset_id_to_contiguous_id": thing_dataset_id_to_contiguous_id,
         "thing_classes": thing_classes,
-        "thing_classes_ov": thing_classes_ov,
+        "classes_ov": thing_classes_ov,
         "thing_colors": thing_colors,
         "stuff_classes": stuff_classes,
-        "stuff_classes_ov": stuff_classes_ov,
         "stuff_colors": stuff_colors,
         "stuff_dataset_id_to_contiguous_id": stuff_dataset_id_to_contiguous_id,
     }
@@ -321,10 +320,9 @@ def _get_coco_instances_meta_ov():
     stuff_classes = []
     stuff_colors = []
 
-    meta["thing_classes_ov"] = thing_classes_ov
+    meta["classes_ov"] = thing_classes_ov
     meta["thing_classes"] = thing_classes
     meta["thing_colors"] = thing_colors
-    meta["stuff_classes_ov"] = stuff_classes_ov
     meta["stuff_classes"] = stuff_classes
     meta["stuff_colors"] = stuff_colors
 
