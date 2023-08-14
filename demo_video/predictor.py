@@ -116,7 +116,6 @@ def _get_new_metadata(metadata, additional_thing_classes, additional_stuff_class
         classes_ov.insert(i + len_ori_things, thing_cls)
     classes_ov.extend(additional_stuff_classes)
 
-    metadata.classes_ov = classes_ov
     return metadata
 
 class VisualizationDemo(object):
