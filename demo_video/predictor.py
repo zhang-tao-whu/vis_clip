@@ -110,8 +110,6 @@ def _get_new_metadata(metadata, additional_thing_classes, additional_stuff_class
     for i in range(len(additional_thing_classes), len(additional_thing_classes) + len(additional_stuff_classes)):
         metadata.stuff_dataset_id_to_contiguous_id.update({i + 10000: len(metadata.stuff_dataset_id_to_contiguous_id)})
 
-    classes_ov = classes_ov[:len(thing_classes)] + additional_thing_classes +\
-                 classes_ov[len(thing_classes):] + additional_stuff_classes
     for i, thing_cls in enumerate(additional_thing_classes):
         classes_ov.insert(i + len_ori_things, thing_cls)
     classes_ov.extend(additional_stuff_classes)
