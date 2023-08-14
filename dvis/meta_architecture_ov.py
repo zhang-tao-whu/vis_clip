@@ -1078,8 +1078,8 @@ class DVIS_online_OV(MinVIS_OV):
             return losses
         else:
             # when inference, bs must be 1
-            mask_cls_results = outputs["pred_logits"][0]  # t q c
-            mask_pred_results = outputs["pred_masks"][0].transpose(0, 1).to(mask_cls_results)  # t q h w
+            mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
+            mask_cls_results = outputs["pred_logits"][0].to(mask_pred_results)  # t q c
 
             # We ensemble the pred logits of in-vocab and out-vocab
             if "clip_vis_dense" in outputs.keys():
