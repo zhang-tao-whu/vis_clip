@@ -98,22 +98,22 @@ def _get_new_metadata(metadata, additional_thing_classes, additional_stuff_class
     thing_classes = metadata.thing_classes
     stuff_classes = metadata.stuff_classes
     classes_ov = metadata.classes_ov
+    len_ori_things = len(thing_classes)
+    len_ori_stuffs = len(stuff_classes)
 
-    thing_classes_ = thing_classes + additional_thing_classes
-    metadata.thing_colors.append(metadata.thing_colors[:len(additional_thing_classes)])
+    thing_classes.extend(additional_thing_classes)
+    metadata.thing_colors.extend(metadata.thing_colors[:len(additional_thing_classes)])
     for i in range(len(additional_thing_classes)):
         metadata.thing_dataset_id_to_contiguous_id.update({i + 10000: len(metadata.thing_dataset_id_to_contiguous_id)})
 
-    stuff_classes_ = stuff_classes + additional_stuff_classes
-    metadata.stuff_colors.append(metadata.stuff_colors[:len(additional_stuff_classes)])
+    stuff_classes.extend(additional_stuff_classes)
+    metadata.stuff_colors.extend(metadata.stuff_colors[:len(additional_stuff_classes)])
     for i in range(len(additional_thing_classes), len(additional_thing_classes) + len(additional_stuff_classes)):
         metadata.stuff_dataset_id_to_contiguous_id.update({i + 10000: len(metadata.stuff_dataset_id_to_contiguous_id)})
 
     classes_ov = classes_ov[:len(thing_classes)] + additional_thing_classes +\
                  classes_ov[len(thing_classes):] + additional_stuff_classes
 
-    metadata.thing_classes = thing_classes_
-    metadata.stuff_classes = stuff_classes_
     metadata.classes_ov = classes_ov
     return metadata
 
