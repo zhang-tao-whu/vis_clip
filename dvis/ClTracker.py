@@ -401,7 +401,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
-           'pred_keys': self.key_proj(all_frames_keys).permute(2, 3, 0, 1),  # (b, c, t, q),
+           'pred_keys': all_frames_keys.permute(2, 3, 0, 1),  # (b, c, t, q),
         }
         if return_indices:
             return out, ret_indices
@@ -1055,7 +1055,7 @@ class ClDVIS_online(MinVIS):
         #references = outputs['pred_references']
         references = outputs['pred_embds']
         references = einops.rearrange(references, 'b c t q -> (b t) q c')
-        
+
         keys = outputs['pred_keys']
 
         # per frame
