@@ -295,6 +295,7 @@ class MinVIS_OV(nn.Module):
         # get text classifier
         try:
             class_names = split_labels(metadata.classes_ov)  # it includes both thing and stuff
+            print(train_metadata)
             if isinstance(train_metadata, list):
                 train_classes = []
                 for item in train_metadata:
@@ -304,10 +305,7 @@ class MinVIS_OV(nn.Module):
                 else:
                     raise NotImplementedError
             else:
-                if len(train_metadata.stuff_classes_ov) != 0:
-                    train_class_names = split_labels(train_metadata.stuff_classes_ov)
-                else:
-                    train_class_names = split_labels(train_metadata.thing_classes_ov)
+                train_class_names = split_labels(train_metadata.classes_ov)
         except:
             # this could be for insseg, where only thing_classes are available
             class_names = split_labels(metadata.thing_classes_ov)
