@@ -237,7 +237,7 @@ class MinVIS_OV(nn.Module):
             return self.test_text_classifier, self.test_num_templates
 
     def set_metadata(self, name, metadata):
-        print(metadata.thing_classes_ov)
+        print(metadata.classes_ov)
         self.category_overlapping_mask, self.test_num_templates, self.test_class_names = \
             self.prepare_class_names_from_metadata(metadata, self.all_train_metadatas)
         self.test_class_prepares.update({name: {'overlapping': self.category_overlapping_mask,
@@ -295,7 +295,6 @@ class MinVIS_OV(nn.Module):
         # get text classifier
         try:
             class_names = split_labels(metadata.classes_ov)  # it includes both thing and stuff
-            print(train_metadata)
             if isinstance(train_metadata, list):
                 train_classes = []
                 for item in train_metadata:
