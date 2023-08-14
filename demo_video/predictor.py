@@ -99,7 +99,6 @@ def _get_new_metadata(metadata, additional_thing_classes, additional_stuff_class
     stuff_classes = metadata.stuff_classes
     classes_ov = metadata.classes_ov
     len_ori_things = len(thing_classes)
-    len_ori_stuffs = len(stuff_classes)
 
     thing_classes.extend(additional_thing_classes)
     metadata.thing_colors.extend(metadata.thing_colors[:len(additional_thing_classes)])
@@ -113,6 +112,9 @@ def _get_new_metadata(metadata, additional_thing_classes, additional_stuff_class
 
     classes_ov = classes_ov[:len(thing_classes)] + additional_thing_classes +\
                  classes_ov[len(thing_classes):] + additional_stuff_classes
+    for i, thing_cls in enumerate(additional_thing_classes):
+        classes_ov.insert(i + len_ori_things, thing_cls)
+    classes_ov.extend(additional_stuff_classes)
 
     metadata.classes_ov = classes_ov
     return metadata
