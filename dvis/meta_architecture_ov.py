@@ -1097,7 +1097,7 @@ class DVIS_online_OV(MinVIS_OV):
 
             # Reference: https://github.com/NVlabs/ODISE/blob/main/odise/modeling/meta_arch/odise.py#L1506
             out_vocab_cls_probs = out_vocab_cls_results.softmax(-1)
-            in_vocab_cls_results = in_vocab_cls_results.softmax(-1)
+            in_vocab_cls_results = in_vocab_cls_results.softmax(-1).to(in_vocab_cls_results)
             category_overlapping_mask = self.category_overlapping_mask.to(self.device)
             alpha = self.geometric_ensemble_alpha
             beta = self.geometric_ensemble_beta
