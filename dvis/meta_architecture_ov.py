@@ -1079,7 +1079,7 @@ class DVIS_online_OV(MinVIS_OV):
         else:
             # when inference, bs must be 1
             mask_cls_results = outputs["pred_logits"][0]  # t q c
-            mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
+            mask_pred_results = outputs["pred_masks"][0].transpose(0, 1).to(mask_cls_results)  # t q h w
 
             # We ensemble the pred logits of in-vocab and out-vocab
             if "clip_vis_dense" in outputs.keys():
@@ -1097,7 +1097,7 @@ class DVIS_online_OV(MinVIS_OV):
 
             # Reference: https://github.com/NVlabs/ODISE/blob/main/odise/modeling/meta_arch/odise.py#L1506
             out_vocab_cls_probs = out_vocab_cls_results.softmax(-1)
-            in_vocab_cls_results = in_vocab_cls_results.softmax(-1).to(out_vocab_cls_probs)
+            in_vocab_cls_results = in_vocab_cls_results.softmax(-1)
             category_overlapping_mask = self.category_overlapping_mask.to(self.device)
             alpha = self.geometric_ensemble_alpha
             beta = self.geometric_ensemble_beta
