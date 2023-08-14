@@ -178,13 +178,13 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
-        self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+        # self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         #self.ref_fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
 
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
-        for layer in self.key_proj.layers:
-           weight_init.c2_xavier_fill(layer)
+        # for layer in self.key_proj.layers:
+        #    weight_init.c2_xavier_fill(layer)
 
         # mask features projection
         self.mask_feature_proj = nn.Conv2d(
