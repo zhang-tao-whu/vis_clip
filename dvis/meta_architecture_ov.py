@@ -629,7 +629,13 @@ class MinVIS_OV(nn.Module):
             out_masks.append(pred_masks[i][indices, :, :])
             out_embds.append(pred_embds[i][indices, :])
 
-        out_logits = sum(out_logits)/len(out_logits)
+        # out_logits = sum(out_logits)/len(out_logits)
+
+        out_logits = torch.stack(out_logits, dim=0)
+        out_logits_ = torch.max(out_logits, dim=0)[0]
+        out_logits_[:, -1] = out_logits[:, :, -1].mean(dim=0)
+        out_logits = out_logits_
+        
         out_masks = torch.stack(out_masks, dim=1)  # q h w -> q t h w
 
         out_logits = out_logits.unsqueeze(0)
