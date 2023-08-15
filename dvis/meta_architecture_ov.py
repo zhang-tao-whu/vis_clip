@@ -40,42 +40,6 @@ VILD_PROMPT = [
     "There is a large {} in the scene.",
 ]
 
-def get_classifier_ct_loss(ret_void_embed, text_classifier, ret_void_embed_dropout, classes_masks):
-    # ret_void_embed (1, C); text_classifier (N, C); ret_void_embed_dropout (1, C); classes_masks (N)
-    text_classifier = F.normalize(text_classifier, dim=-1)
-    def aux_neg_loss(void_embed, text_embed):
-        cos_similarity = torch.einsum('ac,kc->ak', [void_embed, text_embed])
-        loss = (torch.abs(cos_similarity - 0) ** 2).mean()
-        return {'loss_classifier_aux_neg': loss}
-
-    def cl_loss(void_embed_dropout, text_embed, pos_neg_labels):
-        pos_neg_labels = pos_neg_labels.float()
-        pred = torch.einsum('ac,kc->ak', [text_embed, void_embed_dropout]).permute(1, 0)
-        label = pos_neg_labels.unsqueeze(0)
-        # contrastive loss
-        pos_inds = (label == 1)
-        neg_inds = (label == 0)
-        pred_pos = pred * pos_inds.float()
-        pred_neg = pred * neg_inds.float()
-        # use -inf to mask out unwanted elements.
-        pred_pos[neg_inds] = pred_pos[neg_inds] + float('inf')
-        pred_neg[pos_inds] = pred_neg[pos_inds] + float('-inf')
-
-        _pos_expand = torch.repeat_interleave(pred_pos, pred.shape[1], dim=1)
-        _neg_expand = pred_neg.repeat(1, pred.shape[1])
-        # [bz,N], N is all pos and negative samples on reference frame, label indicate it's pos or negative
-        x = torch.nn.functional.pad((_neg_expand - _pos_expand),
-                                    (0, 1), "constant", 0)
-        contras_loss = torch.logsumexp(x, dim=1)
-        losses = {'loss_classifier_cl': contras_loss.sum()}
-        return losses
-
-    ret = {}
-    ret.update(aux_neg_loss(ret_void_embed, text_classifier))
-    ret.update(cl_loss(ret_void_embed_dropout, text_classifier, classes_masks))
-
-    return ret
-
 def get_classification_logits(x, text_classifier, logit_scale, num_templates=None):
     # x in shape of [B, *, C]
     # text_classifier in shape of [num_classes, C]
@@ -189,23 +153,17 @@ class MinVIS_OV(nn.Module):
         self.test_num_templates_dict = {}
 
         self.void_embedding = nn.Embedding(1, backbone.dim_latent)  # use this for void
-        # generate private void embedding for each dataset
-        self.void_cross_attention = nn.ModuleList()
-        self.void_cross_attention_nhead = 8
-        for _ in range(3):
-            self.void_cross_attention.append(
-                CrossAttentionLayer(
-                    d_model=backbone.dim_latent,
-                    nhead=self.void_cross_attention_nhead,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-        self.test_void_embed = None
+        # init private void embedding for each dataset
+        self.additional_void_embedding = nn.Embedding(len(train_metadatas) - 1, backbone.dim_latent)
 
         self.train_class_prepares = {}
+        self.train_void_embeddings = {}
         self.test_class_prepares = {}
-        for name in train_metadatas.keys():
+        for i, name in enumerate(train_metadatas.keys()):
+            if i == 0:
+                self.train_void_embeddings[name] = self.void_embedding.weight
+            else:
+                self.train_void_embeddings[name] = self.additional_void_embedding.weight[i - 1]
             train_metadata = train_metadatas[name]
             _, train_num_templates, train_class_names = self.prepare_class_names_from_metadata(train_metadata,
                                                                                                train_metadata)
@@ -222,60 +180,20 @@ class MinVIS_OV(nn.Module):
                                                     'num_templates': test_num_templates,
                                                     'class_names': test_class_names}})
 
-    def get_void_embedding(self, text_classifier, num_templates, return_cl_loss=False, ratio=0.2):
+    def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         # text_classifier (N, C)
         # (N, C) -> (N, 1, C)
-        if not (return_cl_loss and self.training) and self.test_void_embed is not None:
-            return self.test_void_embed
-
-        self.test_void_embed = None
-        void_embed = self.void_embedding.weight.unsqueeze(1)
-        text_classifier = text_classifier.unsqueeze(1)
-
-        personalized_void_embed = void_embed
-        for layer in self.void_cross_attention:
-            personalized_void_embed = layer(
-                personalized_void_embed, text_classifier,
-                memory_mask=None,
-                memory_key_padding_mask=None,
-                pos=None, query_pos=None
-            )
-        ret_void_embed = F.normalize(personalized_void_embed[:, 0], dim=-1)
-        if not (return_cl_loss and self.training):
-            self.test_void_embed = ret_void_embed
-            return ret_void_embed
+        if self.training:
+            void_embed = self.train_void_embeddings[name]
+            void_embed = F.normalize(void_embed, dim=-1)
+            text_classifier = torch.cat([text_classifier, void_embed], dim=0)
+            num_templates.append(1)
         else:
-            # dropout some classes
-            classes_masks = torch.rand(text_classifier.shape[0])
-            classes_masks = (classes_masks < ratio).bool()
-            cnt = 0
-            for n_tem in num_templates:
-                classes_masks[cnt: cnt + n_tem] = classes_masks[cnt]
-                cnt += n_tem
-            classes_masks = classes_masks.to(void_embed.device)
-            if not torch.any(classes_masks):
-                classes_masks[:num_templates[0]] = True
-            else:
-                if torch.all(classes_masks):
-                    classes_masks[:num_templates[0]] = False
-
-            personalized_void_embed_dropout = void_embed
-            for layer in self.void_cross_attention:
-                personalized_void_embed_dropout = layer(
-                    personalized_void_embed_dropout, text_classifier,
-                    memory_mask=classes_masks.unsqueeze(0),
-                    memory_key_padding_mask=None,
-                    pos=None, query_pos=None
-                )
-            personalized_void_embed_dropout = F.normalize(personalized_void_embed_dropout[:, 0], dim=-1)
-            classifier_ct_loss = get_classifier_ct_loss(
-                # for neg loss
-                ret_void_embed, text_classifier[:, 0],
-                # for ct loss
-                personalized_void_embed_dropout, classes_masks
-            )
-            return ret_void_embed, classifier_ct_loss
-
+            void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
+            void_embed = F.normalize(void_embed, dim=-1)
+            text_classifier = torch.cat([text_classifier, void_embed], dim=0)
+            num_templates.append(void_embed.shape[0])
+        return text_classifier
 
     def get_text_classifier(self):
         if self.training:
@@ -477,7 +395,6 @@ class MinVIS_OV(nn.Module):
             for i in range(dec_layers - 1):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
-        weight_dict.update({'loss_classifier_cl': 2., 'loss_classifier_aux_neg': 1.})
 
         losses = ["labels", "masks"]
 
@@ -562,16 +479,8 @@ class MinVIS_OV(nn.Module):
         text_classifier, num_templates = self._set_class_information(batched_inputs[0]['name'], self.training)
         # Append void class weight
         #text_classifier = torch.cat([text_classifier, F.normalize(self.void_embedding.weight, dim=-1)], dim=0)
-        if self.training:
-            void_embedding, classifier_cl_loss = self.get_void_embedding(
-                text_classifier, num_templates, return_cl_loss=True,
-            )
-        else:
-            void_embedding = self.get_void_embedding(
-                text_classifier, num_templates, return_cl_loss=False,
-            )
-            classifier_cl_loss = None
-        text_classifier = torch.cat([text_classifier, void_embedding], dim=0)
+        text_classifier = self.get_text_classifier_with_void(text_classifier, num_templates,
+                                                             name=batched_inputs[0]['name'])
 
         if not self.training and self.window_inference:
             if self.segmenter_clip_enable:
@@ -596,8 +505,6 @@ class MinVIS_OV(nn.Module):
 
             # bipartite matching-based loss
             losses = self.criterion(outputs, targets)
-            if classifier_cl_loss is not None:
-                losses.update(classifier_cl_loss)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
@@ -954,7 +861,7 @@ class DVIS_online_OV(MinVIS_OV):
         # frozen the void classifier
         for p in self.void_embedding.parameters():
             p.requires_grad_(False)
-        for p in self.void_cross_attention.parameters():
+        for p in self.additional_void_embedding.parameters():
             p.requires_grad_(False)
         # frozen the segmenter
         for p in self.backbone.parameters():
@@ -1136,10 +1043,8 @@ class DVIS_online_OV(MinVIS_OV):
         text_classifier, num_templates = self._set_class_information(batched_inputs[0]['name'], self.training)
         # Append void class weight
         # text_classifier = torch.cat([text_classifier, F.normalize(self.void_embedding.weight, dim=-1)], dim=0)
-        void_embedding = self.get_void_embedding(
-            text_classifier, num_templates, return_cl_loss=False,
-        )
-        text_classifier = torch.cat([text_classifier, void_embedding], dim=0)
+        text_classifier = self.get_text_classifier_with_void(text_classifier, num_templates,
+                                                             name=batched_inputs[0]['name'])
 
         if not self.training and self.window_inference:
             if self.segmenter_clip_enable:
@@ -1153,7 +1058,6 @@ class DVIS_online_OV(MinVIS_OV):
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
-            self.void_cross_attention.eval()
             with torch.no_grad():
                 features = self.backbone(images.tensor)
                 features['text_classifier'] = text_classifier
