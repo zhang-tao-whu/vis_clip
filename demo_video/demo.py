@@ -81,6 +81,12 @@ def get_parser():
 		default=-1,
 		help="only process n_frames frames of the video ",
 	)
+	parser.add_argument(
+		"--clear",
+		type=bool,
+		default=False,
+		help="only process n_frames frames of the video ",
+	)
 	parser.add_argument('--thing_classes', nargs='+', help='list of additional classes', default=[],)
 	parser.add_argument('--stuff_classes', nargs='+', help='list of additional classes', default=[], )
 	parser.add_argument(
@@ -103,7 +109,8 @@ if __name__ == "__main__":
 	demo = VisualizationDemo(
 		cfg,
 		additional_thing_classes=args.thing_classes,
-		additional_stuff_classes=args.stuff_classes
+		additional_stuff_classes=args.stuff_classes,
+		clear=args.clear,
 	)
 
 	assert args.input and args.output

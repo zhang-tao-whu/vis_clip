@@ -17,6 +17,7 @@ from detectron2.utils.visualizer import ColorMode
 from detectron2.modeling import build_model
 import detectron2.data.transforms as T
 import numpy as np
+from detectron2.data import DatasetCatalog, MetadataCatalog
 
 def _get_objects_from_outputs(outputs):
     def _get_objects_from_vis_outputs(outputs):
@@ -36,7 +37,7 @@ def _get_objects_from_outputs(outputs):
         if pred_ids is not None:
             pred_ids_ = []
         for i, score in enumerate(pred_scores):
-            if score < 0.05:
+            if score < 0.1:
                 continue
             pred_scores_.append(pred_scores[i])
             pred_labels_.append(pred_labels[i])
@@ -94,7 +95,24 @@ def _get_objects_from_outputs(outputs):
 
     return pred_masks, pred_labels, pred_scores, pred_ids
 
-def _get_new_metadata(metadata, additional_thing_classes, additional_stuff_classes):
+def _get_new_metadata(metadata, additional_thing_classes,
+                      additional_stuff_classes,
+                      clear=False):
+    if clear:
+        DatasetCatalog.register(
+            "openvocab_dataset", lambda x: []
+        )
+        metadata = MetadataCatalog.get("openvocab_dataset").set(
+            stuff_classes=additional_stuff_classes,
+            stuff_colors=metadata.thing_colors[:len(additional_thing_classes)],
+            thing_classes=additional_thing_classes,
+            thing_colors=metadata.stuff_colors[:len(additional_stuff_classes)],
+            thing_dataset_id_to_contiguous_id={i: i for i in range(len(additional_thing_classes))},
+            stuff_dataset_id_to_contiguous_id={i + len(additional_thing_classes): i + len(additional_stuff_classes) \
+                                               for i in range(len(additional_stuff_classes))},
+            classes_ov=additional_thing_classes + additional_stuff_classes
+        )
+        return metadata
     thing_classes = metadata.thing_classes
     stuff_classes = metadata.stuff_classes
     classes_ov = metadata.classes_ov
@@ -118,7 +136,8 @@ def _get_new_metadata(metadata, additional_thing_classes, additional_stuff_class
 
 class VisualizationDemo(object):
     def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False,
-                 additional_thing_classes=[], additional_stuff_classes=[]):
+                 additional_thing_classes=[], additional_stuff_classes=[],
+                 clear=False):
         """
         Args:
             cfg (CfgNode):
@@ -130,7 +149,8 @@ class VisualizationDemo(object):
             cfg.DATASETS.TEST[0] if len(cfg.DATASETS.TEST) else "__unused"
         )
 
-        self.metadata = _get_new_metadata(self.metadata, additional_thing_classes, additional_stuff_classes)
+        self.metadata = _get_new_metadata(self.metadata, additional_thing_classes, additional_stuff_classes,
+                                          clear=clear)
         self.cpu_device = torch.device("cpu")
         self.instance_mode = instance_mode
 
