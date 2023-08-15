@@ -18,7 +18,7 @@ from mask2former_video.utils.memory import retry_if_cuda_oom
 
 from scipy.optimize import linear_sum_assignment
 
-from.video_dvis_modules import ReferringTracker, TemporalRefiner, ReferringTracker_noiser, ReferringTracker_noiser_clip
+from .video_dvis_modules import TemporalRefiner, ReferringTracker_noiser
 
 logger = logging.getLogger(__name__)
 
