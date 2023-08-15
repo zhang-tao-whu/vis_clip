@@ -47,8 +47,6 @@ class MinVIS(nn.Module):
         # video
         num_frames,
         window_inference,
-        segmenter_clip_enable,
-        clip_size,
     ):
         """
         Args:
