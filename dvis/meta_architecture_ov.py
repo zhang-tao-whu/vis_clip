@@ -225,7 +225,7 @@ class MinVIS_OV(nn.Module):
     def get_void_embedding(self, text_classifier, num_templates, return_cl_loss=False, ratio=0.2):
         # text_classifier (N, C)
         # (N, C) -> (N, 1, C)
-        if not (return_cl_loss and self.training and self.test_void_embed is not None):
+        if not (return_cl_loss and self.training) and self.test_void_embed is not None:
             return self.test_void_embed
 
         self.test_void_embed = None
@@ -470,7 +470,6 @@ class MinVIS_OV(nn.Module):
         )
 
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight}
-        weight_dict.update({'loss_classifier_cl': 2., 'loss_classifier_aux_neg': 1.})
 
         if deep_supervision:
             dec_layers = cfg.MODEL.MASK_FORMER.DEC_LAYERS
@@ -478,6 +477,7 @@ class MinVIS_OV(nn.Module):
             for i in range(dec_layers - 1):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
+        weight_dict.update({'loss_classifier_cl': 2., 'loss_classifier_aux_neg': 1.})
 
         losses = ["labels", "masks"]
 
