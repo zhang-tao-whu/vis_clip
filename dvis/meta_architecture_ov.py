@@ -189,13 +189,13 @@ class MinVIS_OV(nn.Module):
                 void_embed = self.additional_void_embedding.weight[i - 1: i]
             void_embed = F.normalize(void_embed, dim=-1) + _zero
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
-            num_templates.append(1)
+            num_templates = num_templates + [1]
         else:
             void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
             void_embed = F.normalize(void_embed, dim=-1)
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
-            num_templates.append(void_embed.shape[0])
-        return text_classifier
+            num_templates = num_templates + [void_embed.shape[0]]
+        return text_classifier, num_templates
 
     def get_text_classifier(self):
         if self.training:
@@ -481,8 +481,8 @@ class MinVIS_OV(nn.Module):
         text_classifier, num_templates = self._set_class_information(batched_inputs[0]['name'], self.training)
         # Append void class weight
         #text_classifier = torch.cat([text_classifier, F.normalize(self.void_embedding.weight, dim=-1)], dim=0)
-        text_classifier = self.get_text_classifier_with_void(text_classifier, num_templates,
-                                                             name=batched_inputs[0]['name'])
+        text_classifier, num_templates = self.get_text_classifier_with_void(text_classifier, num_templates,
+                                                                            name=batched_inputs[0]['name'])
 
         if not self.training and self.window_inference:
             if self.segmenter_clip_enable:
