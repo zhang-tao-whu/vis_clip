@@ -116,6 +116,8 @@ class MinVIS_OV(nn.Module):
         """
         super().__init__()
         self.backbone = backbone
+        for p in self.backbone.parameters():
+            p.requires_grad_(False)
         self.sem_seg_head = sem_seg_head
         self.criterion = criterion
         self.num_queries = num_queries
@@ -538,7 +540,6 @@ class MinVIS_OV(nn.Module):
             # Reference: https://github.com/NVlabs/ODISE/blob/main/odise/modeling/meta_arch/odise.py#L1506
             out_vocab_cls_probs = out_vocab_cls_results.softmax(-1)
             in_vocab_cls_results = in_vocab_cls_results.softmax(-1)
-            print(in_vocab_cls_results.shape, out_vocab_cls_results.shape, self.category_overlapping_mask.shape)
             category_overlapping_mask = self.category_overlapping_mask.to(self.device)
             alpha = self.geometric_ensemble_alpha
             beta = self.geometric_ensemble_beta
