@@ -19,8 +19,6 @@ from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHunga
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from .meta_architecture import MinVIS
 import fvcore.nn.weight_init as weight_init
-import random
-from scipy.optimize import linear_sum_assignment
 
 class ReferringCrossAttentionLayer(nn.Module):
 
@@ -118,10 +116,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
         mask_dim=256,
         class_num=25,
         noise_mode='hard',
-        feature_refusion=False,
-        multi_layer_noise=False,
-        use_memory=False,
-        memory_length=4,
     ):
         super(ClReferringTracker_noiser, self).__init__()
 
@@ -178,13 +172,9 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
-        #self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
-        #self.ref_fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
 
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
-        #for layer in self.key_proj.layers:
-        #    weight_init.c2_xavier_fill(layer)
 
         # mask features projection
         self.mask_feature_proj = nn.Conv2d(
@@ -202,26 +192,15 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
-    def get_memory(self, bs):
-        if self.memory is None:
-            self.memory = self.none_embed.weight.unsqueeze(0).repeat(self.memory_length, bs, 1)
-        return self.memory
-
-    def push_memory(self, query):
-        query = query.flatten(0, 1).unsqueeze(0)
-        self.memory = torch.cat([self.memory, query], dim=0)[1:]
-        return
-
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
         self.last_reference = None
-        self.references_memory = None
         return
 
     def forward(self, frame_embeds, mask_features, resume=False,
                 return_indices=False, frame_classes=None,
-                frame_embeds_no_norm=None, cur_feature=None):
+                frame_embeds_no_norm=None):
         """
         :param frame_embeds: the instance queries output by the segmenter
         :param mask_features: the mask features output by the segmenter
@@ -241,7 +220,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
         ret_indices = []
 
         all_frames_references = []
-        all_frames_keys = []
 
         for i in range(n_frame):
             ms_output = []
@@ -255,7 +233,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
             else:
                 single_frame_classes = frame_classes[i]
 
-            #frame_key = self.key_proj(single_frame_embeds_no_norm)
             frame_key = single_frame_embeds_no_norm
 
             # the first frame of a video
@@ -311,20 +288,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         )
                         ms_output.append(output)
                 self.last_reference = self.ref_proj(frame_key)
-                if self.use_memory:
-                    self.references_memory = self.last_reference.flatten(0, 1).unsqueeze(0)  # (1, qb, c)
             else:
                 reference = self.ref_proj(self.last_outputs[-1])
-                #beta = self.ref_fuse(torch.cat([self.last_reference, reference], dim=-1)).sigmoid()
-                #reference = beta * reference + (1 - beta) * self.last_reference
                 self.last_reference = reference
                 #do memory attn
-                if self.use_memory:
-                    self.references_memory = torch.cat([self.references_memory, reference.flatten(0, 1).unsqueeze(0)],
-                                                       dim=0)
-                    r_q, r_b, r_c = reference.size()
-                    reference_ = self.memory_cross_attn(reference.flatten(0, 1).unsqueeze(0), self.references_memory)
-                    reference = reference_.reshape(r_q, r_b, r_c)
 
                 for j in range(self.num_layers):
                     if j == 0:
@@ -377,7 +344,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         ms_output.append(output)
 
             all_frames_references.append(self.last_reference)
-            all_frames_keys.append(frame_key)
 
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
@@ -385,7 +351,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
 
         all_frames_references = torch.stack(all_frames_references, dim=0)  # (t, q, b, c)
-        all_frames_keys = torch.stack(all_frames_keys, dim=0)  # (t, q, b, c)
 
         mask_features_ = mask_features
         if not self.training:
@@ -401,7 +366,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
-           'pred_keys': all_frames_keys.permute(2, 3, 0, 1),  # (b, c, t, q),
         }
         if return_indices:
             return out, ret_indices
@@ -461,8 +425,6 @@ class ClDVIS_online(MinVIS):
         max_iter_num,
         window_size,
         task,
-        segmenter_clip_enable,
-        clip_size,
     ):
         """
         Args:
@@ -509,8 +471,6 @@ class ClDVIS_online(MinVIS):
             # video
             num_frames=num_frames,
             window_inference=window_inference,
-            segmenter_clip_enable=segmenter_clip_enable,
-            clip_size=clip_size
         )
         # frozen the segmenter
         for p in self.backbone.parameters():
@@ -565,7 +525,6 @@ class ClDVIS_online(MinVIS):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
 
-        # weight_dict.update({'loss_reid': 2, 'loss_aux_reid': 3})
         weight_dict.update({'loss_reid': 2})
 
         losses = ["labels", "masks"]
@@ -589,10 +548,6 @@ class ClDVIS_online(MinVIS):
             noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
-            feature_refusion=cfg.MODEL.TRACKER.FEATURE_FUSION,
-            multi_layer_noise=cfg.MODEL.TRACKER.MULTI_LAYER_NOISE,
-            use_memory=cfg.MODEL.TRACKER.USE_MEMORY,
-            memory_length=cfg.INPUT.SAMPLING_FRAME_NUM - 1,
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER
@@ -617,8 +572,6 @@ class ClDVIS_online(MinVIS):
             "max_iter_num": max_iter_num,
             "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
-            "segmenter_clip_enable": cfg.MODEL.MASK_FORMER.TEST.SEGMENTER_CLIP_ENABLE,
-            "clip_size": cfg.MODEL.MASK_FORMER.TEST.CLIP_SIZE,
         }
 
     def forward(self, batched_inputs):
@@ -672,19 +625,13 @@ class ClDVIS_online(MinVIS):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            if self.segmenter_clip_enable:
-                outputs = self.run_window_inference(images.tensor, window_size=self.clip_size)
-            else:
-                outputs = self.run_window_inference(images.tensor, window_size=self.window_size)
+            outputs = self.run_window_inference(images.tensor, window_size=self.window_size)
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
             with torch.no_grad():
                 features = self.backbone(images.tensor)
-                if self.segmenter_clip_enable:
-                    image_outputs = self.sem_seg_head(features, clip_size=self.clip_size)
-                else:
-                    image_outputs = self.sem_seg_head(features)
+                image_outputs = self.sem_seg_head(features)
                 if 'transformer_features' in image_outputs.keys():
                     cur_features = image_outputs['transformer_features']
                 else:
@@ -699,14 +646,12 @@ class ClDVIS_online(MinVIS):
                                             resume=self.keep, frame_classes=object_labels,
                                             frame_embeds_no_norm=frame_embds_no_norm,
                                             cur_feature=cur_features)
-            image_outputs, outputs['pred_keys'] = self.reset_image_output_order(image_outputs, indices, outputs['pred_keys'])
+            image_outputs = self.reset_image_output_order(image_outputs, indices)
 
 
         if self.training:
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
-            # if self.iter < self.max_iter_num // 2:
-            #if self.iter < 0:
             image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
                 outputs, targets, image_outputs=image_outputs
             )
@@ -714,10 +659,7 @@ class ClDVIS_online(MinVIS):
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=image_outputs, ret_match_result=True)
             else:
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=None, ret_match_result=True)
-            image_outputs_without_aux = {k: v for k, v in image_outputs.items() if k != "aux_outputs"}
-            key_match_result = self.criterion.matcher(image_outputs_without_aux, targets)
-            #losses_cl = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
-            losses_cl = self.get_cl_loss_ref(outputs, targets, reference_match_result, key_match_result)
+            losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
             losses.update(losses_cl)
 
             self.iter += 1
@@ -761,7 +703,6 @@ class ClDVIS_online(MinVIS):
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
-        outputs['pred_keys'] = einops.rearrange(outputs['pred_keys'], 'b c t q -> (b t) q c')
         outputs['pred_references'] = einops.rearrange(outputs['pred_references'], 'b c t q -> (b t) q c')
 
         if image_outputs is not None:
@@ -785,7 +726,7 @@ class ClDVIS_online(MinVIS):
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         return image_outputs, outputs, gt_instances
 
-    def reset_image_output_order(self, output, indices, pred_keys):
+    def reset_image_output_order(self, output, indices):
         """
         in order to maintain consistency between the initial query and the guided results (segmenter prediction)
         :param output: segmenter prediction results (image-level segmentation results)
@@ -799,9 +740,7 @@ class ClDVIS_online(MinVIS):
         output['pred_masks'][0] = output['pred_masks'][0][indices, frame_indices].transpose(0, 1)
         # pred logits, shape is (b, t, q, c)
         output['pred_logits'][0] = output['pred_logits'][0][frame_indices, indices]
-
-        pred_keys[0] = pred_keys[0][:, frame_indices, indices]
-        return output, pred_keys
+        return output
 
     def post_processing(self, outputs, aux_logits=None):
         """
@@ -829,10 +768,7 @@ class ClDVIS_online(MinVIS):
             end_idx = (i+1) * window_size
             # segmeter inference
             features = self.backbone(images_tensor[start_idx:end_idx])
-            if self.segmenter_clip_enable:
-                out = self.sem_seg_head(features, clip_size=window_size)
-            else:
-                out = self.sem_seg_head(features)
+            out = self.sem_seg_head(features)
             if 'transformer_features' in out.keys():
                 cur_features = out['transformer_features']
             else:
@@ -1035,79 +971,17 @@ class ClDVIS_online(MinVIS):
                 "task": "vss",
             }
 
-    def get_cl_loss(self, outputs, targets, referecne_match_result, key_match_result):
+    def get_cl_loss_ref(self, outputs, referecne_match_result):
         # outputs['pred_keys'] = (b t) q c
         # outputs['pred_references'] = (b t) q c
         references = outputs['pred_references']
-        keys = outputs['pred_keys']
-
-        # per frame
-        contrastive_items = []
-        for i in range(references.size(0)):
-            frame_reference, frame_key = references[i], keys[i] # (q, c)
-            frame_ref_gt_indices = referecne_match_result[i]
-            frame_key_gt_indices = key_match_result[i]
-            gt_ids = targets[i]['ids']  # (N_gt)
-
-            gt2ref = {}
-            for i_ref, i_gt in zip(frame_ref_gt_indices[0], frame_ref_gt_indices[1]):
-                gt2ref[i_gt.item()] = i_ref.item()
-            gt2key = {}
-            for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
-                gt2key[i_gt.item()] = i_key.item()
-
-            #print(gt2ref, '**********', gt2key)
-            # per instance
-            for i_gt in gt2ref.keys():
-                if gt_ids[i_gt] == -1:
-                    continue
-                i_ref = gt2ref[i_gt]
-                i_key = gt2key[i_gt]
-                anchor_embeds = frame_reference[[i_ref]]
-                pos_embeds = frame_key[[i_key]]
-                neg_range = list(range(0, i_key)) + list(range(i_key + 1, frame_key.size(0)))
-                #print(neg_range, '---------', i_key)
-                neg_embeds = frame_key[neg_range]
-
-                num_positive = pos_embeds.shape[0]
-                # concate pos and neg to get whole constractive samples
-                pos_neg_embedding = torch.cat(
-                    [pos_embeds, neg_embeds], dim=0)
-                # generate label, pos is 1, neg is 0
-                pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
-                                                            dtype=torch.int64)  # noqa
-                pos_neg_label[:num_positive] = 1.
-
-                # dot product
-                dot_product = torch.einsum(
-                    'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
-                aux_normalize_pos_neg_embedding = nn.functional.normalize(
-                    pos_neg_embedding, dim=1)
-                aux_normalize_anchor_embedding = nn.functional.normalize(
-                    anchor_embeds, dim=1)
-
-                aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
-                                                                   aux_normalize_anchor_embedding])
-                contrastive_items.append({
-                    'dot_product': dot_product,
-                    'cosine_similarity': aux_cosine_similarity,
-                    'label': pos_neg_label})
-
-        losses = loss_reid(contrastive_items, outputs)
-        return losses
-
-    def get_cl_loss_ref(self, outputs, targets, referecne_match_result, key_match_result):
-        # outputs['pred_keys'] = (b t) q c
-        # outputs['pred_references'] = (b t) q c
-        references = outputs['pred_references']
-        keys = outputs['pred_keys']
 
         # per frame
         contrastive_items = []
         for i in range(references.size(0)):
             if i == 0:
                 continue
-            frame_reference, frame_key = references[i], keys[i] # (q, c)
+            frame_reference = references[i]  # (q, c)
             frame_reference_ = references[i - 1]  # (q, c)
 
             if i != references.size(0) - 1:
@@ -1116,28 +990,17 @@ class ClDVIS_online(MinVIS):
                 frame_reference_next = None
 
             frame_ref_gt_indices = referecne_match_result[i]
-            frame_key_gt_indices = key_match_result[i]
-            gt_ids = targets[i]['ids']  # (N_gt)
-            gt_ids_ = targets[i-1]['ids']  # (N_gt)
 
             gt2ref = {}
             for i_ref, i_gt in zip(frame_ref_gt_indices[0], frame_ref_gt_indices[1]):
                 gt2ref[i_gt.item()] = i_ref.item()
-            gt2key = {}
-            for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
-                gt2key[i_gt.item()] = i_key.item()
-
-            #print(gt2ref, '**********', gt2key)
-
             # per instance
             for i_gt in gt2ref.keys():
                 i_ref = gt2ref[i_gt]
-                i_key = gt2key[i_gt]
 
                 anchor_embeds = frame_reference[[i_ref]]
                 pos_embeds = frame_reference_[[i_ref]]
                 neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
-                #print(neg_range, '---------', i_key)
                 neg_embeds = frame_reference_[neg_range]
 
                 num_positive = pos_embeds.shape[0]
@@ -1193,71 +1056,6 @@ class ClDVIS_online(MinVIS):
                         'dot_product': dot_product,
                         'cosine_similarity': aux_cosine_similarity,
                         'label': pos_neg_label})
-
-        losses = loss_reid(contrastive_items, outputs)
-        return losses
-
-    def get_cl_loss_key(self, outputs, targets, referecne_match_result, key_match_result):
-        # outputs['pred_keys'] = (b t) q c
-        # outputs['pred_references'] = (b t) q c
-        references = outputs['pred_references']
-        keys = outputs['pred_keys']
-
-        # per frame
-        contrastive_items = []
-        for i in range(references.size(0)):
-            if i == 0:
-                continue
-            frame_key = keys[i]  # (q, c)
-            frame_key_ = keys[i - 1]
-            frame_key_gt_indices = key_match_result[i]
-            frame_key_gt_indices_ = key_match_result[i - 1]
-            gt_ids = targets[i]['ids']  # (N_gt)
-            gt_ids_ = targets[i-1]['ids']  # (N_gt)
-
-            gt2key = {}
-            for i_key, i_gt in zip(frame_key_gt_indices[0], frame_key_gt_indices[1]):
-                gt2key[i_gt.item()] = i_key.item()
-            gt2key_ = {}
-            for i_key, i_gt in zip(frame_key_gt_indices_[0], frame_key_gt_indices_[1]):
-                gt2key_[i_gt.item()] = i_key.item()
-
-            #print(gt2ref, '**********', gt2key)
-            # per instance
-            for i_gt in gt2key.keys():
-                if gt_ids[i_gt] == -1 or gt_ids_[i_gt] == -1:
-                    continue
-                i_key = gt2key[i_gt]
-                i_key_ = gt2key_[i_gt]
-                anchor_embeds = frame_key[[i_key]]
-                pos_embeds = frame_key_[[i_key_]]
-                neg_range = list(range(0, i_key)) + list(range(i_key + 1, frame_key.size(0)))
-                #print(neg_range, '---------', i_key)
-                neg_embeds = frame_key[neg_range]
-
-                num_positive = pos_embeds.shape[0]
-                # concate pos and neg to get whole constractive samples
-                pos_neg_embedding = torch.cat(
-                    [pos_embeds, neg_embeds], dim=0)
-                # generate label, pos is 1, neg is 0
-                pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
-                                                            dtype=torch.int64)  # noqa
-                pos_neg_label[:num_positive] = 1.
-
-                # dot product
-                dot_product = torch.einsum(
-                    'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
-                aux_normalize_pos_neg_embedding = nn.functional.normalize(
-                    pos_neg_embedding, dim=1)
-                aux_normalize_anchor_embedding = nn.functional.normalize(
-                    anchor_embeds, dim=1)
-
-                aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
-                                                                   aux_normalize_anchor_embedding])
-                contrastive_items.append({
-                    'dot_product': dot_product,
-                    'cosine_similarity': aux_cosine_similarity,
-                    'label': pos_neg_label})
 
         losses = loss_reid(contrastive_items, outputs)
         return losses

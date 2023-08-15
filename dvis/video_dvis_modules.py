@@ -2,11 +2,8 @@ import torch
 from torch import nn
 from mask2former_video.modeling.transformer_decoder.video_mask2former_transformer_decoder import SelfAttentionLayer,\
     CrossAttentionLayer, FFNLayer, MLP, _get_activation_fn
-from scipy.optimize import linear_sum_assignment
 from .utils import Noiser
-import random
-import numpy as np
-import torch.nn.functional as F
+
 
 class ReferringCrossAttentionLayer(nn.Module):
 
@@ -91,356 +88,6 @@ class ReferringCrossAttentionLayer(nn.Module):
         return self.forward_post(indentify, tgt, memory, memory_mask,
                                  memory_key_padding_mask, pos, query_pos)
 
-class GatedReferringCrossAttentionLayer(nn.Module):
-
-    def __init__(
-        self,
-        d_model,
-        nhead,
-        dropout=0.0,
-        activation="relu",
-        normalize_before=False
-    ):
-        super().__init__()
-        self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.norm = nn.LayerNorm(d_model)
-        self.dropout = nn.Dropout(dropout)
-        self.activation = _get_activation_fn(activation)
-        self.normalize_before = normalize_before
-        self._reset_parameters()
-
-        self.gate = nn.Linear(2 * d_model, d_model)
-
-    def _reset_parameters(self):
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
-
-    def with_pos_embed(self, tensor, pos):
-        return tensor if pos is None else tensor + pos
-
-    def forward_post(
-        self,
-        indentify,
-        tgt,
-        memory,
-        memory_mask=None,
-        memory_key_padding_mask=None,
-        pos=None,
-        query_pos=None
-    ):
-        tgt2 = self.multihead_attn(
-            query=self.with_pos_embed(tgt, query_pos),
-            key=self.with_pos_embed(memory, pos),
-            value=memory, attn_mask=memory_mask,
-            key_padding_mask=memory_key_padding_mask)[0]
-        # gate = self.gate(torch.cat([tgt, indentify], dim=-1)).sigmoid()
-        # tgt = indentify * gate + self.dropout(tgt2) * (1 - gate)
-        gate = self.gate(torch.cat([tgt, indentify], dim=-1)).tanh()
-        tgt = indentify * (1 + gate) / 2. + self.dropout(tgt2)
-        tgt = self.norm(tgt)
-
-        return tgt
-
-    def forward_pre(
-        self,
-        indentify,
-        tgt,
-        memory,
-        memory_mask=None,
-        memory_key_padding_mask=None,
-        pos=None,
-        query_pos=None
-    ):
-        tgt2 = self.norm(tgt)
-        tgt2 = self.multihead_attn(
-            query=self.with_pos_embed(tgt2, query_pos),
-            key=self.with_pos_embed(memory, pos),
-            value=memory, attn_mask=memory_mask,
-            key_padding_mask=memory_key_padding_mask)[0]
-        # gate = self.gate(torch.cat([tgt, indentify], dim=-1)).sigmoid()
-        # tgt = indentify * gate + self.dropout(tgt2) * (1 - gate)
-        gate = self.gate(torch.cat([tgt, indentify], dim=-1)).tanh()
-        tgt = indentify * (1 + gate) / 2. + self.dropout(tgt2)
-
-        return tgt
-
-    def forward(
-        self,
-        indentify,
-        tgt,
-        memory,
-        memory_mask=None,
-        memory_key_padding_mask=None,
-        pos=None,
-        query_pos=None
-    ):
-        # when set "indentify = tgt", ReferringCrossAttentionLayer is same as CrossAttentionLayer
-        if self.normalize_before:
-            return self.forward_pre(indentify, tgt, memory, memory_mask,
-                                    memory_key_padding_mask, pos, query_pos)
-        return self.forward_post(indentify, tgt, memory, memory_mask,
-                                 memory_key_padding_mask, pos, query_pos)
-
-class ReferringTracker(torch.nn.Module):
-    def __init__(
-        self,
-        hidden_channel=256,
-        feedforward_channel=2048,
-        num_head=8,
-        decoder_layer_num=6,
-        mask_dim=256,
-        class_num=25,
-    ):
-        super(ReferringTracker, self).__init__()
-
-        # init transformer layers
-        self.num_heads = num_head
-        self.num_layers = decoder_layer_num
-        self.transformer_self_attention_layers = nn.ModuleList()
-        self.transformer_cross_attention_layers = nn.ModuleList()
-        self.transformer_ffn_layers = nn.ModuleList()
-
-        for _ in range(self.num_layers):
-            self.transformer_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_cross_attention_layers.append(
-                ReferringCrossAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_ffn_layers.append(
-                FFNLayer(
-                    d_model=hidden_channel,
-                    dim_feedforward=feedforward_channel,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-        self.decoder_norm = nn.LayerNorm(hidden_channel)
-
-        # init heads
-        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
-        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
-
-        # record previous frame information
-        self.last_outputs = None
-        self.last_frame_embeds = None
-
-    def _clear_memory(self):
-        del self.last_outputs
-        self.last_outputs = None
-        return
-
-    def forward(self, frame_embeds, mask_features, resume=False, return_indices=False):
-        """
-        :param frame_embeds: the instance queries output by the segmenter
-        :param mask_features: the mask features output by the segmenter
-        :param resume: whether the first frame is the start of the video
-        :param return_indices: whether return the match indices
-        :return: output dict, including masks, classes, embeds.
-        """
-        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
-        n_frame, n_q, bs, _ = frame_embeds.size()
-        outputs = []
-        ret_indices = []
-
-        for i in range(n_frame):
-            ms_output = []
-            single_frame_embeds = frame_embeds[i]  # q b c
-            # the first frame of a video
-            if i == 0 and resume is False:
-                self._clear_memory()
-                self.last_frame_embeds = single_frame_embeds
-                for j in range(self.num_layers):
-                    if j == 0:
-                        ms_output.append(single_frame_embeds)
-                        ret_indices.append(self.match_embds(single_frame_embeds, single_frame_embeds))
-                        output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds, single_frame_embeds, single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], ms_output[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-            else:
-                for j in range(self.num_layers):
-                    if j == 0:
-                        ms_output.append(single_frame_embeds)
-                        indices = self.match_embds(self.last_frame_embeds, single_frame_embeds)
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        ret_indices.append(indices)
-                        output = self.transformer_cross_attention_layers[j](
-                            single_frame_embeds[indices], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-            ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
-            self.last_outputs = ms_output
-            outputs.append(ms_output[1:])
-        outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
-        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
-        outputs = self.decoder_norm(outputs)
-        out = {
-           'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
-           'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
-           'aux_outputs': self._set_aux_loss(
-               outputs_class, outputs_masks
-           ),
-           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # (b, c, t, q)
-        }
-        if return_indices:
-            return out, ret_indices
-        else:
-            return out
-
-    def match_embds(self, ref_embds, cur_embds):
-        #  embeds (q, b, c)
-        ref_embds, cur_embds = ref_embds.detach()[:, 0, :], cur_embds.detach()[:, 0, :]
-        ref_embds = ref_embds / (ref_embds.norm(dim=1)[:, None] + 1e-6)
-        cur_embds = cur_embds / (cur_embds.norm(dim=1)[:, None] + 1e-6)
-        cos_sim = torch.mm(ref_embds, cur_embds.transpose(0, 1))
-        C = 1 - cos_sim
-
-        C = C.cpu()
-        C = torch.where(torch.isnan(C), torch.full_like(C, 0), C)
-
-        indices = linear_sum_assignment(C.transpose(0, 1))
-        indices = indices[1]
-        return indices
-
-    @torch.jit.unused
-    def _set_aux_loss(self, outputs_class, outputs_seg_masks):
-        # this is a workaround to make torchscript happy, as torchscript
-        # doesn't support dictionary with non-homogeneous values, such
-        # as a dict having both a Tensor and a list.
-        return [{"pred_logits": a.transpose(1, 2), "pred_masks": b}
-                for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
-                ]
-
-    def prediction(self, outputs, mask_features):
-        # outputs (t, l, q, b, c)
-        # mask_features (b, t, c, h, w)
-        decoder_output = self.decoder_norm(outputs)
-        decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
-        outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (l, b, q, t, cls+1)
-        mask_embed = self.mask_embed(decoder_output)
-        outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
-        return outputs_class, outputs_mask
-
-    def frame_forward(self, frame_embeds):
-        """
-        only for providing the instance memories for refiner
-        :param frame_embeds: the instance queries output by the segmenter, shape is (q, b, t, c)
-        :return: the projected instance queries
-        """
-        bs, n_channel, n_frame, n_q = frame_embeds.size()
-        frame_embeds = frame_embeds.permute(3, 0, 2, 1)  # (q, b, t, c)
-        frame_embeds = frame_embeds.flatten(1, 2)  # (q, bt, c)
-
-        for j in range(self.num_layers):
-            if j == 0:
-                output = self.transformer_cross_attention_layers[j](
-                    frame_embeds, frame_embeds, frame_embeds,
-                    memory_mask=None,
-                    memory_key_padding_mask=None,
-                    pos=None, query_pos=None
-                )
-                output = self.transformer_self_attention_layers[j](
-                    output, tgt_mask=None,
-                    tgt_key_padding_mask=None,
-                    query_pos=None
-                )
-                # FFN
-                output = self.transformer_ffn_layers[j](
-                    output
-                )
-            else:
-                output = self.transformer_cross_attention_layers[j](
-                    output, output, frame_embeds,
-                    memory_mask=None,
-                    memory_key_padding_mask=None,
-                    pos=None, query_pos=None
-                )
-                output = self.transformer_self_attention_layers[j](
-                    output, tgt_mask=None,
-                    tgt_key_padding_mask=None,
-                    query_pos=None
-                )
-                # FFN
-                output = self.transformer_ffn_layers[j](
-                    output
-                )
-        output = self.decoder_norm(output)
-        output = output.reshape(n_q, bs, n_frame, n_channel)
-        return output.permute(1, 3, 2, 0)
-
 class ReferringTracker_noiser(torch.nn.Module):
     def __init__(
         self,
@@ -451,10 +98,6 @@ class ReferringTracker_noiser(torch.nn.Module):
         mask_dim=256,
         class_num=25,
         noise_mode='hard',
-        feature_refusion=False,
-        multi_layer_noise=False,
-        use_memory=False,
-        memory_length=4,
     ):
         super(ReferringTracker_noiser, self).__init__()
 
@@ -464,35 +107,8 @@ class ReferringTracker_noiser(torch.nn.Module):
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
-        if feature_refusion:
-            self.memory_feature = None
-            self.feature2query_fusion_layers = nn.ModuleList()
-
-            self.mem_cur_feature_fusion = SelfAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
-
-            self.feature_proj = nn.Conv2d(
-                mask_dim,
-                mask_dim,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            )
 
         for _ in range(self.num_layers):
-            if feature_refusion:
-                self.feature2query_fusion_layers.append(
-                    ReferringCrossAttentionLayer(
-                        d_model=hidden_channel,
-                        nhead=num_head,
-                        dropout=0.0,
-                        normalize_before=False,
-                    )
-                )
 
             self.transformer_self_attention_layers.append(
                 SelfAttentionLayer(
@@ -505,7 +121,6 @@ class ReferringTracker_noiser(torch.nn.Module):
 
             self.transformer_cross_attention_layers.append(
                 ReferringCrossAttentionLayer(
-                # GatedReferringCrossAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
                     dropout=0.0,
@@ -542,70 +157,10 @@ class ReferringTracker_noiser(torch.nn.Module):
 
         self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
-        self.feature_refusion = feature_refusion
-        self.multi_layer_noise = multi_layer_noise
-
-        self.use_memory = use_memory
-        if use_memory:
-            self.memory_length = memory_length
-            self.none_embed = nn.Embedding(1, hidden_channel)
-            self.cur_pos = nn.Embedding(1, hidden_channel)
-            self.temporal_pos_embed = nn.Embedding(memory_length, hidden_channel)
-            self.transformer_cross_attention_layers_memory = nn.ModuleList()
-            for _ in range(self.num_layers):
-                self.transformer_cross_attention_layers_memory.append(
-                    CrossAttentionLayer(
-                        d_model=hidden_channel,
-                        nhead=num_head,
-                        dropout=0.0,
-                        normalize_before=False,
-                    )
-                )
-            self.memory = None
-
-    def get_memory(self, bs):
-        if self.memory is None:
-            self.memory = self.none_embed.weight.unsqueeze(0).repeat(self.memory_length, bs, 1)
-        return self.memory
-
-    def push_memory(self, query):
-        query = query.flatten(0, 1).unsqueeze(0)
-        self.memory = torch.cat([self.memory, query], dim=0)[1:]
-        return
-
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
-        if self.feature_refusion:
-            del self.memory_feature
-            self.memory_feature = None
-        if self.use_memory:
-            self.memory = None
         return
-
-    def feature_query_fusion(self, feature, mask_features, memory_feature=None):
-        # query (q, b, c)
-        # feature (b, c, h, w)
-        b, c, hf, wf = feature.size()
-        _, _, hm, wm = mask_features.size()
-
-        feature = feature.flatten(2).permute(2, 0, 1)  # (hw, b, c)
-        if memory_feature is None:
-            memory_feature = feature
-
-        # do mem_cur_feature_fusion
-        mem_cur_feature = torch.cat([memory_feature, feature], dim=0)  # (2hw, b, c)
-        mem_cur_feature = self.mem_cur_feature_fusion(
-            mem_cur_feature, tgt_mask=None,
-            tgt_key_padding_mask=None,
-            query_pos=None
-        )
-        feature_ = mem_cur_feature[hf*wf:]
-
-        feature = feature_.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
-        feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
-        mask_features = mask_features + self.feature_proj(feature)
-        return mask_features, feature_
 
 
     def forward(self, frame_embeds, mask_features, resume=False,
@@ -619,8 +174,6 @@ class ReferringTracker_noiser(torch.nn.Module):
         :return: output dict, including masks, classes, embeds.
         """
         # mask feature projection
-        if self.feature_refusion:
-            assert cur_feature is not None
         mask_features_shape = mask_features.shape
         mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)  # (b, t, c, h, w)
         mask_features_ = []
@@ -631,10 +184,6 @@ class ReferringTracker_noiser(torch.nn.Module):
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
         ret_indices = []
-
-        if self.use_memory:
-            temporal_pos = self.temporal_pos_embed.weight.unsqueeze(1).repeat(1, n_q * bs, 1)
-            cur_pos = self.cur_pos.weight.unsqueeze(1).repeat(1, n_q * bs, 1)
 
         for i in range(n_frame):
             ms_output = []
@@ -647,22 +196,9 @@ class ReferringTracker_noiser(torch.nn.Module):
                 single_frame_classes = None
             else:
                 single_frame_classes = frame_classes[i]
-            if i == 0 and resume is False:
-                self._clear_memory()
-            # do fusion
-            if self.feature_refusion:
-                single_frame_feature = cur_feature[i: i + 1]  # (1, c, h, w)
-                single_frame_mask_feature, self.memory_feature = self.feature_query_fusion(
-                    single_frame_feature, mask_features[0, i: i + 1], self.memory_feature
-                )
-                mask_features_.append(single_frame_mask_feature)
-            if self.feature_refusion:
-                single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
-            if self.use_memory:
-                memory = self.get_memory(bs=n_q * bs)
             # the first frame of a video
             if i == 0 and resume is False:
-                # self._clear_memory()
+                self._clear_memory()
                 for j in range(self.num_layers):
                     if j == 0:
                         indices, noised_init = self.noiser(
@@ -681,21 +217,6 @@ class ReferringTracker_noiser(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
-                        # refusion
-                        if self.feature_refusion:
-                            output = self.feature2query_fusion_layers[j](
-                                output, single_frame_embeds_no_norm, single_frame_feature
-                            )
-
-                        if self.use_memory:
-                            output = output.flatten(0, 1).unsqueeze(0)
-                            output = self.transformer_cross_attention_layers_memory[j](
-                                output, self.memory,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=temporal_pos, query_pos=cur_pos
-                            )
-                            output = output.reshape(n_q, bs, -1)
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -714,21 +235,6 @@ class ReferringTracker_noiser(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
-                        # refusion
-                        if self.feature_refusion:
-                            output = self.feature2query_fusion_layers[j](
-                                output, ms_output[-1], single_frame_feature
-                            )
-
-                        if self.use_memory:
-                            output = output.flatten(0, 1).unsqueeze(0)
-                            output = self.transformer_cross_attention_layers_memory[j](
-                                output, self.memory,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=temporal_pos, query_pos=cur_pos
-                            )
-                            output = output.reshape(n_q, bs, -1)
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -759,21 +265,6 @@ class ReferringTracker_noiser(torch.nn.Module):
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
-                        # refusion
-                        if self.feature_refusion:
-                            output = self.feature2query_fusion_layers[j](
-                                output, self.last_outputs[-1], single_frame_feature
-                            )
-
-                        if self.use_memory:
-                            output = output.flatten(0, 1).unsqueeze(0)
-                            output = self.transformer_cross_attention_layers_memory[j](
-                                output, self.memory,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=temporal_pos, query_pos=cur_pos
-                            )
-                            output = output.reshape(n_q, bs, -1)
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -786,35 +277,13 @@ class ReferringTracker_noiser(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
-                        if self.multi_layer_noise and self.training:
-                            output = self.transformer_cross_attention_layers[j](
-                                self.soft_noise(ms_output[-1], ratio=0.5 / j), self.last_outputs[-1], single_frame_embeds_no_norm,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=None, query_pos=None
-                            )
-                        else:
-                            output = self.transformer_cross_attention_layers[j](
-                                ms_output[-1], self.last_outputs[-1], single_frame_embeds_no_norm,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=None, query_pos=None
-                            )
-                        # refusion
-                        if self.feature_refusion:
-                            output = self.feature2query_fusion_layers[j](
-                                output, self.last_outputs[-1], single_frame_feature
-                            )
 
-                        if self.use_memory:
-                            output = output.flatten(0, 1).unsqueeze(0)
-                            output = self.transformer_cross_attention_layers_memory[j](
-                                output, self.memory,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=temporal_pos, query_pos=cur_pos
-                            )
-                            output = output.reshape(n_q, bs, -1)
+                        output = self.transformer_cross_attention_layers[j](
+                            ms_output[-1], self.last_outputs[-1], single_frame_embeds_no_norm,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
+                        )
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -826,16 +295,11 @@ class ReferringTracker_noiser(torch.nn.Module):
                             output
                         )
                         ms_output.append(output)
-            if self.use_memory:
-                self.push_memory(output)
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
             outputs.append(ms_output[1:])
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
-        if self.feature_refusion:
-            mask_features_ = torch.cat(mask_features_, dim=0).unsqueeze(0)
-        else:
-            mask_features_ = mask_features
+        mask_features_ = mask_features
         if not self.training:
             outputs = outputs[:, -1:]
             del mask_features
@@ -853,15 +317,6 @@ class ReferringTracker_noiser(torch.nn.Module):
             return out, ret_indices
         else:
             return out
-
-    def soft_noise(self, queries, ratio=0.5):
-        # queries (q, b, c)
-        indices = list(range(queries.shape[0]))
-        np.random.shuffle(indices)
-        noise = queries[indices]
-        ratio = ratio * random.random()
-        queries = queries * (1 - ratio) + noise * ratio
-        return queries
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_seg_masks):
@@ -882,52 +337,6 @@ class ReferringTracker_noiser(torch.nn.Module):
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
         return outputs_class, outputs_mask
 
-    def frame_forward(self, frame_embeds):
-        """
-        only for providing the instance memories for refiner
-        :param frame_embeds: the instance queries output by the segmenter, shape is (q, b, t, c)
-        :return: the projected instance queries
-        """
-        bs, n_channel, n_frame, n_q = frame_embeds.size()
-        frame_embeds = frame_embeds.permute(3, 0, 2, 1)  # (q, b, t, c)
-        frame_embeds = frame_embeds.flatten(1, 2)  # (q, bt, c)
-
-        for j in range(self.num_layers):
-            if j == 0:
-                output = self.transformer_cross_attention_layers[j](
-                    frame_embeds, frame_embeds, frame_embeds,
-                    memory_mask=None,
-                    memory_key_padding_mask=None,
-                    pos=None, query_pos=None
-                )
-                output = self.transformer_self_attention_layers[j](
-                    output, tgt_mask=None,
-                    tgt_key_padding_mask=None,
-                    query_pos=None
-                )
-                # FFN
-                output = self.transformer_ffn_layers[j](
-                    output
-                )
-            else:
-                output = self.transformer_cross_attention_layers[j](
-                    output, output, frame_embeds,
-                    memory_mask=None,
-                    memory_key_padding_mask=None,
-                    pos=None, query_pos=None
-                )
-                output = self.transformer_self_attention_layers[j](
-                    output, tgt_mask=None,
-                    tgt_key_padding_mask=None,
-                    query_pos=None
-                )
-                # FFN
-                output = self.transformer_ffn_layers[j](
-                    output
-                )
-        output = self.decoder_norm(output)
-        output = output.reshape(n_q, bs, n_frame, n_channel)
-        return output.permute(1, 3, 2, 0)
 
 class TemporalRefiner(torch.nn.Module):
     def __init__(
@@ -1164,400 +573,3 @@ class TemporalRefiner(torch.nn.Module):
             outputs = outputs[:, -1:]
             outputs_class, outputs_mask = self.windows_prediction(outputs, mask_features, windows=self.windows)
         return outputs_class, outputs_mask
-
-class ReferringTracker_noiser_clip(torch.nn.Module):
-    def __init__(
-        self,
-        hidden_channel=256,
-        feedforward_channel=2048,
-        num_head=8,
-        decoder_layer_num=6,
-        mask_dim=256,
-        class_num=25,
-        noise_mode='hard',
-        feature_refusion=False,
-    ):
-        super(ReferringTracker_noiser_clip, self).__init__()
-
-        # init transformer layers
-        self.num_heads = num_head
-        self.num_layers = decoder_layer_num
-        self.transformer_self_attention_layers = nn.ModuleList()
-        self.transformer_cross_attention_layers = nn.ModuleList()
-        self.transformer_ffn_layers = nn.ModuleList()
-        if feature_refusion:
-            self.memory_feature = None
-            self.feature2query_fusion_layers = nn.ModuleList()
-
-            self.mem_cur_feature_fusion = SelfAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
-
-            self.feature_proj = nn.Conv2d(
-                mask_dim,
-                mask_dim,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            )
-
-        for _ in range(self.num_layers):
-            if feature_refusion:
-                self.feature2query_fusion_layers.append(
-                    ReferringCrossAttentionLayer(
-                        d_model=hidden_channel,
-                        nhead=num_head,
-                        dropout=0.0,
-                        normalize_before=False,
-                    )
-                )
-
-            self.transformer_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_cross_attention_layers.append(
-                ReferringCrossAttentionLayer(
-                # GatedReferringCrossAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            self.transformer_ffn_layers.append(
-                FFNLayer(
-                    d_model=hidden_channel,
-                    dim_feedforward=feedforward_channel,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-        self.decoder_norm = nn.LayerNorm(hidden_channel)
-
-        # init heads
-        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
-        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
-        # mask features projection
-        self.mask_feature_proj = nn.Conv2d(
-            mask_dim,
-            mask_dim,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-        )
-
-        # record previous frame information
-        self.last_outputs = None
-        self.last_frame_embeds = None
-
-        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
-
-        self.feature_refusion = feature_refusion
-
-
-    def _clear_memory(self):
-        del self.last_outputs
-        self.last_outputs = None
-        if self.feature_refusion:
-            del self.memory_feature
-            self.memory_feature = None
-        return
-
-    def feature_query_fusion(self, feature, mask_features, memory_feature=None):
-        # query (q, b, c)
-        # feature (b, c, h, w)
-        b, c, hf, wf = feature.size()
-        _, _, hm, wm = mask_features.size()
-
-        feature = feature.flatten(2).permute(2, 0, 1)  # (hw, b, c)
-        if memory_feature is None:
-            memory_feature = feature
-
-        # do mem_cur_feature_fusion
-        mem_cur_feature = torch.cat([memory_feature, feature], dim=0)  # (2hw, b, c)
-        mem_cur_feature = self.mem_cur_feature_fusion(
-            mem_cur_feature, tgt_mask=None,
-            tgt_key_padding_mask=None,
-            query_pos=None
-        )
-        feature_ = mem_cur_feature[hf*wf:]
-
-        feature = feature_.reshape(hf, wf, b, c).permute(2, 3, 0, 1)
-        feature = F.interpolate(feature, size=(hm, wm), mode='bilinear', align_corners=True)
-        mask_features = mask_features + self.feature_proj(feature)
-        return mask_features, feature_
-
-
-    def forward(self, frame_embeds, mask_features, resume=False,
-                return_indices=False, frame_classes=None,
-                frame_embeds_no_norm=None, cur_feature=None,
-                clip_size=3):
-        """
-        :param frame_embeds: the instance queries output by the segmenter
-        :param mask_features: the mask features output by the segmenter
-        :param resume: whether the first frame is the start of the video
-        :param return_indices: whether return the match indices
-        :return: output dict, including masks, classes, embeds.
-        """
-        # mask feature projection
-        if self.feature_refusion:
-            assert cur_feature is not None
-        mask_features_shape = mask_features.shape
-        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)  # (b, t, c, h, w)
-        mask_features_ = []
-
-        frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
-        if frame_embeds_no_norm is not None:
-            frame_embeds_no_norm = frame_embeds_no_norm.permute(2, 3, 0, 1)  # t, q, b, c
-        n_frame, n_q, bs, _ = frame_embeds.size()
-        outputs = []
-        ret_indices = []
-
-        for i in range(n_frame):
-            if i % clip_size != 0:
-                continue
-            ms_output = []
-            single_frame_embeds = frame_embeds[i]  # q b c
-            if frame_embeds_no_norm is not None:
-                single_frame_embeds_no_norm = frame_embeds_no_norm[i]
-            else:
-                single_frame_embeds_no_norm = single_frame_embeds
-            if frame_classes is None:
-                single_frame_classes = None
-            else:
-                single_frame_classes = frame_classes[i]
-            if i == 0 and resume is False:
-                self._clear_memory()
-            # do fusion
-            if self.feature_refusion:
-                single_frame_feature = cur_feature[i: i + 1]  # (1, c, h, w)
-                single_frame_mask_feature, self.memory_feature = self.feature_query_fusion(
-                    single_frame_feature, mask_features[0, i: i + 1], self.memory_feature
-                )
-                mask_features_.append(single_frame_mask_feature)
-            if self.feature_refusion:
-                single_frame_feature = cur_feature[i: i + 1].flatten(2).permute(2, 0, 1)
-            # the first frame of a video
-            if i == 0 and resume is False:
-                # self._clear_memory()
-                for j in range(self.num_layers):
-                    if j == 0:
-                        indices, noised_init = self.noiser(
-                            single_frame_embeds,
-                            single_frame_embeds,
-                            cur_embeds_no_norm=single_frame_embeds_no_norm,
-                            activate=False,
-                            cur_classes=single_frame_classes,
-                        )
-                        ms_output.append(single_frame_embeds_no_norm[indices])
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        #ret_indices.append(indices)
-                        ret_indices += [indices] * clip_size
-                        output = self.transformer_cross_attention_layers[j](
-                            noised_init, single_frame_embeds_no_norm, single_frame_embeds_no_norm,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        # refusion
-                        if self.feature_refusion:
-                            output = self.feature2query_fusion_layers[j](
-                                output, single_frame_embeds_no_norm, single_frame_feature
-                            )
-
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], ms_output[-1], single_frame_embeds_no_norm,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        # refusion
-                        if self.feature_refusion:
-                            output = self.feature2query_fusion_layers[j](
-                                output, ms_output[-1], single_frame_feature
-                            )
-
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-            else:
-                for j in range(self.num_layers):
-                    if j == 0:
-                        indices, noised_init = self.noiser(
-                            self.last_frame_embeds,
-                            single_frame_embeds,
-                            cur_embeds_no_norm=single_frame_embeds_no_norm,
-                            activate=self.training,
-                            cur_classes=single_frame_classes,
-                        )
-                        ms_output.append(single_frame_embeds_no_norm[indices])
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        #ret_indices.append(indices)
-                        ret_indices += [indices] * clip_size
-                        output = self.transformer_cross_attention_layers[j](
-                            noised_init, self.last_outputs[-1], single_frame_embeds_no_norm,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        # refusion
-                        if self.feature_refusion:
-                            output = self.feature2query_fusion_layers[j](
-                                output, self.last_outputs[-1], single_frame_feature
-                            )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds_no_norm,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        # refusion
-                        if self.feature_refusion:
-                            output = self.feature2query_fusion_layers[j](
-                                output, self.last_outputs[-1], single_frame_feature
-                            )
-
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-
-            ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
-            self.last_outputs = ms_output
-            #outputs.append(ms_output[1:])
-            outputs += [ms_output[1:]] * clip_size
-        outputs = outputs[:n_frame]
-        outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
-        if self.feature_refusion:
-            mask_features_ = torch.cat(mask_features_, dim=0).unsqueeze(0)
-        else:
-            mask_features_ = mask_features
-        if not self.training:
-            outputs = outputs[:, -1:]
-            del mask_features
-        outputs_class, outputs_masks = self.prediction(outputs, mask_features_)
-        #outputs = self.decoder_norm(outputs)
-        out = {
-           'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
-           'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
-           'aux_outputs': self._set_aux_loss(
-               outputs_class, outputs_masks
-           ),
-           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # (b, c, t, q)
-        }
-        if return_indices:
-            return out, ret_indices[:n_frame]
-        else:
-            return out
-
-    @torch.jit.unused
-    def _set_aux_loss(self, outputs_class, outputs_seg_masks):
-        # this is a workaround to make torchscript happy, as torchscript
-        # doesn't support dictionary with non-homogeneous values, such
-        # as a dict having both a Tensor and a list.
-        return [{"pred_logits": a.transpose(1, 2), "pred_masks": b}
-                for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
-                ]
-
-    def prediction(self, outputs, mask_features):
-        # outputs (t, l, q, b, c)
-        # mask_features (b, t, c, h, w)
-        decoder_output = self.decoder_norm(outputs)
-        decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
-        outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (l, b, q, t, cls+1)
-        mask_embed = self.mask_embed(decoder_output)
-        outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
-        return outputs_class, outputs_mask
-
-    def frame_forward(self, frame_embeds):
-        """
-        only for providing the instance memories for refiner
-        :param frame_embeds: the instance queries output by the segmenter, shape is (q, b, t, c)
-        :return: the projected instance queries
-        """
-        bs, n_channel, n_frame, n_q = frame_embeds.size()
-        frame_embeds = frame_embeds.permute(3, 0, 2, 1)  # (q, b, t, c)
-        frame_embeds = frame_embeds.flatten(1, 2)  # (q, bt, c)
-
-        for j in range(self.num_layers):
-            if j == 0:
-                output = self.transformer_cross_attention_layers[j](
-                    frame_embeds, frame_embeds, frame_embeds,
-                    memory_mask=None,
-                    memory_key_padding_mask=None,
-                    pos=None, query_pos=None
-                )
-                output = self.transformer_self_attention_layers[j](
-                    output, tgt_mask=None,
-                    tgt_key_padding_mask=None,
-                    query_pos=None
-                )
-                # FFN
-                output = self.transformer_ffn_layers[j](
-                    output
-                )
-            else:
-                output = self.transformer_cross_attention_layers[j](
-                    output, output, frame_embeds,
-                    memory_mask=None,
-                    memory_key_padding_mask=None,
-                    pos=None, query_pos=None
-                )
-                output = self.transformer_self_attention_layers[j](
-                    output, tgt_mask=None,
-                    tgt_key_padding_mask=None,
-                    query_pos=None
-                )
-                # FFN
-                output = self.transformer_ffn_layers[j](
-                    output
-                )
-        output = self.decoder_norm(output)
-        output = output.reshape(n_q, bs, n_frame, n_channel)
-        return output.permute(1, 3, 2, 0)
