@@ -27,6 +27,7 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
     # max ensembel as in OpenSeg/ODISE
     final_pred_logits = []
     cur_idx = 0
+    print(num_templates)
     for num_t in num_templates[:-1]:
         final_pred_logits.append(pred_logits[:, :, cur_idx: cur_idx + num_t].max(-1).values)
         cur_idx += num_t
