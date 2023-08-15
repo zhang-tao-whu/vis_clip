@@ -185,7 +185,7 @@ class MinVIS_OV(nn.Module):
             if i == 0:
                 void_embed = self.void_embedding.weight
             else:
-                void_embed = self.additional_void_embedding.weight[i - 1]
+                void_embed = self.additional_void_embedding.weight[i - 1: i]
             void_embed = F.normalize(void_embed, dim=-1)
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
             num_templates.append(1)
