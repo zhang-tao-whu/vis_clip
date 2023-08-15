@@ -157,13 +157,10 @@ class MinVIS_OV(nn.Module):
         self.additional_void_embedding = nn.Embedding(len(train_metadatas) - 1, backbone.dim_latent)
 
         self.train_class_prepares = {}
-        self.train_void_embeddings = {}
+        self.train_names2id = {}
         self.test_class_prepares = {}
         for i, name in enumerate(train_metadatas.keys()):
-            if i == 0:
-                self.train_void_embeddings[name] = self.void_embedding.weight
-            else:
-                self.train_void_embeddings[name] = self.additional_void_embedding.weight[i - 1]
+            self.train_names2id[name] = i
             train_metadata = train_metadatas[name]
             _, train_num_templates, train_class_names = self.prepare_class_names_from_metadata(train_metadata,
                                                                                                train_metadata)
@@ -184,7 +181,11 @@ class MinVIS_OV(nn.Module):
         # text_classifier (N, C)
         # (N, C) -> (N, 1, C)
         if self.training:
-            void_embed = self.train_void_embeddings[name]
+            i = self.train_names2id[name]
+            if i == 0:
+                void_embed = self.void_embedding.weight
+            else:
+                void_embed = self.additional_void_embedding.weight[i - 1]
             void_embed = F.normalize(void_embed, dim=-1)
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
             num_templates.append(1)
