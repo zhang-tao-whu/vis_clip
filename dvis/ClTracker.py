@@ -178,12 +178,12 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
-        # self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+        #self.key_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         #self.ref_fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
 
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
-        # for layer in self.key_proj.layers:
+        #for layer in self.key_proj.layers:
         #    weight_init.c2_xavier_fill(layer)
 
         # mask features projection
@@ -255,7 +255,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             else:
                 single_frame_classes = frame_classes[i]
 
-            # frame_key = self.key_proj(single_frame_embeds_no_norm)
+            #frame_key = self.key_proj(single_frame_embeds_no_norm)
             frame_key = single_frame_embeds_no_norm
 
             # the first frame of a video
@@ -463,8 +463,6 @@ class ClDVIS_online(MinVIS):
         task,
         segmenter_clip_enable,
         clip_size,
-        # cl
-        image_matcher,
     ):
         """
         Args:
@@ -534,7 +532,6 @@ class ClDVIS_online(MinVIS):
             'vps': self.inference_video_vps,
         }
         self.inference_video_task = inference_dict[self.task]
-        self.image_matcher = image_matcher
 
     @classmethod
     def from_config(cls, cfg):
@@ -551,13 +548,6 @@ class ClDVIS_online(MinVIS):
         mask_weight = cfg.MODEL.MASK_FORMER.MASK_WEIGHT
 
         # building criterion
-        image_matcher = VideoHungarianMatcher(
-            cost_class=class_weight,
-            cost_mask=mask_weight,
-            cost_dice=dice_weight,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-        )
-
         matcher = VideoHungarianMatcher_Consistent(
             cost_class=class_weight,
             cost_mask=mask_weight,
@@ -576,7 +566,7 @@ class ClDVIS_online(MinVIS):
             weight_dict.update(aux_weight_dict)
 
         # weight_dict.update({'loss_reid': 2, 'loss_aux_reid': 3})
-        weight_dict.update({'loss_reid': 2, 'loss_reid_ref2key': 2})
+        weight_dict.update({'loss_reid': 2})
 
         losses = ["labels", "masks"]
 
@@ -629,8 +619,6 @@ class ClDVIS_online(MinVIS):
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
             "segmenter_clip_enable": cfg.MODEL.MASK_FORMER.TEST.SEGMENTER_CLIP_ENABLE,
             "clip_size": cfg.MODEL.MASK_FORMER.TEST.CLIP_SIZE,
-            # cl
-            "image_matcher": image_matcher,
         }
 
     def forward(self, batched_inputs):
@@ -727,10 +715,8 @@ class ClDVIS_online(MinVIS):
             else:
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=None, ret_match_result=True)
             image_outputs_without_aux = {k: v for k, v in image_outputs.items() if k != "aux_outputs"}
-            key_match_result = self.image_matcher(image_outputs_without_aux, targets)
-            # losses_cl_ref2key = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
-            # losses.update(losses_cl_ref2key)
-
+            key_match_result = self.criterion.matcher(image_outputs_without_aux, targets)
+            #losses_cl = self.get_cl_loss(outputs, targets, reference_match_result, key_match_result)
             losses_cl = self.get_cl_loss_ref(outputs, targets, reference_match_result, key_match_result)
             losses.update(losses_cl)
 
@@ -1052,10 +1038,7 @@ class ClDVIS_online(MinVIS):
     def get_cl_loss(self, outputs, targets, referecne_match_result, key_match_result):
         # outputs['pred_keys'] = (b t) q c
         # outputs['pred_references'] = (b t) q c
-        #references = outputs['pred_references']
-        references = outputs['pred_embds']
-        references = einops.rearrange(references, 'b c t q -> (b t) q c')
-
+        references = outputs['pred_references']
         keys = outputs['pred_keys']
 
         # per frame
@@ -1111,10 +1094,7 @@ class ClDVIS_online(MinVIS):
                     'label': pos_neg_label})
 
         losses = loss_reid(contrastive_items, outputs)
-        losses_ = {}
-        for item in losses.keys():
-            losses_.update({item + '_ref2key': losses[item]})
-        return losses_
+        return losses
 
     def get_cl_loss_ref(self, outputs, targets, referecne_match_result, key_match_result):
         # outputs['pred_keys'] = (b t) q c
