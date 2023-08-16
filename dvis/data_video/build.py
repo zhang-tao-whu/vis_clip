@@ -111,8 +111,8 @@ def get_detection_dataset_dicts(
     return dataset_dicts
 
 def build_combined_loader(cfg: CfgNode, loaders, ratios):
-    # images_per_worker = _compute_num_images_per_worker(cfg)
-    return CombinedDataLoader(loaders, 1, ratios)
+    images_per_worker = _compute_num_images_per_worker(cfg)
+    return CombinedDataLoader(loaders, images_per_worker, ratios)
 
 def _train_loader_from_config(cfg, mapper, dataset_name=None, *, dataset=None, sampler=None):
     if dataset is None:
