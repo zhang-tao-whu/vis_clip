@@ -764,10 +764,6 @@ class ClDVIS_online(MinVIS):
             # segmeter inference
             features = self.backbone(images_tensor[start_idx:end_idx])
             out = self.sem_seg_head(features)
-            if 'transformer_features' in out.keys():
-                cur_features = out['transformer_features']
-            else:
-                cur_features = None
             # remove unnecessary variables to save GPU memory
             del features['res2'], features['res3'], features['res4'], features['res5']
             for j in range(len(out['aux_outputs'])):
@@ -778,11 +774,9 @@ class ClDVIS_online(MinVIS):
             mask_features = out['mask_features'].unsqueeze(0)
             if i != 0 or self.keep:
                 track_out = self.tracker(frame_embds, mask_features,
-                                         resume=True, frame_embeds_no_norm=frame_embds_no_norm,
-                                         cur_feature=cur_features)
+                                         resume=True, frame_embeds_no_norm=frame_embds_no_norm)
             else:
-                track_out = self.tracker(frame_embds, mask_features, frame_embeds_no_norm=frame_embds_no_norm,
-                                         cur_feature=cur_features)
+                track_out = self.tracker(frame_embds, mask_features, frame_embeds_no_norm=frame_embds_no_norm)
             # remove unnecessary variables to save GPU memory
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
