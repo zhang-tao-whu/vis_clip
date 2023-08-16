@@ -83,8 +83,7 @@ def get_parser():
 	)
 	parser.add_argument(
 		"--clear",
-		type=bool,
-		default=False,
+		action='store_true',
 		help="only process n_frames frames of the video ",
 	)
 	parser.add_argument('--thing_classes', nargs='+', help='list of additional classes', default=[],)
