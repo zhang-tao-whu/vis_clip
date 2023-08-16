@@ -6,22 +6,11 @@
 
 # Copyright (c) Facebook, Inc. and its affiliates.
 # Modified by Bowen Cheng from https://github.com/sukjunhwang/IFC
-
-import contextlib
-import io
 import json
 import copy
-import logging
-import numpy as np
 import os
-import pycocotools.mask as mask_util
 from fvcore.common.file_io import PathManager
-from fvcore.common.timer import Timer
-
-from detectron2.structures import Boxes, BoxMode, PolygonMasks
 from detectron2.data import DatasetCatalog, MetadataCatalog
-from detectron2.data.datasets.builtin_meta import _get_builtin_metadata
-from detectron2.data.datasets.coco import register_coco_instances
 
 """
 This file contains functions to parse YTVIS dataset of
@@ -206,10 +195,11 @@ def _get_coco_panoptic_meta_ov():
 
 _PREDEFINED_SPLITS_COCO_PANOPTIC_VIDEO = {
     # "coco_panoptic_video_ov": ("coco/train2017", "coco/annotations/instances_train2017.json"),
-    "coco_panoptic_video_ov": ("coco/train2017", "coco/panoptic_train2017", "coco/annotations/panoptic_train2017.json"),
+    "coco_panoptic_video_ov": ("coco/train2017", "coco/panoptic_train2017", "coco/annotations/panoptic_train2017.json",
+                               "coco/annotations/instances_train2017.json"),
 }
 
-def load_coco_panoptic_json(json_file, image_dir, gt_dir, semseg_dir, meta):
+def load_coco_panoptic_json(json_file, image_dir, gt_dir, meta):
     """
     Args:
         image_dir (str): path to the raw dataset. e.g., "~/coco/train2017".
@@ -245,32 +235,50 @@ def load_coco_panoptic_json(json_file, image_dir, gt_dir, semseg_dir, meta):
         # function to support other COCO-like datasets.
         image_file = os.path.join(image_dir, os.path.splitext(ann["file_name"])[0] + ".jpg")
         label_file = os.path.join(gt_dir, ann["file_name"])
-        sem_label_file = os.path.join(semseg_dir, ann["file_name"])
         segments_info = [_convert_category_id(x, meta) for x in ann["segments_info"]]
         ret.append(
             {
                 "file_name": image_file,
                 "image_id": image_id,
                 "pan_seg_file_name": label_file,
-                "sem_seg_file_name": sem_label_file,
                 "segments_info": segments_info,
             }
         )
     assert len(ret), f"No images found in {image_dir}!"
     assert PathManager.isfile(ret[0]["file_name"]), ret[0]["file_name"]
     assert PathManager.isfile(ret[0]["pan_seg_file_name"]), ret[0]["pan_seg_file_name"]
-    assert PathManager.isfile(ret[0]["sem_seg_file_name"]), ret[0]["sem_seg_file_name"]
     return ret
 
+def register_coco_panoptic(
+    name, metadata, image_root, panoptic_root, panoptic_json, instances_json
+):
+    DatasetCatalog.register(
+        name,
+        lambda: load_coco_panoptic_json(panoptic_json, image_root, panoptic_root, metadata),
+    )
+    MetadataCatalog.get(name).set(
+        panoptic_root=panoptic_root,
+        image_root=image_root,
+        panoptic_json=panoptic_json,
+        json_file=instances_json,
+        ignore_label=255,
+        label_divisor=1000,
+        **metadata,
+    )
+    return
+
 def register_all_coco_video_ov(root):
-    for key, (image_root, json_file) in _PREDEFINED_SPLITS_COCO_VIDEO.items():
+    for key, (image_root, pano_root, json_file, instance_json_file) in _PREDEFINED_SPLITS_COCO_PANOPTIC_VIDEO.items():
         # Assume pre-defined datasets live in `./datasets`.
-        register_coco_instances(
+        register_coco_panoptic(
             key,
-            _get_coco_instances_meta_ov(),
-            os.path.join(root, json_file) if "://" not in json_file else json_file,
+            _get_coco_panoptic_meta_ov(),
             os.path.join(root, image_root),
+            os.path.join(root, pano_root),
+            os.path.join(root, json_file) if "://" not in json_file else json_file,
+            os.path.join(root, instance_json_file) if "://" not in instance_json_file else instance_json_file,
         )
+    return
 
 def get_coco_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(COCO_CATEGORIES)

@@ -27,6 +27,7 @@ from .data_video import (
     YTVISEvaluator,
     PanopticDatasetVideoMapper,
     SemanticDatasetVideoMapper,
+    CocoPanoClipDatasetMapper,
     VPSEvaluator,
     VSSEvaluator,
     build_combined_loader,

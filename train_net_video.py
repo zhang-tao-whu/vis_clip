@@ -48,6 +48,7 @@ from mask2former_video import add_maskformer2_video_config
 from dvis import (
     YTVISDatasetMapper,
     CocoClipDatasetMapper,
+    CocoPanoClipDatasetMapper,
     PanopticDatasetVideoMapper,
     SemanticDatasetVideoMapper,
     YTVISEvaluator,
@@ -92,6 +93,7 @@ class Trainer(DefaultTrainer):
             'video_panoptic': PanopticDatasetVideoMapper,
             'video_semantic': SemanticDatasetVideoMapper,
             'image_instance': CocoClipDatasetMapper,
+            'image_panoptic': CocoPanoClipDatasetMapper,
         }
         for d_i, (dataset_name, dataset_type, dataset_need_map) in \
                 enumerate(zip(cfg.DATASETS.TRAIN, cfg.DATASETS.DATASET_TYPE, cfg.DATASETS.DATASET_NEED_MAP)):
