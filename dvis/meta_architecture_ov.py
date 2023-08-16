@@ -433,7 +433,6 @@ class MinVIS_OV(nn.Module):
             train_metadatas[name] = MetadataCatalog.get(name)
         for name in cfg.DATASETS.TEST:
             test_metadatas[name] = MetadataCatalog.get(name)
-
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
@@ -456,7 +455,7 @@ class MinVIS_OV(nn.Module):
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
             # multi datasets
-            "test2train": {x: y for x, y in enumerate(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)}
+            "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)}
         }
 
     @property
