@@ -834,6 +834,7 @@ class CocoPanoClipDatasetMapper:
                 )
             # instances.gt_boxes = instances.gt_masks.get_bounding_boxes()  # NOTE we don't need boxes
             instances = filter_empty_instances(instances)
+            print(instances)
             h, w = instances.image_size
             if hasattr(instances, 'gt_masks'):
                 pass

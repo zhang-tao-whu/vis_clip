@@ -494,7 +494,7 @@ class MinVIS_OV(nn.Module):
         for batched_input in batched_inputs:
             assert name == batched_input['name']
 
-        print(batched_inputs)
+        # print(batched_inputs)
         images = []
         for video in batched_inputs:
             for frame in video["image"]:
