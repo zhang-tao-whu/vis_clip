@@ -762,7 +762,6 @@ class CocoPanoClipDatasetMapper:
 
         #pan_seg_gt = transforms.apply_segmentation(pan_seg_gt)
 
-        img_annos = dataset_dict.pop("annotations", None)
         file_name = dataset_dict.pop("file_name", None)
         pano_file_name = dataset_dict.pop("pan_seg_file_name", None)
         segments_info = dataset_dict.pop("segments_info", None)
@@ -796,7 +795,7 @@ class CocoPanoClipDatasetMapper:
             # Therefore it's important to use torch.Tensor.
             dataset_dict["image"].append(torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1))))
 
-            if (img_annos is None) or (not self.is_train):
+            if not self.is_train:
                 continue
 
             _pan_seg_gt = transforms.apply_segmentation(pan_seg_gt)
@@ -834,7 +833,6 @@ class CocoPanoClipDatasetMapper:
                 )
             # instances.gt_boxes = instances.gt_masks.get_bounding_boxes()  # NOTE we don't need boxes
             instances = filter_empty_instances(instances)
-            print(instances)
             h, w = instances.image_size
             if hasattr(instances, 'gt_masks'):
                 pass
