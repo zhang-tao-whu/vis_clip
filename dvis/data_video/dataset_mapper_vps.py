@@ -40,9 +40,9 @@ class PanopticDatasetVideoMapper:
             *,
             augmentations,
             image_format,
-            ignore_label,
-            thing_ids_to_continue_dic,
-            stuff_ids_to_continue_dic,
+            ignore_label=255,
+            thing_ids_to_continue_dic={},
+            stuff_ids_to_continue_dic={},
             #sample
             sampling_frame_num: int = 2,
             sampling_frame_range: int = 5,
@@ -59,6 +59,21 @@ class PanopticDatasetVideoMapper:
             ignore_label: the label that is ignored to evaluation
             size_divisibility: pad image size to be divisible by this value
         """
+
+        meta = MetadataCatalog.get(src_dataset_name)
+        ignore_label = meta.ignore_label
+
+        #######
+        thing_ids = list(meta.thing_dataset_id_to_contiguous_id.values())
+        thing_ids_to_continue_dic = {}
+        for ii, id_ in enumerate(sorted(thing_ids)):
+            thing_ids_to_continue_dic[id_] = ii
+
+        stuff_ids = list(meta.stuff_dataset_id_to_contiguous_id.values())
+        stuff_ids_to_continue_dic = {}
+        for ii, id_ in enumerate(sorted(stuff_ids)):
+            stuff_ids_to_continue_dic[id_] = ii
+
         self.is_train = is_train
         self.tfm_gens = augmentations
         self.img_format = image_format
@@ -104,20 +119,20 @@ class PanopticDatasetVideoMapper:
             augs = [T.ResizeShortestEdge(min_size, max_size, sample_style)]
 
         # Assume always applies to the training set.
-        dataset_names = cfg.DATASETS.TRAIN
-        meta = MetadataCatalog.get(dataset_names[-1])
-        ignore_label = meta.ignore_label
-
-        #######
-        thing_ids = list(meta.thing_dataset_id_to_contiguous_id.values())
-        thing_ids_to_continue_dic = {}
-        for ii, id_ in enumerate(sorted(thing_ids)):
-            thing_ids_to_continue_dic[id_] = ii
-
-        stuff_ids = list(meta.stuff_dataset_id_to_contiguous_id.values())
-        stuff_ids_to_continue_dic = {}
-        for ii, id_ in enumerate(sorted(stuff_ids)):
-            stuff_ids_to_continue_dic[id_] = ii
+        # dataset_names = cfg.DATASETS.TRAIN
+        # meta = MetadataCatalog.get(dataset_names[-1])
+        # ignore_label = meta.ignore_label
+        #
+        # #######
+        # thing_ids = list(meta.thing_dataset_id_to_contiguous_id.values())
+        # thing_ids_to_continue_dic = {}
+        # for ii, id_ in enumerate(sorted(thing_ids)):
+        #     thing_ids_to_continue_dic[id_] = ii
+        #
+        # stuff_ids = list(meta.stuff_dataset_id_to_contiguous_id.values())
+        # stuff_ids_to_continue_dic = {}
+        # for ii, id_ in enumerate(sorted(stuff_ids)):
+        #     stuff_ids_to_continue_dic[id_] = ii
 
         #######
         sampling_frame_num = cfg.INPUT.SAMPLING_FRAME_NUM
@@ -128,10 +143,10 @@ class PanopticDatasetVideoMapper:
             "is_train": is_train,
             "augmentations": augs,
             "image_format": cfg.INPUT.FORMAT,
-            "ignore_label": ignore_label,
-            # "size_divisibility": cfg.INPUT.SIZE_DIVISIBILITY,
-            "thing_ids_to_continue_dic": thing_ids_to_continue_dic,
-            "stuff_ids_to_continue_dic": stuff_ids_to_continue_dic,
+            # "ignore_label": ignore_label,
+            # # "size_divisibility": cfg.INPUT.SIZE_DIVISIBILITY,
+            # "thing_ids_to_continue_dic": thing_ids_to_continue_dic,
+            # "stuff_ids_to_continue_dic": stuff_ids_to_continue_dic,
             # sample
             "sampling_frame_num": sampling_frame_num,
             "sampling_frame_range": sampling_frame_range,
