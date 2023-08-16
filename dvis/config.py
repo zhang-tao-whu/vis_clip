@@ -42,6 +42,7 @@ def add_dvis_config(cfg):
     #                              'image_instance', 'image_panoptic', 'image_semantic']
     cfg.DATASETS.DATASET_TYPE = ['video_instance', ]
     cfg.DATASETS.DATASET_TYPE_TEST = ['video_instance', ]
+    cfg.DATASETS.TEST2TRAIN = [None, ]
 
     # Pseudo Data Use
     cfg.INPUT.PSEUDO = CN()

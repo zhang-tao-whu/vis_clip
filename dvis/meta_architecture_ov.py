@@ -89,6 +89,8 @@ class MinVIS_OV(nn.Module):
         # fc-clip
         geometric_ensemble_alpha: float,
         geometric_ensemble_beta: float,
+        # multi datasets
+        test2train={},
     ):
         """
         Args:
@@ -169,7 +171,6 @@ class MinVIS_OV(nn.Module):
                                                                                                train_metadata)
             self.train_class_prepares.update({name: {'num_templates': train_num_templates,
                                                      'class_names': train_class_names}})
-
         all_train_metadatas = [train_metadatas[key] for key in train_metadatas.keys()]
         self.all_train_metadatas = all_train_metadatas
         for name in test_metadatas.keys():
@@ -179,6 +180,8 @@ class MinVIS_OV(nn.Module):
             self.test_class_prepares.update({name: {'overlapping': category_overlapping_mask,
                                                     'num_templates': test_num_templates,
                                                     'class_names': test_class_names}})
+
+        self.test2train = test2train
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         # text_classifier (N, C)
@@ -194,10 +197,20 @@ class MinVIS_OV(nn.Module):
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
             num_templates = num_templates + [1]
         else:
-            void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
-            void_embed = F.normalize(void_embed, dim=-1)
-            text_classifier = torch.cat([text_classifier, void_embed], dim=0)
-            num_templates = num_templates + [void_embed.shape[0]]
+            if name in self.test2train.keys():
+                i = self.train_names2id[self.test2train[name]]
+                if i == 0:
+                    void_embed = self.void_embedding.weight
+                else:
+                    void_embed = self.additional_void_embedding.weight[i - 1: i]
+                void_embed = F.normalize(void_embed, dim=-1)
+                text_classifier = torch.cat([text_classifier, void_embed], dim=0)
+                num_templates = num_templates + [1]
+            else:
+                void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
+                void_embed = F.normalize(void_embed, dim=-1)
+                text_classifier = torch.cat([text_classifier, void_embed], dim=0)
+                num_templates = num_templates + [void_embed.shape[0]]
         return text_classifier, num_templates
 
     def get_text_classifier(self):
@@ -442,6 +455,8 @@ class MinVIS_OV(nn.Module):
             # fc clip
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
+            # multi datasets
+            "test2train": {x: y for x, y in enumerate(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)}
         }
 
     @property
@@ -474,6 +489,7 @@ class MinVIS_OV(nn.Module):
                     segments_info (list[dict]): Describe each segment in `panoptic_seg`.
                         Each dict contains keys "id", "category_id", "isthing".
         """
+        assert len(batched_inputs) == 1
         images = []
         for video in batched_inputs:
             for frame in video["image"]:
