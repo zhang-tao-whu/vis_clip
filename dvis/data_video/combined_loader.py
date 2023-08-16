@@ -37,6 +37,7 @@ class CombinedDataLoader:
             try:
                 print(indices[:self.batch_size])
                 batch = [_pooled_next(iters[i], pool[i]) for i in indices[: self.batch_size]]
+                print(batch[0]['name'], batch[1]['name'])
             except StopIteration:
                 break
             indices = indices[self.batch_size :]
