@@ -834,13 +834,13 @@ class CocoPanoClipDatasetMapper:
             instances = Instances(image_shape)
             classes = []
             masks = []
-            _gt_ids = list(range(len(segments_info)))
             for segment_info in segments_info:
                 class_id = segment_info["category_id"]
                 if not segment_info["iscrowd"]:
                     classes.append(class_id)
                     masks.append(_pan_seg_gt == segment_info["id"])
 
+            _gt_ids = list(range(len(classes)))
             classes = np.array(classes)
             instances.gt_classes = torch.tensor(classes, dtype=torch.int64)
             instances.gt_ids = torch.tensor(_gt_ids)
