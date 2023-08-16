@@ -160,6 +160,7 @@ class MinVIS_OV(nn.Module):
         self.void_embedding = nn.Embedding(1, backbone.dim_latent)  # use this for void
         # init private void embedding for each dataset
         self.additional_void_embedding = nn.Embedding(len(train_metadatas) - 1, backbone.dim_latent)
+        self.additional_void_embedding.weight.data.fill_(0)
 
         self.train_class_prepares = {}
         self.train_names2id = {}
@@ -192,7 +193,7 @@ class MinVIS_OV(nn.Module):
             if i == 0:
                 void_embed = self.void_embedding.weight
             else:
-                void_embed = self.additional_void_embedding.weight[i - 1: i]
+                void_embed = self.additional_void_embedding.weight[i - 1: i] + self.void_embedding.weight.detach()
             void_embed = F.normalize(void_embed, dim=-1) + _zero
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
             num_templates = num_templates + [1]
@@ -202,13 +203,14 @@ class MinVIS_OV(nn.Module):
                 if i == 0:
                     void_embed = self.void_embedding.weight
                 else:
-                    void_embed = self.additional_void_embedding.weight[i - 1: i]
-                void_embed = F.normalize(void_embed, dim=-1)
+                    void_embed = self.additional_void_embedding.weight[i - 1: i] + self.void_embedding.weight
+                void_embed = F.normalize(void_embed, dim=-1).detach()
                 text_classifier = torch.cat([text_classifier, void_embed], dim=0)
                 num_templates = num_templates + [1]
             else:
-                void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
-                void_embed = F.normalize(void_embed, dim=-1)
+                void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight +\
+                                        self.void_embedding.weight], dim=0)
+                void_embed = F.normalize(void_embed, dim=-1).detach()
                 text_classifier = torch.cat([text_classifier, void_embed], dim=0)
                 num_templates = num_templates + [void_embed.shape[0]]
         return text_classifier, num_templates
