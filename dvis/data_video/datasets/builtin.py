@@ -110,4 +110,4 @@ if __name__.endswith(".builtin"):
     register_all_coco_video(_root)
     from . import vps
     from . import vss
-    from .ov_datasets import ytvis_ov
+    from .ov_datasets import ytvis_ov, vps_ov

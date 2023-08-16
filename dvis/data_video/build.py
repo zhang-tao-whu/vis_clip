@@ -129,8 +129,7 @@ def _train_loader_from_config(cfg, mapper, dataset_name=None, *, dataset=None, s
         sampler_name = cfg.DATALOADER.SAMPLER_TRAIN
         logger = logging.getLogger(__name__)
         logger.info("Using training sampler {}".format(sampler_name))
-        images_per_worker = _compute_num_images_per_worker(cfg)
-        sampler = TrainingSampler(images_per_worker)
+        sampler = TrainingSampler(len(dataset))
 
     return {
         "dataset": dataset,

@@ -294,7 +294,6 @@ def _get_ytvis_2019_instances_meta_ov():
     thing_classes_ov = [k["name"] for k in YTVIS_CATEGORIES_2019_OV if k["isthing"] == 1]
     thing_classes = [k["name"] for k in YTVIS_CATEGORIES_2019 if k["isthing"] == 1]
 
-    stuff_classes_ov = []
     stuff_classes = []
     stuff_colors = []
     stuff_dataset_id_to_contiguous_id = {}
