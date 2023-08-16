@@ -23,7 +23,12 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
     # return: [B, *, num_classes]
     x = F.normalize(x, dim=-1)
     logit_scale = torch.clamp(logit_scale.exp(), max=100)
-    pred_logits = logit_scale * x @ text_classifier.T # B, *, N + 1
+    # pred_logits = logit_scale * x @ text_classifier.T # B, *, N + 1
+
+    pred_logits_pos = logit_scale * x @ text_classifier[:-num_templates[-1]].T  # B, *, N + 1
+    pred_logits_neg = logit_scale * x.detach() @ text_classifier[-num_templates[-1]:].T  # B, *, N + 1
+    pred_logits = torch.cat([pred_logits_pos, pred_logits_neg], dim=-1)
+
     # max ensembel as in OpenSeg/ODISE
     final_pred_logits = []
     cur_idx = 0
