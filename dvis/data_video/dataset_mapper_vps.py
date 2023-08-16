@@ -83,7 +83,8 @@ class PanopticDatasetVideoMapper:
                 T.ResizeShortestEdge(
                     cfg.INPUT.MIN_SIZE_TRAIN,
                     cfg.INPUT.MAX_SIZE_TRAIN,
-                    cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING,
+                    # cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING,
+                    "choice",
                 )
             ]
             if cfg.INPUT.CROP.ENABLED:
