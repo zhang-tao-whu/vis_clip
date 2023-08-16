@@ -62,6 +62,34 @@ def filter_empty_instances(instances, by_box=True, by_mask=True, box_threshold=1
     instances.gt_ids[~m] = -1
     return instances
 
+def filter_empty_instances_(instances, by_box=True, by_mask=True, box_threshold=1e-5):
+    """
+    Filter out empty instances in an `Instances` object.
+
+    Args:
+        instances (Instances):
+        by_box (bool): whether to filter out instances with empty boxes
+        by_mask (bool): whether to filter out instances with empty masks
+        box_threshold (float): minimum width and height to be considered non-empty
+
+    Returns:
+        Instances: the filtered instances.
+    """
+    assert by_box or by_mask
+    r = []
+    if by_box:
+        r.append(instances.gt_boxes.nonempty(threshold=box_threshold))
+    if instances.has("gt_masks") and by_mask:
+        r.append(instances.gt_masks.flatten(1, 2).sum(dim=-1) != 0)
+
+    if not r:
+        return instances
+    m = r[0]
+    for x in r[1:]:
+        m = m & x
+
+    instances.gt_ids[~m] = -1
+    return instances
 
 def _get_dummy_anno(num_classes):
     return {
@@ -832,7 +860,7 @@ class CocoPanoClipDatasetMapper:
                     [self.src2tgt[c] if c in self.src2tgt else -1 for c in instances.gt_classes.tolist()]
                 )
             # instances.gt_boxes = instances.gt_masks.get_bounding_boxes()  # NOTE we don't need boxes
-            instances = filter_empty_instances(instances)
+            instances = filter_empty_instances_(instances)
             h, w = instances.image_size
             if hasattr(instances, 'gt_masks'):
                 pass
