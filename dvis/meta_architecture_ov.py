@@ -488,7 +488,7 @@ class MinVIS_OV(nn.Module):
                     segments_info (list[dict]): Describe each segment in `panoptic_seg`.
                         Each dict contains keys "id", "category_id", "isthing".
         """
-        assert len(batched_inputs) == 1
+        # assert len(batched_inputs) == 1
         images = []
         for video in batched_inputs:
             for frame in video["image"]:
