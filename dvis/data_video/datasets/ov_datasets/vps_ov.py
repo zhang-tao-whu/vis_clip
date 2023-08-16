@@ -110,7 +110,7 @@ def register_video_vspw_vps_json(
             panoptic_json, image_root, panoptic_root
         ),
     )
-    print(metadata)
+    print(metadata.keys())
     MetadataCatalog.get(panoptic_name).set(
         panoptic_root=panoptic_root,
         image_root=image_root,
