@@ -74,7 +74,7 @@ class CombinedDataLoader:
                 indices = random.choices(range(len(self.loaders)), self.ratios, k=k)
             try:
                 idx = indices[0]
-                batch = _pooled_next(iters[idx], pool[idx])
+                batch = _pooled_next(iters[idx], pool[idx], self.batch_size)
             except StopIteration:
                 break
             indices = indices[1:]
