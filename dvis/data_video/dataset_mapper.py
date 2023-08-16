@@ -811,14 +811,14 @@ class CocoPanoClipDatasetMapper:
                 class_id = segment_info["category_id"]
                 if not segment_info["iscrowd"]:
                     classes.append(class_id)
-                    masks.append(pan_seg_gt == segment_info["id"])
+                    masks.append(_pan_seg_gt == segment_info["id"])
 
             classes = np.array(classes)
             instances.gt_classes = torch.tensor(classes, dtype=torch.int64)
             instances.gt_ids = torch.tensor(_gt_ids)
             if len(masks) == 0:
                 # Some image does not have annotation (all ignored)
-                instances.gt_masks = torch.zeros((0, pan_seg_gt.shape[-2], pan_seg_gt.shape[-1]))
+                instances.gt_masks = torch.zeros((0, _pan_seg_gt.shape[-2], _pan_seg_gt.shape[-1]))
                 instances.gt_boxes = Boxes(torch.zeros((0, 4)))
             else:
                 masks = BitMasks(
