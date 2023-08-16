@@ -60,6 +60,7 @@ class PanopticDatasetVideoMapper:
             size_divisibility: pad image size to be divisible by this value
         """
 
+        self.name = src_dataset_name
         meta = MetadataCatalog.get(src_dataset_name)
         ignore_label = meta.ignore_label
 
@@ -195,6 +196,7 @@ class PanopticDatasetVideoMapper:
     def convert2ytvis(self, dataset_dict):
         # Convert the labels to the same format as vis
         ret = {}
+        ret['name'] = self.name
         ret["image"] = [item[0] for item in torch.split(dataset_dict["video_images"], 1, dim=0)]
         if not self.is_train:
             dataset_dict.update(ret)
