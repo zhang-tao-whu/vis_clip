@@ -35,11 +35,8 @@ class CombinedDataLoader:
                 k = self.batch_size * self.BATCH_COUNT
                 indices = random.choices(range(len(self.loaders)), self.ratios, k=k)
             try:
-                ind = indices[:self.batch_size]
                 batch = [_pooled_next(iters[i], pool[i]) for i in indices[: self.batch_size]]
-                print(ind, batch[0]['name'], batch[1]['name'])
-                print(len(next(iters[0])))
             except StopIteration:
                 break
-            indices = indices[self.batch_size :]
+            indices = indices[self.batch_size:]
             yield batch
