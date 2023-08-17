@@ -338,7 +338,7 @@ def _get_ovis_instances_meta_ov():
     OVIS_CATEGORIES_OV = get_ovis_categories_with_prompt_eng()
     thing_ids = [k["id"] for k in OVIS_CATEGORIES_OV if k["isthing"] == 1]
     thing_colors = [k["color"] for k in OVIS_CATEGORIES_OV if k["isthing"] == 1]
-    assert len(thing_ids) == 40, len(thing_ids)
+    assert len(thing_ids) == 25, len(thing_ids)
     # Mapping from the incontiguous YTVIS category id to an id in [0, 39]
     thing_dataset_id_to_contiguous_id = {k: i for i, k in enumerate(thing_ids)}
     thing_classes_ov = [k["name"] for k in OVIS_CATEGORIES_OV if k["isthing"] == 1]
