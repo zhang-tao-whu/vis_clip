@@ -584,7 +584,11 @@ class MinVIS_OV(nn.Module):
             # Reference: https://github.com/NVlabs/ODISE/blob/main/odise/modeling/meta_arch/odise.py#L1506
             out_vocab_cls_probs = out_vocab_cls_results.softmax(-1)
             in_vocab_cls_results = in_vocab_cls_results.softmax(-1)
-            category_overlapping_mask = self.category_overlapping_mask.to(self.device)
+            if self.combine_stuff:
+                category_overlapping_mask = torch.cat([self.category_overlapping_mask,
+                                                       torch.Tensor([1])]).to(self.device)
+            else:
+                category_overlapping_mask = self.category_overlapping_mask.to(self.device)
             alpha = self.geometric_ensemble_alpha
             beta = self.geometric_ensemble_beta
             cls_logits_seen = (
