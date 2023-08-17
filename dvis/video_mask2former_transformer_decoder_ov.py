@@ -45,7 +45,6 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
     # final_pred_logits.append(pred_logits[:, :, -1]) # the last classifier is for void
     if combine_stuff:
         final_pred_logits[-1] = torch.max(final_pred_logits[-1], pred_logits[:, :, -num_templates[-1]:].min(-1).values)
-        print(final_pred_logits)
     else:
         final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
     final_pred_logits = torch.stack(final_pred_logits, dim=-1)

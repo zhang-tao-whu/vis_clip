@@ -513,7 +513,8 @@ class MinVIS_OV(nn.Module):
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
             # multi datasets
             "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)},
-            "combine_stuff": cfg.DATASETS.DATASET_TYPE_TEST[0] == 'video_instance',
+            # "combine_stuff": cfg.DATASETS.DATASET_TYPE_TEST[0] == 'video_instance',
+            "combine_stuff": False,
         }
 
     @property
