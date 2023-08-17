@@ -40,14 +40,42 @@ VILD_PROMPT = [
     "There is a large {} in the scene.",
 ]
 
+# def get_classification_logits(x, text_classifier, logit_scale, num_templates=None):
+#     # x in shape of [B, *, C]
+#     # text_classifier in shape of [num_classes, C]
+#     # logit_scale is a learnable scalar https://github.com/mlfoundations/open_clip/blob/main/src/open_clip/model.py#L201
+#     # return: [B, *, num_classes]
+#     x = F.normalize(x, dim=-1)
+#     logit_scale = torch.clamp(logit_scale.exp(), max=100)
+#     pred_logits = logit_scale * x @ text_classifier.T # B, *, N + 1
+#     # max ensembel as in OpenSeg/ODISE
+#     final_pred_logits = []
+#     cur_idx = 0
+#     for num_t in num_templates[:-1]:
+#         final_pred_logits.append(pred_logits[:, :, cur_idx: cur_idx + num_t].max(-1).values)
+#         cur_idx += num_t
+#     # final_pred_logits.append(pred_logits[:, :, -1]) # the last classifier is for void
+#     final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
+#     final_pred_logits = torch.stack(final_pred_logits, dim=-1)
+#     return final_pred_logits
+
+
 def get_classification_logits(x, text_classifier, logit_scale, num_templates=None):
     # x in shape of [B, *, C]
     # text_classifier in shape of [num_classes, C]
     # logit_scale is a learnable scalar https://github.com/mlfoundations/open_clip/blob/main/src/open_clip/model.py#L201
     # return: [B, *, num_classes]
+
+    if isinstance(num_templates, dict):
+        num_templates = num_templates['num_templates']
+        combine_stuff = True
+    else:
+        combine_stuff = False
+
     x = F.normalize(x, dim=-1)
     logit_scale = torch.clamp(logit_scale.exp(), max=100)
     pred_logits = logit_scale * x @ text_classifier.T # B, *, N + 1
+
     # max ensembel as in OpenSeg/ODISE
     final_pred_logits = []
     cur_idx = 0
@@ -55,7 +83,10 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
         final_pred_logits.append(pred_logits[:, :, cur_idx: cur_idx + num_t].max(-1).values)
         cur_idx += num_t
     # final_pred_logits.append(pred_logits[:, :, -1]) # the last classifier is for void
-    final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
+    if combine_stuff:
+        final_pred_logits[-1] = torch.max(final_pred_logits[-1], pred_logits[:, :, -num_templates[-1]:].min(-1).values)
+    else:
+        final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
     final_pred_logits = torch.stack(final_pred_logits, dim=-1)
     return final_pred_logits
 
@@ -91,6 +122,7 @@ class MinVIS_OV(nn.Module):
         geometric_ensemble_beta: float,
         # multi datasets
         test2train={},
+        combine_stuff=False,
     ):
         """
         Args:
@@ -183,6 +215,14 @@ class MinVIS_OV(nn.Module):
                                                     'class_names': test_class_names}})
 
         self.test2train = test2train
+        self.combine_stuff = combine_stuff
+        if self.combine_stuff:
+            self.train_datasets_stuff_nums = {}
+            for name in train_metadatas.keys():
+                stuff_nums = len(train_metadatas[name].stuff_classes)
+                if stuff_nums == 0:
+                    continue
+                self.train_datasets_stuff_nums[name] = stuff_nums
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         # text_classifier (N, C)
@@ -198,6 +238,16 @@ class MinVIS_OV(nn.Module):
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
             num_templates = num_templates + [1]
         else:
+            if self.combine_stuff:
+                stuff_classifiers = []
+                for name in self.train_datasets_stuff_nums.keys():
+                    num_stuff = self.train_datasets_stuff_nums[name]
+                    num_templates_stuff = sum(self.train_num_templates_dict[name][-num_stuff:])
+                    stuffs = self.train_text_classifier_dict[name][-num_templates_stuff:]
+                    stuff_classifiers.append(stuffs)
+                stuff_classifiers = torch.cat(stuff_classifiers, dim=0)
+                text_classifier = torch.cat([text_classifier, stuff_classifiers], dim=0)
+                num_templates = num_templates + [len(stuff_classifiers)]
             if name in self.test2train.keys():
                 i = self.train_names2id[self.test2train[name]]
                 if i == 0:
@@ -213,6 +263,8 @@ class MinVIS_OV(nn.Module):
                 void_embed = F.normalize(void_embed, dim=-1).detach()
                 text_classifier = torch.cat([text_classifier, void_embed], dim=0)
                 num_templates = num_templates + [void_embed.shape[0]]
+            if self.combine_stuff:
+                num_templates = {'num_templates': num_templates, 'combine_stuff': True}
         return text_classifier, num_templates
 
     def get_text_classifier(self):
@@ -457,7 +509,8 @@ class MinVIS_OV(nn.Module):
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
             # multi datasets
-            "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)}
+            "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)},
+            "combine_stuff": cfg.DATASETS.DATASET_TYPE_TEST[0] == 'video_instance',
         }
 
     @property

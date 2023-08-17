@@ -21,6 +21,13 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
     # text_classifier in shape of [num_classes, C]
     # logit_scale is a learnable scalar https://github.com/mlfoundations/open_clip/blob/main/src/open_clip/model.py#L201
     # return: [B, *, num_classes]
+
+    if isinstance(num_templates, dict):
+        num_templates = num_templates['num_templates']
+        combine_stuff = True
+    else:
+        combine_stuff = False
+
     x = F.normalize(x, dim=-1)
     logit_scale = torch.clamp(logit_scale.exp(), max=100)
     # pred_logits = logit_scale * x @ text_classifier.T # B, *, N + 1
@@ -36,7 +43,10 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
         final_pred_logits.append(pred_logits[:, :, cur_idx: cur_idx + num_t].max(-1).values)
         cur_idx += num_t
     # final_pred_logits.append(pred_logits[:, :, -1]) # the last classifier is for void
-    final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
+    if combine_stuff:
+        final_pred_logits[-1] = torch.max(final_pred_logits[-1], pred_logits[:, :, -num_templates[-1]:].min(-1).values)
+    else:
+        final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
     final_pred_logits = torch.stack(final_pred_logits, dim=-1)
     return final_pred_logits
 
