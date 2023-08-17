@@ -119,9 +119,13 @@ def _get_new_metadata(metadata, additional_thing_classes,
         vipseg_metadata = MetadataCatalog.get("panoVSPW_vps_video_train_ov")
         additional_thing_classes.extend(coco_metadata.thing_classes)
         additional_thing_classes.extend(vipseg_metadata.thing_classes)
+        metadata.thing_colors.extend(coco_metadata.thing_colors)
+        metadata.thing_colors.extend(vipseg_metadata.thing_colors)
 
         additional_stuff_classes.extend(coco_metadata.stuff_classes)
         additional_stuff_classes.extend(vipseg_metadata.stuff_classes)
+        metadata.stuff_colors.extend(coco_metadata.stuff_colors)
+        metadata.stuff_colors.extend(vipseg_metadata.stuff_colors)
 
 
     thing_classes = metadata.thing_classes
@@ -148,7 +152,7 @@ def _get_new_metadata(metadata, additional_thing_classes,
 class VisualizationDemo(object):
     def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False,
                  additional_thing_classes=[], additional_stuff_classes=[],
-                 clear=False):
+                 clear=False, merge=False):
         """
         Args:
             cfg (CfgNode):
@@ -161,7 +165,7 @@ class VisualizationDemo(object):
         )
 
         self.metadata = _get_new_metadata(self.metadata, additional_thing_classes, additional_stuff_classes,
-                                          clear=clear)
+                                          clear=clear, merge=merge)
         self.cpu_device = torch.device("cpu")
         self.instance_mode = instance_mode
 
