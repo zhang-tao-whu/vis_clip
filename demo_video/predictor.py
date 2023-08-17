@@ -95,6 +95,23 @@ def _get_objects_from_outputs(outputs):
 
     return pred_masks, pred_labels, pred_scores, pred_ids
 
+def remove_overlapping(ref, inp):
+    valid = set()
+    ret = []
+    for name in ref:
+        name_splits = name.split(',')
+        valid.update(name_splits)
+    for name in inp:
+        name_splits = name.split(',')
+        overlappint = False
+        for split in name_splits:
+            if split in valid:
+                overlappint = True
+                break
+        if not overlappint:
+            ret.append(name)
+    return ret
+
 def _get_new_metadata(metadata, additional_thing_classes,
                       additional_stuff_classes,
                       clear=False, merge=False):
@@ -127,6 +144,8 @@ def _get_new_metadata(metadata, additional_thing_classes,
         metadata.stuff_colors.extend(coco_metadata.stuff_colors)
         metadata.stuff_colors.extend(vipseg_metadata.stuff_colors)
 
+    additional_thing_classes = remove_overlapping(metadata.thing_classes, additional_thing_classes)
+    additional_stuff_classes = remove_overlapping(metadata.stuff_classes, additional_stuff_classes)
 
     thing_classes = metadata.thing_classes
     stuff_classes = metadata.stuff_classes
