@@ -86,6 +86,11 @@ def get_parser():
 		action='store_true',
 		help="only process n_frames frames of the video ",
 	)
+	parser.add_argument(
+		"--merge",
+		action='store_true',
+		help="only process n_frames frames of the video ",
+	)
 	parser.add_argument('--thing_classes', nargs='+', help='list of additional classes', default=[],)
 	parser.add_argument('--stuff_classes', nargs='+', help='list of additional classes', default=[], )
 	parser.add_argument(
@@ -110,6 +115,7 @@ if __name__ == "__main__":
 		additional_thing_classes=args.thing_classes,
 		additional_stuff_classes=args.stuff_classes,
 		clear=args.clear,
+		merge=args.merge,
 	)
 
 	assert args.input and args.output

@@ -97,7 +97,7 @@ def _get_objects_from_outputs(outputs):
 
 def _get_new_metadata(metadata, additional_thing_classes,
                       additional_stuff_classes,
-                      clear=False):
+                      clear=False, merge=False):
     if clear:
         DatasetCatalog.register(
             "openvocab_dataset", lambda x: []
@@ -113,6 +113,17 @@ def _get_new_metadata(metadata, additional_thing_classes,
             classes_ov=additional_thing_classes + additional_stuff_classes
         )
         return metadata
+
+    if merge:
+        coco_metadata = MetadataCatalog.get("coco_panoptic_video_ov")
+        vipseg_metadata = MetadataCatalog.get("panoVSPW_vps_video_train_ov")
+        additional_thing_classes.extend(coco_metadata.thing_classes)
+        additional_thing_classes.extend(vipseg_metadata.thing_classes)
+
+        additional_stuff_classes.extend(coco_metadata.stuff_classes)
+        additional_stuff_classes.extend(vipseg_metadata.stuff_classes)
+
+
     thing_classes = metadata.thing_classes
     stuff_classes = metadata.stuff_classes
     classes_ov = metadata.classes_ov
