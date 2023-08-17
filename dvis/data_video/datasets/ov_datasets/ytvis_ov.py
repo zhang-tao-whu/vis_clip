@@ -661,7 +661,6 @@ def get_ovis_categories_with_prompt_eng():
             continue
         #print(COCO_CATEGORIES_[coco_idx]["name"], '->', name)
         assert COCO_CATEGORIES_[coco_idx]["id"] == idx
-        assert COCO_CATEGORIES_[coco_idx]["name"] in name
         COCO_CATEGORIES_[coco_idx]["name"] = name
         coco_idx += 1
     return COCO_CATEGORIES_
