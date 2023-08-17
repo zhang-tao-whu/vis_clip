@@ -250,6 +250,7 @@ class MinVIS_OV(nn.Module):
                 stuff_classifiers = torch.cat(stuff_classifiers, dim=0)
                 text_classifier = torch.cat([text_classifier, stuff_classifiers], dim=0)
                 num_templates = num_templates + [len(stuff_classifiers)]
+                print(len(stuff_classifiers))
             if name in self.test2train.keys():
                 i = self.train_names2id[self.test2train[name]]
                 if i == 0:
