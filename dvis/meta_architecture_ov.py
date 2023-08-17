@@ -242,6 +242,8 @@ class MinVIS_OV(nn.Module):
                 stuff_classifiers = []
                 for name in self.train_datasets_stuff_nums.keys():
                     num_stuff = self.train_datasets_stuff_nums[name]
+                    if name not in self.train_text_classifier_dict.keys():
+                        self._set_class_information(name, train=True)
                     num_templates_stuff = sum(self.train_num_templates_dict[name][-num_stuff:])
                     stuffs = self.train_text_classifier_dict[name][-num_templates_stuff:]
                     stuff_classifiers.append(stuffs)
