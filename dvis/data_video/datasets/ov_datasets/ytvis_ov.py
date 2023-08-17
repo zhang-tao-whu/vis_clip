@@ -309,6 +309,56 @@ def _get_ytvis_2019_instances_meta_ov():
     }
     return ret
 
+def _get_ytvis_2021_instances_meta_ov():
+    YTVIS_CATEGORIES_2021_OV = get_ytvis21_categories_with_prompt_eng()
+    thing_ids = [k["id"] for k in YTVIS_CATEGORIES_2021_OV if k["isthing"] == 1]
+    thing_colors = [k["color"] for k in YTVIS_CATEGORIES_2021_OV if k["isthing"] == 1]
+    assert len(thing_ids) == 40, len(thing_ids)
+    # Mapping from the incontiguous YTVIS category id to an id in [0, 39]
+    thing_dataset_id_to_contiguous_id = {k: i for i, k in enumerate(thing_ids)}
+    thing_classes_ov = [k["name"] for k in YTVIS_CATEGORIES_2021_OV if k["isthing"] == 1]
+    thing_classes = [k["name"] for k in YTVIS_CATEGORIES_2021 if k["isthing"] == 1]
+
+    stuff_classes = []
+    stuff_colors = []
+    stuff_dataset_id_to_contiguous_id = {}
+
+    ret = {
+        "thing_dataset_id_to_contiguous_id": thing_dataset_id_to_contiguous_id,
+        "thing_classes": thing_classes,
+        "classes_ov": thing_classes_ov,
+        "thing_colors": thing_colors,
+        "stuff_classes": stuff_classes,
+        "stuff_colors": stuff_colors,
+        "stuff_dataset_id_to_contiguous_id": stuff_dataset_id_to_contiguous_id,
+    }
+    return ret
+
+def _get_ovis_instances_meta_ov():
+    OVIS_CATEGORIES_OV = get_ovis_categories_with_prompt_eng()
+    thing_ids = [k["id"] for k in OVIS_CATEGORIES_OV if k["isthing"] == 1]
+    thing_colors = [k["color"] for k in OVIS_CATEGORIES_OV if k["isthing"] == 1]
+    assert len(thing_ids) == 40, len(thing_ids)
+    # Mapping from the incontiguous YTVIS category id to an id in [0, 39]
+    thing_dataset_id_to_contiguous_id = {k: i for i, k in enumerate(thing_ids)}
+    thing_classes_ov = [k["name"] for k in OVIS_CATEGORIES_OV if k["isthing"] == 1]
+    thing_classes = [k["name"] for k in OVIS_CATEGORIES if k["isthing"] == 1]
+
+    stuff_classes = []
+    stuff_colors = []
+    stuff_dataset_id_to_contiguous_id = {}
+
+    ret = {
+        "thing_dataset_id_to_contiguous_id": thing_dataset_id_to_contiguous_id,
+        "thing_classes": thing_classes,
+        "classes_ov": thing_classes_ov,
+        "thing_colors": thing_colors,
+        "stuff_classes": stuff_classes,
+        "stuff_colors": stuff_colors,
+        "stuff_dataset_id_to_contiguous_id": stuff_dataset_id_to_contiguous_id,
+    }
+    return ret
+
 def _get_coco_instances_meta_ov():
     COCO_CATEGORIES_OV = get_coco_categories_with_prompt_eng()
     meta = {}
@@ -514,6 +564,15 @@ _PREDEFINED_SPLITS_YTVIS_2021 = {
                         "ytvis_2021/test.json"),
 }
 
+_PREDEFINED_SPLITS_OVIS = {
+    "ovis_train_ov": ("ovis/train",
+                         "ovis/annotations/annotations_train.json"),
+    "ovis_val_ov": ("ovis/valid",
+                       "ovis/annotations/annotations_valid.json"),
+    "ovis_test_ov": ("ovis/test",
+                        "ovis/annotations/annotations_test.json"),
+}
+
 _PREDEFINED_SPLITS_COCO_VIDEO = {
     "coco_instance_video_ov": ("coco/train2017", "coco/annotations/instances_train2017.json"),
 }
@@ -538,9 +597,62 @@ def register_all_coco_video_ov(root):
             os.path.join(root, image_root),
         )
 
+def register_all_ytvis_2021_ov(root):
+    for key, (image_root, json_file) in _PREDEFINED_SPLITS_YTVIS_2021.items():
+        # Assume pre-defined datasets live in `./datasets`.
+        register_ytvis_instances(
+            key,
+            _get_ytvis_2021_instances_meta_ov(),
+            os.path.join(root, json_file) if "://" not in json_file else json_file,
+            os.path.join(root, image_root),
+        )
+
+
+def register_all_ovis_ov(root):
+    for key, (image_root, json_file) in _PREDEFINED_SPLITS_OVIS.items():
+        # Assume pre-defined datasets live in `./datasets`.
+        register_ytvis_instances(
+            key,
+            _get_ovis_instances_meta_ov(),
+            os.path.join(root, json_file) if "://" not in json_file else json_file,
+            os.path.join(root, image_root),
+        )
+
 def get_ytvis19_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(YTVIS_CATEGORIES_2019)
     coco_id_names = open('./dvis/data_video/datasets/ov_datasets/ytvis19_instance_with_prompt_eng.txt').read().splitlines()
+    coco_idx = 0
+    for line in coco_id_names:
+        idx, name = line.split(':')
+        idx = int(idx)
+        if idx == 0 or name == "invalid_class_id":
+            continue
+        #print(COCO_CATEGORIES_[coco_idx]["name"], '->', name)
+        assert COCO_CATEGORIES_[coco_idx]["id"] == idx
+        assert COCO_CATEGORIES_[coco_idx]["name"] in name
+        COCO_CATEGORIES_[coco_idx]["name"] = name
+        coco_idx += 1
+    return COCO_CATEGORIES_
+
+def get_ytvis21_categories_with_prompt_eng():
+    COCO_CATEGORIES_ = copy.deepcopy(YTVIS_CATEGORIES_2021)
+    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/ytvis21_instance_with_prompt_eng.txt').read().splitlines()
+    coco_idx = 0
+    for line in coco_id_names:
+        idx, name = line.split(':')
+        idx = int(idx)
+        if idx == 0 or name == "invalid_class_id":
+            continue
+        #print(COCO_CATEGORIES_[coco_idx]["name"], '->', name)
+        assert COCO_CATEGORIES_[coco_idx]["id"] == idx
+        assert COCO_CATEGORIES_[coco_idx]["name"] in name
+        COCO_CATEGORIES_[coco_idx]["name"] = name
+        coco_idx += 1
+    return COCO_CATEGORIES_
+
+def get_ovis_categories_with_prompt_eng():
+    COCO_CATEGORIES_ = copy.deepcopy(OVIS_CATEGORIES)
+    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/ovis_instance_with_prompt_eng.txt').read().splitlines()
     coco_idx = 0
     for line in coco_id_names:
         idx, name = line.split(':')
@@ -577,4 +689,6 @@ def get_coco_categories_with_prompt_eng():
 
 _root = os.getenv("DETECTRON2_DATASETS", "datasets")
 register_all_ytvis_2019_ov(_root)
+register_all_ytvis_2021_ov(_root)
+register_all_ovis_ov(_root)
 register_all_coco_video_ov(_root)
