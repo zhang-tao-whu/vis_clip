@@ -40,42 +40,14 @@ VILD_PROMPT = [
     "There is a large {} in the scene.",
 ]
 
-# def get_classification_logits(x, text_classifier, logit_scale, num_templates=None):
-#     # x in shape of [B, *, C]
-#     # text_classifier in shape of [num_classes, C]
-#     # logit_scale is a learnable scalar https://github.com/mlfoundations/open_clip/blob/main/src/open_clip/model.py#L201
-#     # return: [B, *, num_classes]
-#     x = F.normalize(x, dim=-1)
-#     logit_scale = torch.clamp(logit_scale.exp(), max=100)
-#     pred_logits = logit_scale * x @ text_classifier.T # B, *, N + 1
-#     # max ensembel as in OpenSeg/ODISE
-#     final_pred_logits = []
-#     cur_idx = 0
-#     for num_t in num_templates[:-1]:
-#         final_pred_logits.append(pred_logits[:, :, cur_idx: cur_idx + num_t].max(-1).values)
-#         cur_idx += num_t
-#     # final_pred_logits.append(pred_logits[:, :, -1]) # the last classifier is for void
-#     final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
-#     final_pred_logits = torch.stack(final_pred_logits, dim=-1)
-#     return final_pred_logits
-
-
 def get_classification_logits(x, text_classifier, logit_scale, num_templates=None):
     # x in shape of [B, *, C]
     # text_classifier in shape of [num_classes, C]
     # logit_scale is a learnable scalar https://github.com/mlfoundations/open_clip/blob/main/src/open_clip/model.py#L201
     # return: [B, *, num_classes]
-
-    if isinstance(num_templates, dict):
-        num_templates = num_templates['num_templates']
-        combine_stuff = True
-    else:
-        combine_stuff = False
-
     x = F.normalize(x, dim=-1)
     logit_scale = torch.clamp(logit_scale.exp(), max=100)
     pred_logits = logit_scale * x @ text_classifier.T # B, *, N + 1
-
     # max ensembel as in OpenSeg/ODISE
     final_pred_logits = []
     cur_idx = 0
@@ -83,10 +55,7 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
         final_pred_logits.append(pred_logits[:, :, cur_idx: cur_idx + num_t].max(-1).values)
         cur_idx += num_t
     # final_pred_logits.append(pred_logits[:, :, -1]) # the last classifier is for void
-    if combine_stuff:
-        final_pred_logits[-1] = torch.max(final_pred_logits[-1], pred_logits[:, :, -num_templates[-1]:].min(-1).values)
-    else:
-        final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
+    final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
     final_pred_logits = torch.stack(final_pred_logits, dim=-1)
     return final_pred_logits
 
@@ -250,7 +219,6 @@ class MinVIS_OV(nn.Module):
                 stuff_classifiers = torch.cat(stuff_classifiers, dim=0)
                 text_classifier = torch.cat([text_classifier, stuff_classifiers], dim=0)
                 num_templates = num_templates + [len(stuff_classifiers)]
-                print(len(stuff_classifiers))
             if name in self.test2train.keys():
                 i = self.train_names2id[self.test2train[name]]
                 if i == 0:
@@ -266,8 +234,6 @@ class MinVIS_OV(nn.Module):
                 void_embed = F.normalize(void_embed, dim=-1).detach()
                 text_classifier = torch.cat([text_classifier, void_embed], dim=0)
                 num_templates = num_templates + [void_embed.shape[0]]
-            if self.combine_stuff:
-                num_templates = {'num_templates': num_templates, 'combine_stuff': True}
         return text_classifier, num_templates
 
     def get_text_classifier(self):
@@ -513,8 +479,8 @@ class MinVIS_OV(nn.Module):
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
             # multi datasets
             "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)},
-            # "combine_stuff": cfg.DATASETS.DATASET_TYPE_TEST[0] == 'video_instance',
-            "combine_stuff": False,
+            "combine_stuff": cfg.DATASETS.DATASET_TYPE_TEST[0] == 'video_instance',
+            # "combine_stuff": False,
         }
 
     @property
@@ -812,7 +778,10 @@ class MinVIS_OV(nn.Module):
 
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):
         if len(pred_cls) > 0:
-            scores = F.softmax(pred_cls, dim=-1)[:, :-1]
+            if self.combine_stuff:
+                scores = F.softmax(pred_cls, dim=-1)[:, :-2]
+            else:
+                scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             labels = torch.arange(
                 #self.sem_seg_head.num_classes,
                 pred_cls.shape[-1] - 1,
