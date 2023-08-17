@@ -91,7 +91,6 @@ class MinVIS_OV(nn.Module):
         geometric_ensemble_beta: float,
         # multi datasets
         test2train={},
-        combine_stuff=False,
     ):
         """
         Args:
@@ -184,14 +183,6 @@ class MinVIS_OV(nn.Module):
                                                     'class_names': test_class_names}})
 
         self.test2train = test2train
-        self.combine_stuff = combine_stuff
-        if self.combine_stuff:
-            self.train_datasets_stuff_nums = {}
-            for name in train_metadatas.keys():
-                stuff_nums = len(train_metadatas[name].stuff_classes)
-                if stuff_nums == 0:
-                    continue
-                self.train_datasets_stuff_nums[name] = stuff_nums
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         # text_classifier (N, C)
@@ -207,18 +198,6 @@ class MinVIS_OV(nn.Module):
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
             num_templates = num_templates + [1]
         else:
-            if self.combine_stuff:
-                stuff_classifiers = []
-                for name in self.train_datasets_stuff_nums.keys():
-                    num_stuff = self.train_datasets_stuff_nums[name]
-                    if name not in self.train_text_classifier_dict.keys():
-                        self._set_class_information(name, train=True)
-                    num_templates_stuff = sum(self.train_num_templates_dict[name][-num_stuff:])
-                    stuffs = self.train_text_classifier_dict[name][-num_templates_stuff:]
-                    stuff_classifiers.append(stuffs)
-                stuff_classifiers = torch.cat(stuff_classifiers, dim=0)
-                text_classifier = torch.cat([text_classifier, stuff_classifiers], dim=0)
-                num_templates = num_templates + [len(stuff_classifiers)]
             if name in self.test2train.keys():
                 i = self.train_names2id[self.test2train[name]]
                 if i == 0:
@@ -479,8 +458,6 @@ class MinVIS_OV(nn.Module):
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
             # multi datasets
             "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)},
-            "combine_stuff": cfg.DATASETS.DATASET_TYPE_TEST[0] == 'video_instance',
-            # "combine_stuff": False,
         }
 
     @property
@@ -584,11 +561,7 @@ class MinVIS_OV(nn.Module):
             # Reference: https://github.com/NVlabs/ODISE/blob/main/odise/modeling/meta_arch/odise.py#L1506
             out_vocab_cls_probs = out_vocab_cls_results.softmax(-1)
             in_vocab_cls_results = in_vocab_cls_results.softmax(-1)
-            if self.combine_stuff:
-                category_overlapping_mask = torch.cat([self.category_overlapping_mask,
-                                                       torch.Tensor([1])]).to(self.device)
-            else:
-                category_overlapping_mask = self.category_overlapping_mask.to(self.device)
+            category_overlapping_mask = self.category_overlapping_mask.to(self.device)
             alpha = self.geometric_ensemble_alpha
             beta = self.geometric_ensemble_beta
             cls_logits_seen = (
@@ -782,10 +755,7 @@ class MinVIS_OV(nn.Module):
 
     def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):
         if len(pred_cls) > 0:
-            if self.combine_stuff:
-                scores = F.softmax(pred_cls, dim=-1)[:, :-2]
-            else:
-                scores = F.softmax(pred_cls, dim=-1)[:, :-1]
+            scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             labels = torch.arange(
                 #self.sem_seg_head.num_classes,
                 pred_cls.shape[-1] - 1,
