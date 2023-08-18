@@ -101,8 +101,8 @@ DATASETS:
   # The categories of all datasets will be mapped to the categories of the last dataset
   DATASET_RATIO: [2.0, 1.0, 0.5, 0.5, 0.75]
   TRAIN: ("coco_panoptic_video_ov", "panoVSPW_vps_video_train_ov", "ytvis_2019_train_ov", "ytvis_2021_train_ov", "ovis_train_ov")
-  TEST: ("ovis_val_ov",)
-  TEST2TRAIN: ["ovis_train_ov", ]
+  TEST: ("ytvis_2019_val_ov",)
+  TEST2TRAIN: ["ytvis_2019_train_ov", ]
 
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
