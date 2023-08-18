@@ -102,7 +102,7 @@ DATASETS:
   DATASET_RATIO: [2.0, 1.0, 0.5, 0.5, 0.75]
   TRAIN: ("coco_panoptic_video_ov", "panoVSPW_vps_video_train_ov", "ytvis_2019_train_ov", "ytvis_2021_train_ov", "ovis_train_ov")
   TEST: ("ytvis_2019_val_ov",)
-  TEST2TRAIN: []
+  TEST2TRAIN: ["ytvis_2019_train_ov", ]
 
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
