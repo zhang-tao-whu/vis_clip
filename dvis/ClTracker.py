@@ -1179,6 +1179,7 @@ class Classes_References_Memory:
         self.max_len = max_len
 
     def push(self, references, targets, referecne_match_result):
+        references = references.detach()
         for i in len(targets):
             classes = targets[i]['labels']  # (N, )
             frame_match_result = referecne_match_result[i]
