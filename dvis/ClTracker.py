@@ -296,7 +296,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                     memory_attn = (torch.rand(frame_key.shape[0]).unsqueeze(0).repeat(reference.shape[0], 1).to(reference) > 0.5).bool()
                 else:
                     memory_attn = None
-                    
+
                 for j in range(self.num_layers):
                     if j == 0:
                         indices, noised_init = self.noiser(
@@ -1251,3 +1251,673 @@ def loss_reid(qd_items, outputs):
     losses = {'loss_reid': contras_loss.sum() / num_qd_items,
               'loss_aux_reid': aux_loss / num_qd_items}
     return losses
+
+
+
+
+
+
+
+
+
+
+
+# dvis offline
+
+class TemporalRefiner(torch.nn.Module):
+    def __init__(
+        self,
+        hidden_channel=256,
+        feedforward_channel=2048,
+        num_head=8,
+        decoder_layer_num=6,
+        mask_dim=256,
+        class_num=25,
+        windows=5,
+        mask_agu=False,
+        mask_ratio=0.4,
+    ):
+        super(TemporalRefiner, self).__init__()
+
+        self.windows = windows
+
+        # init transformer layers
+        self.num_heads = num_head
+        self.num_layers = decoder_layer_num
+        self.transformer_obj_self_attention_layers = nn.ModuleList()
+        self.transformer_time_self_attention_layers = nn.ModuleList()
+        self.transformer_cross_attention_layers = nn.ModuleList()
+        self.transformer_ffn_layers = nn.ModuleList()
+
+        self.conv_short_aggregate_layers = nn.ModuleList()
+        self.conv_norms = nn.ModuleList()
+
+        for _ in range(self.num_layers):
+            self.transformer_time_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.conv_short_aggregate_layers.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channel, hidden_channel,
+                              kernel_size=5, stride=1,
+                              padding='same', padding_mode='replicate'),
+                    nn.ReLU(inplace=True),
+                    nn.Conv1d(hidden_channel, hidden_channel,
+                              kernel_size=3, stride=1,
+                              padding='same', padding_mode='replicate'),
+                )
+            )
+
+            self.conv_norms.append(nn.LayerNorm(hidden_channel))
+
+            self.transformer_obj_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_cross_attention_layers.append(
+                CrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+        self.decoder_norm = nn.LayerNorm(hidden_channel)
+
+        # init heads
+        self.class_embed = nn.Linear(hidden_channel, class_num + 1)
+        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+
+        self.activation_proj = nn.Linear(hidden_channel, 1)
+
+        # mask agumentation
+        self.mask_agu = mask_agu
+        self.mask_ratio = mask_ratio
+
+    def forward(self, instance_embeds, frame_embeds, mask_features):
+        """
+        :param instance_embeds: the aligned instance queries output by the tracker, shape is (b, c, t, q)
+        :param frame_embeds: the instance queries processed by the tracker.frame_forward function, shape is (b, c, t, q)
+        :param mask_features: the mask features output by the segmenter, shape is (b, t, c, h, w)
+        :return: output dict, including masks, classes, embeds.
+        """
+        n_batch, n_channel, n_frames, n_instance = instance_embeds.size()
+
+        if self.training and self.mask_agu:
+            temporal_mask = torch.rand(n_frames, n_frames).to(instance_embeds)
+            temporal_mask = torch.maximum(temporal_mask, torch.eye(n_frames).to(instance_embeds))
+            temporal_mask = temporal_mask <= self.mask_ratio
+        else:
+            temporal_mask = None
+
+        outputs = []
+        output = instance_embeds
+        frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+
+        for i in range(self.num_layers):
+            output = output.permute(2, 0, 3, 1)  # (t, b, q, c)
+            output = output.flatten(1, 2)  # (t, bq, c)
+
+            # do long temporal attention
+            output = self.transformer_time_self_attention_layers[i](
+                output, tgt_mask=temporal_mask,
+                tgt_key_padding_mask=None,
+                query_pos=None
+            )
+
+            # do short temporal conv
+            output = output.permute(1, 2, 0)  # (bq, c, t)
+            output = self.conv_norms[i](
+                (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)
+            ).transpose(1, 2)
+            output = output.reshape(
+                n_batch, n_instance, n_channel, n_frames
+            ).permute(1, 0, 3, 2).flatten(1, 2)  # (q, bt, c)
+
+            # do objects self attention
+            output = self.transformer_obj_self_attention_layers[i](
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=None
+            )
+
+            # do cross attention
+            output = self.transformer_cross_attention_layers[i](
+                output, frame_embeds,
+                memory_mask=None,
+                memory_key_padding_mask=None,
+                pos=None, query_pos=None
+            )
+
+            # FFN
+            output = self.transformer_ffn_layers[i](
+                output
+            )
+
+            output = output.reshape(n_instance, n_batch, n_frames, n_channel).permute(1, 3, 2, 0)  # (b, c, t, q)
+            outputs.append(output)
+
+        outputs = torch.stack(outputs, dim=0).permute(3, 0, 4, 1, 2)  # (l, b, c, t, q) -> (t, l, q, b, c)
+        outputs_class, outputs_masks = self.prediction(outputs, mask_features)
+        outputs = self.decoder_norm(outputs)
+        out = {
+           'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
+           'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
+           'aux_outputs': self._set_aux_loss(
+               outputs_class, outputs_masks
+           ),
+           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # (b, c, t, q)
+        }
+        return out
+
+    @torch.jit.unused
+    def _set_aux_loss(self, outputs_class, outputs_seg_masks):
+        # this is a workaround to make torchscript happy, as torchscript
+        # doesn't support dictionary with non-homogeneous values, such
+        # as a dict having both a Tensor and a list.
+        return [{"pred_logits": a.transpose(1, 2), "pred_masks": b}
+                for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
+                ]
+
+    def windows_prediction(self, outputs, mask_features, windows=5):
+        """
+        for windows prediction, because mask features consumed too much GPU memory
+        """
+        iters = outputs.size(0) // windows
+        if outputs.size(0) % windows != 0:
+            iters += 1
+        outputs_classes = []
+        outputs_masks = []
+        for i in range(iters):
+            start_idx = i * windows
+            end_idx = (i + 1) * windows
+            clip_outputs = outputs[start_idx:end_idx]
+            decoder_output = self.decoder_norm(clip_outputs)
+            decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
+            mask_embed = self.mask_embed(decoder_output)
+            outputs_mask = torch.einsum(
+                "lbtqc,btchw->lbqthw",
+                mask_embed,
+                mask_features[:, start_idx:end_idx].to(mask_embed.device)
+            )
+            outputs_classes.append(decoder_output)
+            outputs_masks.append(outputs_mask.cpu().to(torch.float32))
+        outputs_classes = torch.cat(outputs_classes, dim=2)
+        outputs_classes = self.pred_class(outputs_classes)
+        return outputs_classes.cpu().to(torch.float32), torch.cat(outputs_masks, dim=3)
+
+    def pred_class(self, decoder_output):
+        """
+        fuse the objects queries of all frames and predict an overall score based on the fused objects queries
+        :param decoder_output: instance queries, shape is (l, b, t, q, c)
+        """
+        T = decoder_output.size(2)
+
+        # compute the weighted average of the decoder_output
+        activation = self.activation_proj(decoder_output).softmax(dim=2)  # (l, b, t, q, 1)
+        class_output = (decoder_output * activation).sum(dim=2, keepdim=True)  # (l, b, 1, q, c)
+
+        # to unify the output format, duplicate the fused features T times
+        class_output = class_output.repeat(1, 1, T, 1, 1)
+        outputs_class = self.class_embed(class_output).transpose(2, 3)
+        return outputs_class
+
+    def prediction(self, outputs, mask_features):
+        """
+        :param outputs: instance queries, shape is (t, l, q, b, c)
+        :param mask_features: mask features, shape is (b, t, c, h, w)
+        :return: pred class and pred masks
+        """
+        if self.training:
+            decoder_output = self.decoder_norm(outputs)
+            decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
+            outputs_class = self.pred_class(decoder_output)
+            mask_embed = self.mask_embed(decoder_output)
+            outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
+        else:
+            outputs = outputs[:, -1:]
+            outputs_class, outputs_mask = self.windows_prediction(outputs, mask_features, windows=self.windows)
+        return outputs_class, outputs_mask
+
+@META_ARCH_REGISTRY.register()
+class ClDVIS_offline(ClDVIS_online):
+    """
+    Offline version of DVIS, including a segmenter, a referring tracker and a temporal refiner.
+    """
+    @configurable
+    def __init__(
+        self,
+        *,
+        backbone: Backbone,
+        sem_seg_head: nn.Module,
+        criterion: nn.Module,
+        num_queries: int,
+        object_mask_threshold: float,
+        overlap_threshold: float,
+        metadata,
+        size_divisibility: int,
+        sem_seg_postprocess_before_inference: bool,
+        pixel_mean: Tuple[float],
+        pixel_std: Tuple[float],
+        # video
+        tracker,
+        refiner,
+        num_frames,
+        window_inference,
+        max_num,
+        max_iter_num,
+        window_size,
+        task,
+    ):
+        """
+        Args:
+            backbone: a backbone module, must follow detectron2's backbone interface
+            sem_seg_head: a module that predicts semantic segmentation from backbone features
+            criterion: a module that defines the loss
+            num_queries: int, number of queries
+            object_mask_threshold: float, threshold to filter query based on classification score
+                for panoptic segmentation inference
+            overlap_threshold: overlap threshold used in general inference for panoptic segmentation
+            metadata: dataset meta, get `thing` and `stuff` category names for panoptic
+                segmentation inference
+            size_divisibility: Some backbones require the input height and width to be divisible by a
+                specific integer. We can use this to override such requirement.
+            sem_seg_postprocess_before_inference: whether to resize the prediction back
+                to original input size before semantic segmentation inference or after.
+                For high-resolution dataset like Mapillary, resizing predictions before
+                inference will cause OOM error.
+            pixel_mean, pixel_std: list or tuple with #channels element, representing
+                the per-channel mean and std to be used to normalize the input image
+            # video
+            tracker: a tracker module, e.g. ReferringTracker
+            refiner: a refiner module, e.g. TemporalRefiner
+            num_frames: number of frames sampled during training
+            window_inference: if the GPU memory is insufficient to predict the entire video at
+                once, inference needs to be performed clip by clip
+            num_class: the categories number of the dataset
+            max_num: the maximum number of instances retained for a video, only used in VIS
+            max_iter_num: the iter nums
+            window_size: the number of images processed by the segmenter at a time
+            task: VIS, VSS or VPS
+        """
+        super().__init__(
+            backbone=backbone,
+            sem_seg_head=sem_seg_head,
+            criterion=criterion,
+            num_queries=num_queries,
+            object_mask_threshold=object_mask_threshold,
+            overlap_threshold=overlap_threshold,
+            metadata=metadata,
+            size_divisibility=size_divisibility,
+            sem_seg_postprocess_before_inference=sem_seg_postprocess_before_inference,
+            pixel_mean=pixel_mean,
+            pixel_std=pixel_std,
+            # video
+            tracker=tracker,
+            num_frames=num_frames,
+            window_inference=window_inference,
+            max_num=max_num,
+            max_iter_num=max_iter_num,
+            window_size=window_size,
+            task=task,
+        )
+
+        # frozen the referring tracker
+        for p in self.tracker.parameters():
+            p.requires_grad_(False)
+
+        self.refiner = refiner
+
+    @classmethod
+    def from_config(cls, cfg):
+        backbone = build_backbone(cfg)
+        sem_seg_head = build_sem_seg_head(cfg, backbone.output_shape())
+
+        # Loss parameters:
+        deep_supervision = cfg.MODEL.MASK_FORMER.DEEP_SUPERVISION
+        no_object_weight = cfg.MODEL.MASK_FORMER.NO_OBJECT_WEIGHT
+
+        # loss weights
+        class_weight = cfg.MODEL.MASK_FORMER.CLASS_WEIGHT
+        dice_weight = cfg.MODEL.MASK_FORMER.DICE_WEIGHT
+        mask_weight = cfg.MODEL.MASK_FORMER.MASK_WEIGHT
+
+        # building criterion
+        matcher = VideoHungarianMatcher(
+            cost_class=class_weight,
+            cost_mask=mask_weight,
+            cost_dice=dice_weight,
+            # since when calculating the loss, the t frames of a video are flattened into a image with size of (th, w),
+            # the number of sampling points is increased t times accordingly.
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS * cfg.INPUT.SAMPLING_FRAME_NUM,
+        )
+
+        weight_dict = {
+            "loss_ce": class_weight,
+            "loss_mask": mask_weight,
+            "loss_dice": dice_weight,
+        }
+
+        if deep_supervision:
+            dec_layers = cfg.MODEL.MASK_FORMER.DEC_LAYERS
+            aux_weight_dict = {}
+            for i in range(dec_layers - 1):
+                aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
+            weight_dict.update(aux_weight_dict)
+
+        losses = ["labels", "masks"]
+
+        criterion = VideoSetCriterion(
+            sem_seg_head.num_classes,
+            matcher=matcher,
+            weight_dict=weight_dict,
+            eos_coef=no_object_weight,
+            losses=losses,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS * cfg.INPUT.SAMPLING_FRAME_NUM,
+            oversample_ratio=cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
+            importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
+        )
+
+        tracker = ClReferringTracker_noiser(
+            hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM * 2,
+            feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
+            num_head=cfg.MODEL.MASK_FORMER.NHEADS,
+            decoder_layer_num=cfg.MODEL.TRACKER.DECODER_LAYERS,
+            noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
+            mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
+            class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
+        )
+
+        refiner = TemporalRefiner(
+            hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM * 2,
+            feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
+            num_head=cfg.MODEL.MASK_FORMER.NHEADS,
+            decoder_layer_num=cfg.MODEL.REFINER.DECODER_LAYERS,
+            mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
+            class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
+            windows=cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
+            mask_agu=cfg.MODEL.REFINER.MASK_AGU,
+            mask_ratio=cfg.MODEL.REFINER.MASK_RATIO,
+        )
+
+        max_iter_num = cfg.SOLVER.MAX_ITER
+
+        return {
+            "backbone": backbone,
+            "sem_seg_head": sem_seg_head,
+            "criterion": criterion,
+            "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
+            "object_mask_threshold": cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD,
+            "overlap_threshold": cfg.MODEL.MASK_FORMER.TEST.OVERLAP_THRESHOLD,
+            "metadata": MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
+            "size_divisibility": cfg.MODEL.MASK_FORMER.SIZE_DIVISIBILITY,
+            "sem_seg_postprocess_before_inference": True,
+            "pixel_mean": cfg.MODEL.PIXEL_MEAN,
+            "pixel_std": cfg.MODEL.PIXEL_STD,
+            # video
+            "tracker": tracker,
+            "refiner": refiner,
+            "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
+            "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
+            "max_num": cfg.MODEL.MASK_FORMER.TEST.MAX_NUM,
+            "max_iter_num": max_iter_num,
+            "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
+            "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
+        }
+
+    def forward(self, batched_inputs):
+        """
+        Args:
+            batched_inputs: a list, batched outputs of :class:`DatasetMapper`.
+                Each item in the list contains the inputs for one image.
+                For now, each item in the list is a dict that contains:
+                   * "image": Tensor, image in (C, H, W) format.
+                   * "instances": per-region ground truth
+                   * Other information that's included in the original dicts, such as:
+                     "height", "width" (int): the output resolution of the model (may be different
+                     from input resolution), used in inference.
+        Returns:
+            dict:
+                For specific task, the dict contains the following keys:
+                * For VIS:
+                    "image_size": (output_height, output_width).
+                    "pred_scores": score for per instance.
+                    "pred_labels": class for per instance.
+                    "pred_masks": list[Tensor], bit-masks for per instance, Tensor shape is (t, h, w).
+                    "pred_ids": list, query ids for per instance, list length is N.
+                    "task": "vis",
+                * For VSS:
+                    "image_size": (output_height, output_width).
+                    "pred_masks": A Tensor that represents the
+                        per-pixel segmentation prediced by the head.
+                        The prediction has shape (t, h, w) that represents
+                        the category ID for each pixel.
+                    "task": "vss".
+                * For VPS:
+                    "image_size": (output_height, output_width).
+                    "pred_masks": Tensor, shape is (t, h, w),
+                        that represents the unique ID for the object which each pixel belong to.
+                    "segments_infos": list[dict], info dicts for per object.
+                        Info dict including unique ID, category ID and isthing.
+                    "pred_ids": list, query ids for per thing and stuff, list length is N.
+                    "task": "vps".
+        """
+        if 'keep' in batched_inputs[0].keys():
+            self.keep = batched_inputs[0]['keep']
+        else:
+            self.keep = False
+
+        images = []
+        for video in batched_inputs:
+            for frame in video["image"]:
+                images.append(frame.to(self.device))
+        images = [(x - self.pixel_mean) / self.pixel_std for x in images]
+        images = ImageList.from_tensors(images, self.size_divisibility)
+        self.backbone.eval()
+        self.sem_seg_head.eval()
+        self.tracker.eval()
+
+        if not self.training and self.window_inference:
+            outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=self.window_size)
+        else:
+            with torch.no_grad():
+                # due to GPU memory limitations, the segmenter processes the video clip by clip.
+                image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
+                object_labels = self._get_instance_labels(image_outputs['pred_logits'])
+                frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
+                frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
+                mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
+                del image_outputs['mask_features'], image_outputs['pred_embds_without_norm'],\
+                    image_outputs['pred_logits'], image_outputs['pred_embds']
+
+                # perform tracker/alignment
+                image_outputs = self.tracker(
+                    frame_embds, mask_features,
+                    resume=self.keep, frame_classes=object_labels,
+                    frame_embeds_no_norm=frame_embds_no_norm
+                )
+                online_pred_logits = image_outputs['pred_logits']  # (b, t, q, c)
+                # frame_embds_ = self.tracker.frame_forward(frame_embds)
+                frame_embds_ = frame_embds_no_norm.clone().detach()
+                instance_embeds = image_outputs['pred_embds'].clone().detach()
+
+                del frame_embds, frame_embds_no_norm
+                del image_outputs['pred_embds']
+                for j in range(len(image_outputs['aux_outputs'])):
+                    del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
+                torch.cuda.empty_cache()
+            # do temporal refine
+            outputs = self.refiner(instance_embeds, frame_embds_, mask_features)
+
+        if self.training:
+            # mask classification target
+            targets = self.prepare_targets(batched_inputs, images)
+            # use the online prediction results to guide the matching process during early training phase
+            if self.iter < self.max_iter_num // 2:
+                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
+                    outputs, targets, image_outputs=image_outputs
+                )
+            else:
+                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
+                    outputs, targets, image_outputs=None
+                )
+            self.iter += 1
+
+            # bipartite matching-based loss
+            losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
+
+            for k in list(losses.keys()):
+                if k in self.criterion.weight_dict:
+                    losses[k] *= self.criterion.weight_dict[k]
+                else:
+                    # remove this loss if not specified in `weight_dict`
+                    losses.pop(k)
+            return losses
+        else:
+            outputs, aux_pred_logits = self.post_processing(outputs, aux_logits=online_pred_logits)
+            mask_cls_results = outputs["pred_logits"]
+            mask_pred_results = outputs["pred_masks"]
+            pred_ids = outputs["ids"]
+
+            mask_cls_result = mask_cls_results[0]
+            mask_pred_result = mask_pred_results[0]
+            pred_id = pred_ids[0]
+            first_resize_size = (images.tensor.shape[-2], images.tensor.shape[-1])
+
+            input_per_image = batched_inputs[0]
+            image_size = images.image_sizes[0]  # image size without padding after data augmentation
+
+            height = input_per_image.get("height", image_size[0])  # raw image size before data augmentation
+            width = input_per_image.get("width", image_size[1])
+
+            return retry_if_cuda_oom(self.inference_video_task)(
+                mask_cls_result, mask_pred_result, image_size, height, width,
+                first_resize_size, pred_id, aux_pred_cls=aux_pred_logits,
+            )
+
+    def segmentor_windows_inference(self, images_tensor, window_size=5):
+        image_outputs = {}
+        iters = len(images_tensor) // window_size
+        if len(images_tensor) % window_size != 0:
+            iters += 1
+
+        outs_list = []
+        for i in range(iters):
+            start_idx = i * window_size
+            end_idx = (i + 1) * window_size
+
+            features = self.backbone(images_tensor[start_idx:end_idx])
+            out = self.sem_seg_head(features)
+
+            del features['res2'], features['res3'], features['res4'], features['res5']
+            del out['pred_masks']
+            for j in range(len(out['aux_outputs'])):
+                del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
+            outs_list.append(out)
+
+        image_outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in outs_list], dim=2).detach()
+        image_outputs['mask_features'] = torch.cat([x['mask_features'] for x in outs_list], dim=0).detach()
+        image_outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in outs_list], dim=1).detach()
+        image_outputs['pred_embds_without_norm'] = torch.cat([x['pred_embds_without_norm'] for x in outs_list], dim=2).detach()
+        return image_outputs
+
+    def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
+        # flatten the t frames as an image with size of (th, w)
+        outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> b q () (t h) w')
+        outputs['pred_logits'] = outputs['pred_logits'][:, 0, :, :]
+        if image_outputs is not None:
+            image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> b q () (t h) w')
+            image_outputs['pred_logits'] = image_outputs['pred_logits'].mean(dim=1)
+        if 'aux_outputs' in outputs:
+            for i in range(len(outputs['aux_outputs'])):
+                outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
+                    outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> b q () (t h) w'
+                )
+                outputs['aux_outputs'][i]['pred_logits'] = outputs['aux_outputs'][i]['pred_logits'][:, 0, :, :]
+
+        gt_instances = []
+        for targets_per_video in targets:
+            targets_per_video['masks'] = einops.rearrange(
+                targets_per_video['masks'], 'q t h w -> q () (t h) w'
+                )
+            gt_instances.append(targets_per_video)
+        return image_outputs, outputs, gt_instances
+
+    def run_window_inference(self, images_tensor, window_size=30):
+        iters = len(images_tensor) // window_size
+        if len(images_tensor) % window_size != 0:
+            iters += 1
+
+        overall_mask_features = []
+        overall_frame_embds = []
+        overall_instance_embds = []
+        online_pred_logits = []
+
+        for i in range(iters):
+            start_idx = i * window_size
+            end_idx = (i+1) * window_size
+
+            # sementer inference
+            features = self.backbone(images_tensor[start_idx:end_idx])
+            out = self.sem_seg_head(features)
+
+            del features['res2'], features['res3'], features['res4'], features['res5']
+            del out['pred_masks']
+            for j in range(len(out['aux_outputs'])):
+                del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
+
+            object_labels = self._get_instance_labels(out['pred_logits'])
+            frame_embds = out['pred_embds']  # (b, c, t, q)
+            frame_embds_no_norm = out['pred_embds_without_norm']
+            mask_features = out['mask_features'].unsqueeze(0)
+            overall_mask_features.append(mask_features.cpu())
+            overall_frame_embds.append(frame_embds_no_norm)
+
+            # referring tracker inference
+            if i != 0:
+                track_out = self.tracker(frame_embds, mask_features, resume=True,
+                                         frame_classes=object_labels,
+                                         frame_embeds_no_norm=frame_embds_no_norm)
+            else:
+                track_out = self.tracker(frame_embds, mask_features, frame_classes=object_labels,
+                                         frame_embeds_no_norm=frame_embds_no_norm)
+            online_pred_logits.append(track_out['pred_logits'].clone())
+
+            del track_out['pred_masks'], track_out['pred_logits']
+            for j in range(len(track_out['aux_outputs'])):
+                del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
+
+            instance_embds = track_out['pred_embds']
+            overall_instance_embds.append(instance_embds)
+
+        overall_frame_embds = torch.cat(overall_frame_embds, dim=2)
+        overall_instance_embds = torch.cat(overall_instance_embds, dim=2)
+        overall_mask_features = torch.cat(overall_mask_features, dim=1)
+        online_pred_logits = torch.cat(online_pred_logits, dim=1)
+        #overall_frame_embds_ = self.tracker.frame_forward(overall_frame_embds)
+        #del overall_frame_embds
+
+        # temporal refiner inference
+        outputs = self.refiner(overall_instance_embds, overall_frame_embds, overall_mask_features)
+        return outputs, online_pred_logits
