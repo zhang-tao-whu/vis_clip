@@ -291,7 +291,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
             else:
                 reference = self.ref_proj(self.last_outputs[-1])
                 self.last_reference = reference
-                #do memory attn
+
+                memory_attn = (torch.rand(frame_key.shape[0]).unsqueeze(0).repeat(reference.shape[0], 1).to(reference) > 0.7).bool()
 
                 for j in range(self.num_layers):
                     if j == 0:
@@ -308,7 +309,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         output = self.transformer_cross_attention_layers[j](
                             noised_init, reference, frame_key,
                             single_frame_embeds_no_norm,
-                            memory_mask=None,
+                            # memory_mask=None,
+                            memory_mask=memory_attn,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
@@ -327,7 +329,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         output = self.transformer_cross_attention_layers[j](
                             ms_output[-1], reference, frame_key,
                             single_frame_embeds_no_norm,
-                            memory_mask=None,
+                            # memory_mask=None,
+                            memory_mask=memory_attn,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
                         )
