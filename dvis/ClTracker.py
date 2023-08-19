@@ -292,7 +292,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 reference = self.ref_proj(self.last_outputs[-1])
                 self.last_reference = reference
 
-                memory_attn = (torch.rand(frame_key.shape[0]).unsqueeze(0).repeat(reference.shape[0], 1).to(reference) > 0.7).bool()
+                memory_attn = (torch.rand(frame_key.shape[0]).unsqueeze(0).repeat(reference.shape[0], 1).to(reference) > 0.6).bool()
 
                 for j in range(self.num_layers):
                     if j == 0:
