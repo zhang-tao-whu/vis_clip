@@ -19,7 +19,7 @@
 18:horse,equine,stallion,mare
 19:turtle,tortoise,terrapin,chelonian
 20:bear,bruin,ursine,grizzly
-21:motorbike,motorcycle,bike,bicycle,bicycles,bikes
+21:motorbike,motorcycle,motorcycles
 22:giraffe,camelopard,longneck
 23:leopard,panther,jaguar
 24:fox,vixen,reynard

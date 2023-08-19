@@ -21,7 +21,7 @@
 20:leopard,panther,jaguar
 21:lizard,saurian,iguana,gecko
 22:monkey,monkeys
-23:motorbike,motorcycle,bike,bicycle,bicycles,bikes
+23:motorbike,motorcycle,motorcycles
 24:mouse,rat,murine
 25:parrot,macaw,cockatoo,lovebird,budgie
 26:person,child,girl,boy,woman,man,people,children,girls,boys,women,men,lady,guy,ladies,guys,clothes
