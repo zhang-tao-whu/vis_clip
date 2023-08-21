@@ -1139,7 +1139,7 @@ class ClDVIS_online(MinVIS):
                         'label': pos_neg_label})
 
                 # cls cl
-                cls = targets[i]['ids'][i_gt].item()
+                cls = targets[i]['labels'][i_gt].item()
                 anchor_embeds = frame_reference[[i_ref]]
                 if frame_reference_next is None:
                     pos_embeds = frame_reference_[[i_ref]]
