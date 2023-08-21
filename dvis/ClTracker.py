@@ -1139,7 +1139,7 @@ class ClDVIS_online(MinVIS):
                         'label': pos_neg_label})
 
                 # cls cl
-                cls = targets[i][i_gt].item()
+                cls = targets[i]['ids'][i_gt].item()
                 anchor_embeds = frame_reference[[i_ref]]
                 pos_embeds = torch.cat([frame_reference_[[i_ref]], frame_reference_next[[i_ref]]], dim=0)
                 neg_embeds = self.classes_references_memory.get_items(cls)
