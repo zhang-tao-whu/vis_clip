@@ -1183,7 +1183,7 @@ class Classes_References_Memory:
 
     def push(self, references, targets, referecne_match_result):
         references = references
-        for i in len(targets):
+        for i in range(len(targets)):
             classes = targets[i]['labels']  # (N, )
             frame_match_result = referecne_match_result[i]
             frame_reference = references[i]
