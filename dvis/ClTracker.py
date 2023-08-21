@@ -1141,7 +1141,7 @@ class ClDVIS_online(MinVIS):
                 # cls cl
                 cls = targets[i]['labels'][i_gt].item()
                 anchor_embeds = frame_reference[[i_ref]]
-                anchor_embeds = anchor_embeds * 0.1 + anchor_embeds.detach() * 0.9
+                # anchor_embeds = anchor_embeds * 0.1 + anchor_embeds.detach() * 0.9
                 if frame_reference_next is None:
                     pos_embeds = frame_reference_[[i_ref]].detach()
                 else:
