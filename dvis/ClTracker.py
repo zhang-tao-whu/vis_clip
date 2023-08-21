@@ -656,7 +656,7 @@ class ClDVIS_online(MinVIS):
             else:
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=None, ret_match_result=True)
             # losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
-            losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result)
+            losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)
             losses.update(losses_cl)
 
             self.iter += 1
@@ -1921,11 +1921,11 @@ class ClDVIS_offline(ClDVIS_online):
     def get_cl_loss(self, outputs, targets, matching_result):
         # outputs['pred_keys'] = (b t) q c
         # outputs['pred_references'] = (b t) q c
-        references = outputs['pred_references']
+        outputs = outputs['pred_embds'] # (b c t q)
 
         # per frame
         contrastive_items = []
-        for i in range(references.size(0)):
+        for i in range(outputs.size(2)):
             if i == 0:
                 continue
             frame_reference = references[i]  # (q, c)
