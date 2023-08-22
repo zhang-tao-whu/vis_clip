@@ -1917,11 +1917,11 @@ class ClDVIS_offline(ClDVIS_online):
         outputs = self.refiner(overall_instance_embds, overall_frame_embds, overall_mask_features)
         return outputs, online_pred_logits
 
-    def get_cl_loss(self, outputs, matching_result):
+    def get_cl_loss(self, outputs_, matching_result):
         # outputs['pred_keys'] = (b t) q c
         # outputs['pred_references'] = (b t) q c
-        assert outputs['pred_embds'].shape[0] == len(matching_result) == 1
-        outputs = outputs['pred_embds'][0].permute(1, 2, 0)  # (t q c)
+        assert outputs_['pred_embds'].shape[0] == len(matching_result) == 1
+        outputs = outputs_['pred_embds'][0].permute(1, 2, 0)  # (t q c)
         matching_result = matching_result[0]
 
         # per frame
@@ -1963,5 +1963,5 @@ class ClDVIS_offline(ClDVIS_online):
                     'cosine_similarity': aux_cosine_similarity,
                     'label': pos_neg_label})
 
-        losses = loss_reid(contrastive_items, outputs)
+        losses = loss_reid(contrastive_items, outputs_)
         return losses
