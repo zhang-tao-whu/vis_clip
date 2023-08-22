@@ -1140,8 +1140,8 @@ class ClDVIS_online(MinVIS):
 
                 # cls cl
                 cls = targets[i]['labels'][i_gt].item()
-                anchor_embeds = frame_reference[[i_ref]]
-                # anchor_embeds = anchor_embeds * 0.1 + anchor_embeds.detach() * 0.9
+                # anchor_embeds = frame_reference[[i_ref]]
+                anchor_embeds = anchor_embeds * 0.1 + anchor_embeds.detach() * 0.9
                 if frame_reference_next is None:
                     pos_embeds = frame_reference_[[i_ref]].detach()
                 else:
@@ -1250,18 +1250,7 @@ def loss_reid(qd_items, outputs):
               'loss_aux_reid': aux_loss / num_qd_items}
     return losses
 
-
-
-
-
-
-
-
-
-
-
 # dvis offline
-
 class TemporalRefiner(torch.nn.Module):
     def __init__(
         self,
@@ -1624,6 +1613,7 @@ class ClDVIS_offline(ClDVIS_online):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
 
+        weight_dict.update({'loss_reid': 2})
         losses = ["labels", "masks"]
 
         criterion = VideoSetCriterion(
@@ -1785,7 +1775,8 @@ class ClDVIS_offline(ClDVIS_online):
             # bipartite matching-based loss
             losses, matching_result = self.criterion(outputs, targets,
                                                      matcher_outputs=image_outputs, ret_match_result=True)
-            cl_loss = self.get_cl_loss(outputs, targets, matching_result)
+            cl_loss = self.get_cl_loss(outputs, matching_result)
+            losses.update(cl_loss)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
@@ -1922,37 +1913,27 @@ class ClDVIS_offline(ClDVIS_online):
         outputs = self.refiner(overall_instance_embds, overall_frame_embds, overall_mask_features)
         return outputs, online_pred_logits
 
-    def get_cl_loss(self, outputs, targets, matching_result):
+    def get_cl_loss(self, outputs, matching_result):
         # outputs['pred_keys'] = (b t) q c
         # outputs['pred_references'] = (b t) q c
-        outputs = outputs['pred_embds'] # (b c t q)
+        assert outputs['pred_embds'].shape[0] == len(matching_result) == 1
+        outputs = outputs['pred_embds'][0].permute(1, 2, 0)  # (t q c)
+        matching_result = matching_result[0]
 
         # per frame
         contrastive_items = []
         for i in range(outputs.size(2)):
-            if i == 0:
-                continue
-            frame_reference = references[i]  # (q, c)
-            frame_reference_ = references[i - 1]  # (q, c)
-
-            if i != references.size(0) - 1:
-                frame_reference_next = references[i + 1]
-            else:
-                frame_reference_next = None
-
-            frame_ref_gt_indices = referecne_match_result[i]
 
             gt2ref = {}
-            for i_ref, i_gt in zip(frame_ref_gt_indices[0], frame_ref_gt_indices[1]):
+            for i_ref, i_gt in zip(matching_result[0], matching_result[1]):
                 gt2ref[i_gt.item()] = i_ref.item()
             # per instance
             for i_gt in gt2ref.keys():
                 i_ref = gt2ref[i_gt]
-
-                anchor_embeds = frame_reference[[i_ref]]
-                pos_embeds = frame_reference_[[i_ref]]
-                neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
-                neg_embeds = frame_reference_[neg_range]
+                anchor_embeds = outputs[i][[i_ref]]  # (1, c)
+                pos_embeds = outputs[:, i_ref]  # (t, c)
+                neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, outputs.size(1)))
+                neg_embeds = outputs[i][neg_range] # (q - 1, c)
 
                 num_positive = pos_embeds.shape[0]
                 # concate pos and neg to get whole constractive samples
@@ -1977,36 +1958,6 @@ class ClDVIS_offline(ClDVIS_online):
                     'dot_product': dot_product,
                     'cosine_similarity': aux_cosine_similarity,
                     'label': pos_neg_label})
-
-                if frame_reference_next is not None:
-                    pos_embeds = frame_reference_next[[i_ref]]
-                    neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
-                    # print(neg_range, '---------', i_key)
-                    neg_embeds = frame_reference_next[neg_range]
-
-                    num_positive = pos_embeds.shape[0]
-                    # concate pos and neg to get whole constractive samples
-                    pos_neg_embedding = torch.cat(
-                        [pos_embeds, neg_embeds], dim=0)
-                    # generate label, pos is 1, neg is 0
-                    pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
-                                                                dtype=torch.int64)  # noqa
-                    pos_neg_label[:num_positive] = 1.
-
-                    # dot product
-                    dot_product = torch.einsum(
-                        'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
-                    aux_normalize_pos_neg_embedding = nn.functional.normalize(
-                        pos_neg_embedding, dim=1)
-                    aux_normalize_anchor_embedding = nn.functional.normalize(
-                        anchor_embeds, dim=1)
-
-                    aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
-                                                                       aux_normalize_anchor_embedding])
-                    contrastive_items.append({
-                        'dot_product': dot_product,
-                        'cosine_similarity': aux_cosine_similarity,
-                        'label': pos_neg_label})
 
         losses = loss_reid(contrastive_items, outputs)
         return losses
