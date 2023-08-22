@@ -1922,7 +1922,7 @@ class ClDVIS_offline(ClDVIS_online):
 
         # per frame
         contrastive_items = []
-        for i in range(outputs.size(2)):
+        for i in range(outputs.size(0)):
 
             gt2ref = {}
             for i_ref, i_gt in zip(matching_result[0], matching_result[1]):
