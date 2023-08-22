@@ -1216,8 +1216,12 @@ def loss_reid(qd_items, outputs):
 
     # if none items, return 0 loss
     if len(qd_items) == 0:
-        losses = {'loss_reid': outputs['pred_references'].sum() * 0,
-                  'loss_aux_reid': outputs['pred_references'].sum() * 0}
+        if 'pred_references' in outputs.keys():
+            losses = {'loss_reid': outputs['pred_references'].sum() * 0,
+                      'loss_aux_reid': outputs['pred_references'].sum() * 0}
+        else:
+            losses = {'loss_reid': outputs['pred_embds'].sum() * 0,
+                      'loss_aux_reid': outputs['pred_embds'].sum() * 0}
         return losses
 
     for qd_item in qd_items:
