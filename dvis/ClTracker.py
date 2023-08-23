@@ -655,8 +655,8 @@ class ClDVIS_online(MinVIS):
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=image_outputs, ret_match_result=True)
             else:
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=None, ret_match_result=True)
-            # losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
-            losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)
+            losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
+            # losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)
             losses.update(losses_cl)
 
             self.iter += 1
@@ -1194,6 +1194,22 @@ class Classes_References_Memory:
                     self.class_references[cls].append(frame_reference[i_ref])
                 else:
                     self.class_references[cls] = [frame_reference[i_ref]]
+        for cls in self.class_references.keys():
+            if len(self.class_references[cls]) > self.max_len:
+                self.class_references[cls] = self.class_references[cls][-self.max_len:]
+        return
+
+    def push_refiner(self, references, targets, referecne_match_result):
+        # (t q c)
+        references = references.detach()
+        classes = targets['labels']  # (N, )
+        for i_ref, i_gt in zip(referecne_match_result[0], referecne_match_result[1]):
+            cls = classes[i_gt].item()
+            if cls in self.class_references.keys():
+                self.class_references[cls].extend(torch.unbind(references[:, i_ref], dim=0))
+            else:
+                self.class_references[cls] = torch.unbind(references[:, i_ref], dim=0)
+
         for cls in self.class_references.keys():
             if len(self.class_references[cls]) > self.max_len:
                 self.class_references[cls] = self.class_references[cls][-self.max_len:]
@@ -1779,7 +1795,8 @@ class ClDVIS_offline(ClDVIS_online):
             # bipartite matching-based loss
             losses, matching_result = self.criterion(outputs, targets,
                                                      matcher_outputs=image_outputs, ret_match_result=True)
-            cl_loss = self.get_cl_loss(outputs, matching_result)
+            # cl_loss = self.get_cl_loss(outputs, matching_result)
+            cl_loss = self.get_cl_loss_with_memory(outputs, matching_result, targets)
             losses.update(cl_loss)
 
             for k in list(losses.keys()):
@@ -1963,5 +1980,86 @@ class ClDVIS_offline(ClDVIS_online):
                     'cosine_similarity': aux_cosine_similarity,
                     'label': pos_neg_label})
 
+        losses = loss_reid(contrastive_items, outputs_)
+        return losses
+
+    def get_cl_loss_with_memory(self, outputs_, matching_result, targets):
+        # outputs['pred_keys'] = (b t) q c
+        # outputs['pred_references'] = (b t) q c
+        assert outputs_['pred_embds'].shape[0] == len(matching_result) == len(targets) == 1
+        outputs = outputs_['pred_embds'][0].permute(1, 2, 0)  # (t q c)
+        matching_result = matching_result[0]
+        targets = targets[0]
+
+        # per frame
+        contrastive_items = []
+        for i in range(outputs.size(0)):
+
+            gt2ref = {}
+            for i_ref, i_gt in zip(matching_result[0], matching_result[1]):
+                gt2ref[i_gt.item()] = i_ref.item()
+            # per instance
+            for i_gt in gt2ref.keys():
+                i_ref = gt2ref[i_gt]
+                anchor_embeds = outputs[i][[i_ref]]  # (1, c)
+                pos_embeds = outputs[:, i_ref]  # (t, c)
+                neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, outputs.size(1)))
+                neg_embeds = outputs[i][neg_range] # (q - 1, c)
+
+                num_positive = pos_embeds.shape[0]
+                # concate pos and neg to get whole constractive samples
+                pos_neg_embedding = torch.cat(
+                    [pos_embeds, neg_embeds], dim=0)
+                # generate label, pos is 1, neg is 0
+                pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
+                                                            dtype=torch.int64)  # noqa
+                pos_neg_label[:num_positive] = 1.
+
+                # dot product
+                dot_product = torch.einsum(
+                    'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
+                aux_normalize_pos_neg_embedding = nn.functional.normalize(
+                    pos_neg_embedding, dim=1)
+                aux_normalize_anchor_embedding = nn.functional.normalize(
+                    anchor_embeds, dim=1)
+
+                aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
+                                                                   aux_normalize_anchor_embedding])
+                contrastive_items.append({
+                    'dot_product': dot_product,
+                    'cosine_similarity': aux_cosine_similarity,
+                    'label': pos_neg_label})
+
+                # cls cl
+                cls = targets['labels'][i_gt].item()
+                anchor_embeds = outputs[i][[i_ref]]
+                pos_embeds = outputs[:, i_ref]  # (t, c)
+                neg_embeds = self.classes_references_memory.get_items(cls)
+                if len(neg_embeds) != 0:
+                    num_positive = pos_embeds.shape[0]
+                    # concate pos and neg to get whole constractive samples
+                    pos_neg_embedding = torch.cat(
+                        [pos_embeds, neg_embeds], dim=0)
+                    # generate label, pos is 1, neg is 0
+                    pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
+                                                                dtype=torch.int64)  # noqa
+                    pos_neg_label[:num_positive] = 1.
+
+                    # dot product
+                    dot_product = torch.einsum(
+                        'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
+                    aux_normalize_pos_neg_embedding = nn.functional.normalize(
+                        pos_neg_embedding, dim=1)
+                    aux_normalize_anchor_embedding = nn.functional.normalize(
+                        anchor_embeds, dim=1)
+
+                    aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
+                                                                       aux_normalize_anchor_embedding])
+                    contrastive_items.append({
+                        'dot_product': dot_product,
+                        'cosine_similarity': aux_cosine_similarity,
+                        'label': pos_neg_label})
+
+            self.classes_references_memory.push_refiner(outputs, targets, matching_result)
         losses = loss_reid(contrastive_items, outputs_)
         return losses
