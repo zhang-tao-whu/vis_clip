@@ -1201,7 +1201,7 @@ class Classes_References_Memory:
 
     def push_refiner(self, references, targets, referecne_match_result):
         # (t q c)
-        references = references.detach()
+        references = references.clone().detach()
         classes = targets['labels']  # (N, )
         for i_ref, i_gt in zip(referecne_match_result[0], referecne_match_result[1]):
             cls = classes[i_gt].item()
