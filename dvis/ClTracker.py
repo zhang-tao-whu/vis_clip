@@ -2033,7 +2033,7 @@ class ClDVIS_offline(ClDVIS_online):
                 # cls cl
                 cls = targets['labels'][i_gt].item()
                 anchor_embeds = outputs[i][[i_ref]]
-                pos_embeds = outputs[:, i_ref].detach()  # (t, c)
+                pos_embeds = outputs[:, i_ref]  # (t, c)
                 neg_embeds = self.classes_references_memory.get_items(cls)
                 if len(neg_embeds) != 0:
                     num_positive = pos_embeds.shape[0]
@@ -2060,6 +2060,6 @@ class ClDVIS_offline(ClDVIS_online):
                         'cosine_similarity': aux_cosine_similarity,
                         'label': pos_neg_label})
 
-            self.classes_references_memory.push_refiner(outputs, targets, matching_result)
+        self.classes_references_memory.push_refiner(outputs, targets, matching_result)
         losses = loss_reid(contrastive_items, outputs_)
         return losses
