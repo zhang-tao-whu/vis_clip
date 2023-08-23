@@ -1208,7 +1208,7 @@ class Classes_References_Memory:
             if cls in self.class_references.keys():
                 self.class_references[cls].extend(list(torch.unbind(references[:, i_ref], dim=0)))
             else:
-                self.class_references[cls] = torch.unbind(list(references[:, i_ref], dim=0))
+                self.class_references[cls] = list(torch.unbind(references[:, i_ref], dim=0))
 
         for cls in self.class_references.keys():
             if len(self.class_references[cls]) > self.max_len:
