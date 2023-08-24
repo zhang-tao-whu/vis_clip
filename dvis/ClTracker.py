@@ -493,7 +493,7 @@ class ClDVIS_online(MinVIS):
         }
         self.inference_video_task = inference_dict[self.task]
 
-        self.classes_references_memory = Classes_References_Memory(max_len=50)
+        self.classes_references_memory = Classes_References_Memory(max_len=100)
 
     @classmethod
     def from_config(cls, cfg):
