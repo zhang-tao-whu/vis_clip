@@ -19,6 +19,7 @@ from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHunga
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from .meta_architecture import MinVIS
 import fvcore.nn.weight_init as weight_init
+import random
 
 class ReferringCrossAttentionLayer(nn.Module):
 
@@ -492,7 +493,7 @@ class ClDVIS_online(MinVIS):
         }
         self.inference_video_task = inference_dict[self.task]
 
-        self.classes_references_memory = Classes_References_Memory(max_len=50)
+        self.classes_references_memory = Classes_References_Memory(max_len=200)
 
     @classmethod
     def from_config(cls, cfg):
@@ -1212,8 +1213,8 @@ class Classes_References_Memory:
 
         for cls in self.class_references.keys():
             if len(self.class_references[cls]) > self.max_len:
+                random.shuffle(self.class_references[cls])
                 self.class_references[cls] = self.class_references[cls][-self.max_len:]
-        print({key: len(self.class_references[key]) for key in self.class_references.keys()})
         return
 
     def get_items(self, cls):
