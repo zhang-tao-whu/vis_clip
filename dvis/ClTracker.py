@@ -1213,7 +1213,7 @@ class Classes_References_Memory:
         for cls in self.class_references.keys():
             if len(self.class_references[cls]) > self.max_len:
                 self.class_references[cls] = self.class_references[cls][-self.max_len:]
-        print({cls: len(self.class_references[cls]) for key in self.class_references.keys()})
+        print({key: len(self.class_references[key]) for key in self.class_references.keys()})
         return
 
     def get_items(self, cls):
