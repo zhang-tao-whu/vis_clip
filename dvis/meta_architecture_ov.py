@@ -55,7 +55,7 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
         final_pred_logits.append(pred_logits[:, :, cur_idx: cur_idx + num_t].max(-1).values)
         cur_idx += num_t
     # final_pred_logits.append(pred_logits[:, :, -1]) # the last classifier is for void
-    final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].min(-1).values)
+    final_pred_logits.append(pred_logits[:, :, -num_templates[-1]:].max(-1).values)
     final_pred_logits = torch.stack(final_pred_logits, dim=-1)
     return final_pred_logits
 
@@ -183,8 +183,16 @@ class MinVIS_OV(nn.Module):
                                                     'class_names': test_class_names}})
 
         self.test2train = test2train
+        self.test_use_all_vocabulary = True
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
+        def split_labels(x):
+            res = []
+            for x_ in x:
+                x_ = x_.replace(', ', ',')
+                x_ = x_.split(',')  # there can be multiple synonyms for single class
+                res.append(x_)
+            return res
         # # text_classifier (N, C)
         # # (N, C) -> (N, 1, C)
         # if self.training:
@@ -216,11 +224,41 @@ class MinVIS_OV(nn.Module):
         #         void_embed = F.normalize(void_embed, dim=-1).detach()
         #         text_classifier = torch.cat([text_classifier, void_embed], dim=0)
         #         num_templates = num_templates + [void_embed.shape[0]]
-        void_embed = self.void_embedding.weight
-        void_embed = F.normalize(void_embed, dim=-1)
-        text_classifier = torch.cat([text_classifier, void_embed], dim=0)
-        num_templates = num_templates + [1]
-        return text_classifier, num_templates
+        if self.training or not self.test_use_all_vocabulary:
+            void_embed = self.void_embedding.weight
+            void_embed = F.normalize(void_embed, dim=-1)
+            text_classifier = torch.cat([text_classifier, void_embed], dim=0)
+            num_templates = num_templates + [1]
+            return text_classifier, num_templates
+        else:
+            print("using additional vocabulary !!!")
+            class_names = split_labels(self.test_metadata[name].classes_ov)  # it includes both thing and stuff
+            if isinstance(self.all_train_metadatas, list):
+                train_classes = []
+                for item in self.all_train_metadatas:
+                    train_classes += item.classes_ov
+                if len(train_classes) != 0:
+                    train_class_names = split_labels(train_classes)
+                else:
+                    raise NotImplementedError
+            else:
+                train_class_names = split_labels(self.all_train_metadatas.classes_ov)
+            test_class_names = {l for label in class_names for l in label}
+            # train_class_names = {l for label in train_class_names for l in label}
+            train2test_category_overlapping_list = []
+            for train_class_name in train_class_names:
+                is_overlapping = not set(train_class_name).isdisjoint(set(test_class_names))
+                train2test_category_overlapping_list.append(is_overlapping)
+            train2test_category_overlapping_list = torch.tensor(
+                train2test_category_overlapping_list, dtype=torch.bool)
+
+            train_classifiers = [self.train_text_classifier_dict[name] for name in self.metadata.keys()]
+            train_classifiers = torch.cat(train_classifiers, dim=0)[train2test_category_overlapping_list]
+            void_embed = self.void_embedding.weight
+            void_embed = F.normalize(void_embed, dim=-1)
+            text_classifier = torch.cat([text_classifier, void_embed, train_classifiers], dim=0)
+            num_templates = num_templates + [1 + len(train_classifiers)]
+            return text_classifier, num_templates
 
     def get_text_classifier(self):
         if self.training:
