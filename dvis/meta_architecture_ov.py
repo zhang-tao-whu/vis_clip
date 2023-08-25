@@ -716,6 +716,7 @@ class MinVIS_OV(nn.Module):
 
             gt_ids_per_video = []
             for f_i, targets_per_frame in enumerate(targets_per_video["instances"]):
+                print(targets_per_frame.gt_classes)
                 targets_per_frame = targets_per_frame.to(self.device)
                 h, w = targets_per_frame.image_size
 
