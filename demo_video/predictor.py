@@ -37,7 +37,7 @@ def _get_objects_from_outputs(outputs):
         if pred_ids is not None:
             pred_ids_ = []
         for i, score in enumerate(pred_scores):
-            if score < 0.1:
+            if score < 0.01:
                 continue
             pred_scores_.append(pred_scores[i])
             pred_labels_.append(pred_labels[i])
