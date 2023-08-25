@@ -728,7 +728,7 @@ class MinVIS_OV(nn.Module):
                     gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks
 
             gt_ids_per_video = torch.cat(gt_ids_per_video, dim=1)
-            gt_classes_per_video = torch.cat(gt_ids_per_video, dim=1).max(dim=1)[0]
+            gt_classes_per_video = torch.cat(gt_classes_per_video, dim=1).max(dim=1)[0]
             valid_idx = (gt_ids_per_video != -1).any(dim=-1)
 
             gt_classes_per_video = gt_classes_per_video[valid_idx]          # N,
