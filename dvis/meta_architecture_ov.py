@@ -1041,6 +1041,10 @@ class DVIS_online_OV(MinVIS_OV):
                     "pred_ids": list, query ids for per thing and stuff, list length is N.
                     "task": "vps".
         """
+        name = batched_inputs[0]['name']
+        for batched_input in batched_inputs:
+            assert name == batched_input['name']
+
         # for running demo on very long videos
         if 'keep' in batched_inputs[0].keys():
             self.keep = batched_inputs[0]['keep']
