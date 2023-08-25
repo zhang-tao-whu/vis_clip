@@ -183,7 +183,7 @@ class MinVIS_OV(nn.Module):
                                                     'class_names': test_class_names}})
 
         self.test2train = test2train
-        self.test_use_all_vocabulary = True
+        self.test_use_all_vocabulary = False
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         def split_labels(x):
