@@ -10,7 +10,7 @@
 9:bear,grizzly bear,teddy bear,bruin,ursine,grizzly
 10:zebra,stripedhorse
 11:giraffe,giraffes,camelopard,longneck
-12:poultry,domestic birds,feathered livestock,fowl livestock
+12:poultry,domestic birds,feathered livestock,fowl livestock,duck,chicken,goose
 13:giant_panda,panda,ailuropoda melanoleuca,panda bear
 14:lizard,saurian,iguana,gecko
 15:parrot,macaw,cockatoo,lovebird,budgie
