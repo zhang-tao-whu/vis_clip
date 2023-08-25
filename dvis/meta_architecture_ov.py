@@ -487,6 +487,7 @@ class MinVIS_OV(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         text_classifier, num_templates = self._set_class_information(batched_inputs[0]['name'], self.training)
+        print(batched_inputs[0]['name'], batched_inputs[0]['labels'])
         # Append void class weight
         #text_classifier = torch.cat([text_classifier, F.normalize(self.void_embedding.weight, dim=-1)], dim=0)
         text_classifier, num_templates = self.get_text_classifier_with_void(text_classifier, num_templates,
