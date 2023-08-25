@@ -94,7 +94,7 @@ def filter_empty_instances_(instances, by_box=True, by_mask=True, box_threshold=
 def _get_dummy_anno(num_classes):
     return {
         "iscrowd": 0,
-        "category_id": num_classes,
+        "category_id": -1,
         "id": -1,
         "bbox": np.array([0, 0, 0, 0]),
         "bbox_mode": BoxMode.XYXY_ABS,

@@ -715,25 +715,26 @@ class MinVIS_OV(nn.Module):
             gt_masks_per_video = torch.zeros(mask_shape, dtype=torch.bool, device=self.device)
 
             gt_ids_per_video = []
+            gt_classes_per_video = []
             for f_i, targets_per_frame in enumerate(targets_per_video["instances"]):
-                print(targets_per_frame.gt_classes)
                 targets_per_frame = targets_per_frame.to(self.device)
                 h, w = targets_per_frame.image_size
 
                 gt_ids_per_video.append(targets_per_frame.gt_ids[:, None])
+                gt_classes_per_video.append(targets_per_frame.gt_classes[:, None])
                 if isinstance(targets_per_frame.gt_masks, BitMasks):
                     gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks.tensor
                 else:  # polygon
                     gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks
 
             gt_ids_per_video = torch.cat(gt_ids_per_video, dim=1)
+            gt_classes_per_video = torch.cat(gt_ids_per_video, dim=1).max(dim=1)[0]
             valid_idx = (gt_ids_per_video != -1).any(dim=-1)
 
-            gt_classes_per_video = targets_per_frame.gt_classes[valid_idx]          # N,
+            gt_classes_per_video = gt_classes_per_video[valid_idx]          # N,
             gt_ids_per_video = gt_ids_per_video[valid_idx]                          # N, num_frames
 
             gt_instances.append({"labels": gt_classes_per_video, "ids": gt_ids_per_video})
-            print(gt_classes_per_video)
             gt_masks_per_video = gt_masks_per_video[valid_idx].float()          # N, num_frames, H, W
             gt_instances[-1].update({"masks": gt_masks_per_video})
 
@@ -1217,7 +1218,6 @@ class DVIS_online_OV(MinVIS_OV):
             num_labeled_frames = targets_per_video['ids'].shape[1]
             for f in range(num_labeled_frames):
                 labels = targets_per_video['labels']
-                print(labels)
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
