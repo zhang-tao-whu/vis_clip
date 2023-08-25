@@ -183,7 +183,7 @@ class MinVIS_OV(nn.Module):
                                                     'class_names': test_class_names}})
 
         self.test2train = test2train
-        self.test_use_all_vocabulary = True
+        self.test_use_all_vocabulary = False
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         def split_labels(x):
@@ -193,37 +193,6 @@ class MinVIS_OV(nn.Module):
                 x_ = x_.split(',')  # there can be multiple synonyms for single class
                 res.append(x_)
             return res
-        # # text_classifier (N, C)
-        # # (N, C) -> (N, 1, C)
-        # if self.training:
-        #     _zero = self.void_embedding.weight.sum() * 0.0 + self.additional_void_embedding.weight.sum() * 0.0
-        #     i = self.train_names2id[name]
-        #     if i == 0:
-        #         void_embed = self.void_embedding.weight
-        #     else:
-        #         # void_embed = self.additional_void_embedding.weight[i - 1: i] + self.void_embedding.weight.detach()
-        #         void_embed = self.additional_void_embedding.weight[i - 1: i]
-        #     void_embed = F.normalize(void_embed, dim=-1) + _zero
-        #     text_classifier = torch.cat([text_classifier, void_embed], dim=0)
-        #     num_templates = num_templates + [1]
-        # else:
-        #     if name in self.test2train.keys():
-        #         i = self.train_names2id[self.test2train[name]]
-        #         if i == 0:
-        #             void_embed = self.void_embedding.weight
-        #         else:
-        #             # void_embed = self.additional_void_embedding.weight[i - 1: i] + self.void_embedding.weight
-        #             void_embed = self.additional_void_embedding.weight[i - 1: i]
-        #         void_embed = F.normalize(void_embed, dim=-1).detach()
-        #         text_classifier = torch.cat([text_classifier, void_embed], dim=0)
-        #         num_templates = num_templates + [1]
-        #     else:
-        #         # void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight +\
-        #         #                         self.void_embedding.weight], dim=0)
-        #         void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
-        #         void_embed = F.normalize(void_embed, dim=-1).detach()
-        #         text_classifier = torch.cat([text_classifier, void_embed], dim=0)
-        #         num_templates = num_templates + [void_embed.shape[0]]
         if self.training or not self.test_use_all_vocabulary:
             void_embed = self.void_embedding.weight
             void_embed = F.normalize(void_embed, dim=-1)
@@ -264,41 +233,6 @@ class MinVIS_OV(nn.Module):
             text_classifier = torch.cat([text_classifier, void_embed, train_classifiers], dim=0)
             num_templates = num_templates + [1 + len(train_classifiers)]
             return text_classifier, num_templates
-
-    # def get_text_classifier(self):
-    #     if self.training:
-    #         if self.train_text_classifier is None:
-    #             text_classifier = []
-    #             # this is needed to avoid oom, which may happen when num of class is large
-    #             bs = 128
-    #             for idx in range(0, len(self.train_class_names), bs):
-    #                 text_classifier.append(self.backbone.get_text_classifier(self.train_class_names[idx:idx+bs], self.device).detach())
-    #             text_classifier = torch.cat(text_classifier, dim=0)
-    #             # get per text embedding for per class template
-    #
-    #             # average across templates and normalization.
-    #             text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
-    #             text_classifier = text_classifier.reshape(text_classifier.shape[0]//len(VILD_PROMPT), len(VILD_PROMPT), text_classifier.shape[-1]).mean(1)
-    #             text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
-    #             self.train_text_classifier = text_classifier
-    #         # self.train_text_classifier, per component templates
-    #         # self.train_num_templates, per class have how many components
-    #         return self.train_text_classifier, self.train_num_templates
-    #     else:
-    #         if self.test_text_classifier is None:
-    #             text_classifier = []
-    #             # this is needed to avoid oom, which may happen when num of class is large
-    #             bs = 128
-    #             for idx in range(0, len(self.test_class_names), bs):
-    #                 text_classifier.append(self.backbone.get_text_classifier(self.test_class_names[idx:idx+bs], self.device).detach())
-    #             text_classifier = torch.cat(text_classifier, dim=0)
-    #
-    #             # average across templates and normalization.
-    #             text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
-    #             text_classifier = text_classifier.reshape(text_classifier.shape[0]//len(VILD_PROMPT), len(VILD_PROMPT), text_classifier.shape[-1]).mean(1)
-    #             text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
-    #             self.test_text_classifier = text_classifier
-    #         return self.test_text_classifier, self.test_num_templates
 
     def _set_class_information(self, name, train=True):
         self.name = name
@@ -881,6 +815,8 @@ class DVIS_online_OV(MinVIS_OV):
         # fc-clip
         geometric_ensemble_alpha: float,
         geometric_ensemble_beta: float,
+        # multi datasets
+        test2train={},
     ):
         """
         Args:
@@ -933,11 +869,11 @@ class DVIS_online_OV(MinVIS_OV):
             # dc clip
             geometric_ensemble_alpha=geometric_ensemble_alpha,
             geometric_ensemble_beta=geometric_ensemble_beta,
+            # multi datasets
+            test2train=test2train,
         )
         # frozen the void classifier
         for p in self.void_embedding.parameters():
-            p.requires_grad_(False)
-        for p in self.additional_void_embedding.parameters():
             p.requires_grad_(False)
         # frozen the segmenter
         for p in self.backbone.parameters():
@@ -1064,6 +1000,8 @@ class DVIS_online_OV(MinVIS_OV):
             # fc clip
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
+            # multi datasets
+            "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)},
         }
 
     def forward(self, batched_inputs):
@@ -1118,7 +1056,6 @@ class DVIS_online_OV(MinVIS_OV):
 
         text_classifier, num_templates = self._set_class_information(batched_inputs[0]['name'], self.training)
         # Append void class weight
-        # text_classifier = torch.cat([text_classifier, F.normalize(self.void_embedding.weight, dim=-1)], dim=0)
         text_classifier = self.get_text_classifier_with_void(text_classifier, num_templates,
                                                              name=batched_inputs[0]['name'])
 
