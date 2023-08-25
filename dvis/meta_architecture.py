@@ -337,24 +337,27 @@ class MinVIS(nn.Module):
             gt_masks_per_video = torch.zeros(mask_shape, dtype=torch.bool, device=self.device)
 
             gt_ids_per_video = []
+            gt_classes_per_video = []
             for f_i, targets_per_frame in enumerate(targets_per_video["instances"]):
                 targets_per_frame = targets_per_frame.to(self.device)
                 h, w = targets_per_frame.image_size
 
                 gt_ids_per_video.append(targets_per_frame.gt_ids[:, None])
+                gt_classes_per_video.append(targets_per_frame.gt_classes[:, None])
                 if isinstance(targets_per_frame.gt_masks, BitMasks):
                     gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks.tensor
                 else:  # polygon
                     gt_masks_per_video[:, f_i, :h, :w] = targets_per_frame.gt_masks
 
             gt_ids_per_video = torch.cat(gt_ids_per_video, dim=1)
+            gt_classes_per_video = torch.cat(gt_classes_per_video, dim=1).max(dim=1)[0]
             valid_idx = (gt_ids_per_video != -1).any(dim=-1)
 
-            gt_classes_per_video = targets_per_frame.gt_classes[valid_idx]          # N,
-            gt_ids_per_video = gt_ids_per_video[valid_idx]                          # N, num_frames
+            gt_classes_per_video = gt_classes_per_video[valid_idx]  # N,
+            gt_ids_per_video = gt_ids_per_video[valid_idx]  # N, num_frames
 
             gt_instances.append({"labels": gt_classes_per_video, "ids": gt_ids_per_video})
-            gt_masks_per_video = gt_masks_per_video[valid_idx].float()          # N, num_frames, H, W
+            gt_masks_per_video = gt_masks_per_video[valid_idx].float()  # N, num_frames, H, W
             gt_instances[-1].update({"masks": gt_masks_per_video})
 
         return gt_instances
