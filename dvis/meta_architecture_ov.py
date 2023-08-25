@@ -248,7 +248,7 @@ class MinVIS_OV(nn.Module):
             train2test_category_overlapping_list = []
             for train_class_name in train_class_names:
                 is_overlapping = not set(train_class_name).isdisjoint(set(test_class_names))
-                train2test_category_overlapping_list.append(is_overlapping)
+                train2test_category_overlapping_list.append([is_overlapping] * len(train_class_name))
             train2test_category_overlapping_list = torch.tensor(
                 train2test_category_overlapping_list, dtype=torch.bool)
 
@@ -257,7 +257,7 @@ class MinVIS_OV(nn.Module):
                 if key not in self.train_text_classifier_dict.keys():
                     self._set_class_information(key, train=True)
                 train_classifiers.append(self.train_text_classifier_dict[key])
-                    
+
             train_classifiers = torch.cat(train_classifiers, dim=0)[train2test_category_overlapping_list]
             void_embed = self.void_embedding.weight
             void_embed = F.normalize(void_embed, dim=-1)
