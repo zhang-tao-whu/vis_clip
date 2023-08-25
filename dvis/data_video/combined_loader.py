@@ -5,11 +5,13 @@ from typing import Any, Collection, Deque, Iterable, Iterator, List, Sequence
 Loader = Iterable[Any]
 
 
-def _pooled_next(iterator: Iterator[Any], pool: Deque[Any]):
+def _pooled_next(iterator: Iterator[Any], pool: Deque[Any], N):
     if not pool:
         pool.extend(next(iterator))
-    return pool.popleft()
-
+    ret = []
+    for i in range(N):
+        ret.append(pool.popleft())
+    return ret
 
 class CombinedDataLoader:
     """
@@ -35,8 +37,9 @@ class CombinedDataLoader:
                 k = self.batch_size * self.BATCH_COUNT
                 indices = random.choices(range(len(self.loaders)), self.ratios, k=k)
             try:
-                batch = [_pooled_next(iters[i], pool[i]) for i in indices[: self.batch_size]]
+                idx = indices[0]
+                batch = _pooled_next(iters[idx], pool[idx], self.batch_size)
             except StopIteration:
                 break
-            indices = indices[self.batch_size :]
+            indices = indices[1:]
             yield batch
