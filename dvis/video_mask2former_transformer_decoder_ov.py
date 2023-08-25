@@ -376,6 +376,7 @@ class VideoMultiScaleMaskedTransformerDecoder_dvis_OV(nn.Module):
         maskpool_embeddings = self.mask_pooling(x=mask_features, mask=outputs_mask)  # [B, Q, C]
         maskpool_embeddings = self._mask_pooling_proj(maskpool_embeddings)
         class_embed = self.class_embed(maskpool_embeddings + decoder_output)
+        print(text_classifier)
         outputs_class = get_classification_logits(class_embed, text_classifier, self.logit_scale, num_templates)
 
         # NOTE: prediction is of higher-resolution
