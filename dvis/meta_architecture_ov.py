@@ -1058,7 +1058,7 @@ class DVIS_online_OV(MinVIS_OV):
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, self.size_divisibility)
 
-        print(batched_inputs[0]['name'], batched_inputs[0]['labels'])
+        print(batched_inputs[0]['name'], batched_inputs[0]["instances"].gt_labels)
 
         text_classifier, num_templates = self._set_class_information(batched_inputs[0]['name'], self.training)
         # Append void class weight
