@@ -732,6 +732,7 @@ class MinVIS_OV(nn.Module):
             gt_ids_per_video = gt_ids_per_video[valid_idx]                          # N, num_frames
 
             gt_instances.append({"labels": gt_classes_per_video, "ids": gt_ids_per_video})
+            print(gt_classes_per_video)
             gt_masks_per_video = gt_masks_per_video[valid_idx].float()          # N, num_frames, H, W
             gt_instances[-1].update({"masks": gt_masks_per_video})
 
@@ -1215,6 +1216,7 @@ class DVIS_online_OV(MinVIS_OV):
             num_labeled_frames = targets_per_video['ids'].shape[1]
             for f in range(num_labeled_frames):
                 labels = targets_per_video['labels']
+                print(labels)
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
