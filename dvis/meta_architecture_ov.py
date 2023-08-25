@@ -246,10 +246,9 @@ class MinVIS_OV(nn.Module):
             test_class_names = {l for label in class_names for l in label}
             # train_class_names = {l for label in train_class_names for l in label}
             train2test_category_overlapping_list = []
-            print(len(train_class_names))
             for train_class_name in train_class_names:
-                is_overlapping = not set(train_class_name).isdisjoint(set(test_class_names))
-                train2test_category_overlapping_list.extend([is_overlapping] * len(train_class_name))
+                not_overlapping = set(train_class_name).isdisjoint(set(test_class_names))
+                train2test_category_overlapping_list.extend([not_overlapping] * len(train_class_name))
             train2test_category_overlapping_list = torch.tensor(
                 train2test_category_overlapping_list, dtype=torch.bool)
 
