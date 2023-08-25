@@ -876,8 +876,8 @@ class DVIS_online_OV(MinVIS_OV):
             test2train=test2train,
         )
         # frozen the void classifier
-        for p in self.void_embedding.parameters():
-            p.requires_grad_(False)
+        # for p in self.void_embedding.parameters():
+        #     p.requires_grad_(False)
         # frozen the segmenter
         for p in self.backbone.parameters():
             p.requires_grad_(False)
