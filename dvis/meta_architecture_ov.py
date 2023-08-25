@@ -248,7 +248,7 @@ class MinVIS_OV(nn.Module):
             train2test_category_overlapping_list = []
             for train_class_name in train_class_names:
                 is_overlapping = not set(train_class_name).isdisjoint(set(test_class_names))
-                train2test_category_overlapping_list.append([is_overlapping] * len(train_class_name))
+                train2test_category_overlapping_list.extend([is_overlapping] * len(train_class_name))
             train2test_category_overlapping_list = torch.tensor(
                 train2test_category_overlapping_list, dtype=torch.bool)
 
