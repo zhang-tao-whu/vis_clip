@@ -1056,8 +1056,8 @@ class DVIS_online_OV(MinVIS_OV):
 
         text_classifier, num_templates = self._set_class_information(batched_inputs[0]['name'], self.training)
         # Append void class weight
-        text_classifier = self.get_text_classifier_with_void(text_classifier, num_templates,
-                                                             name=batched_inputs[0]['name'])
+        text_classifier, num_templates = self.get_text_classifier_with_void(text_classifier, num_templates,
+                                                                            name=batched_inputs[0]['name'])
 
         if not self.training and self.window_inference:
             if self.segmenter_clip_enable:
