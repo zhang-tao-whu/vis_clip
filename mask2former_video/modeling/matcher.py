@@ -244,7 +244,6 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
                 # Compute the classification cost. Contrary to the loss, we don't use the NLL,
                 # but approximate it in 1 - proba[target class].
                 # The 1 is a constant that doesn't change the matching, it can be ommitted.
-                print(out_prob.shape, tgt_ids)
                 cost_class = -out_prob[:, tgt_ids]
 
                 out_mask = outputs["pred_masks"][overall_bs]  # [num_queries, T, H_pred, W_pred]
