@@ -266,40 +266,40 @@ class MinVIS_OV(nn.Module):
             num_templates = num_templates + [1 + len(train_classifiers)]
             return text_classifier, num_templates
 
-    def get_text_classifier(self):
-        if self.training:
-            if self.train_text_classifier is None:
-                text_classifier = []
-                # this is needed to avoid oom, which may happen when num of class is large
-                bs = 128
-                for idx in range(0, len(self.train_class_names), bs):
-                    text_classifier.append(self.backbone.get_text_classifier(self.train_class_names[idx:idx+bs], self.device).detach())
-                text_classifier = torch.cat(text_classifier, dim=0)
-                # get per text embedding for per class template
-
-                # average across templates and normalization.
-                text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
-                text_classifier = text_classifier.reshape(text_classifier.shape[0]//len(VILD_PROMPT), len(VILD_PROMPT), text_classifier.shape[-1]).mean(1)
-                text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
-                self.train_text_classifier = text_classifier
-            # self.train_text_classifier, per component templates
-            # self.train_num_templates, per class have how many components
-            return self.train_text_classifier, self.train_num_templates
-        else:
-            if self.test_text_classifier is None:
-                text_classifier = []
-                # this is needed to avoid oom, which may happen when num of class is large
-                bs = 128
-                for idx in range(0, len(self.test_class_names), bs):
-                    text_classifier.append(self.backbone.get_text_classifier(self.test_class_names[idx:idx+bs], self.device).detach())
-                text_classifier = torch.cat(text_classifier, dim=0)
-
-                # average across templates and normalization.
-                text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
-                text_classifier = text_classifier.reshape(text_classifier.shape[0]//len(VILD_PROMPT), len(VILD_PROMPT), text_classifier.shape[-1]).mean(1)
-                text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
-                self.test_text_classifier = text_classifier
-            return self.test_text_classifier, self.test_num_templates
+    # def get_text_classifier(self):
+    #     if self.training:
+    #         if self.train_text_classifier is None:
+    #             text_classifier = []
+    #             # this is needed to avoid oom, which may happen when num of class is large
+    #             bs = 128
+    #             for idx in range(0, len(self.train_class_names), bs):
+    #                 text_classifier.append(self.backbone.get_text_classifier(self.train_class_names[idx:idx+bs], self.device).detach())
+    #             text_classifier = torch.cat(text_classifier, dim=0)
+    #             # get per text embedding for per class template
+    #
+    #             # average across templates and normalization.
+    #             text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
+    #             text_classifier = text_classifier.reshape(text_classifier.shape[0]//len(VILD_PROMPT), len(VILD_PROMPT), text_classifier.shape[-1]).mean(1)
+    #             text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
+    #             self.train_text_classifier = text_classifier
+    #         # self.train_text_classifier, per component templates
+    #         # self.train_num_templates, per class have how many components
+    #         return self.train_text_classifier, self.train_num_templates
+    #     else:
+    #         if self.test_text_classifier is None:
+    #             text_classifier = []
+    #             # this is needed to avoid oom, which may happen when num of class is large
+    #             bs = 128
+    #             for idx in range(0, len(self.test_class_names), bs):
+    #                 text_classifier.append(self.backbone.get_text_classifier(self.test_class_names[idx:idx+bs], self.device).detach())
+    #             text_classifier = torch.cat(text_classifier, dim=0)
+    #
+    #             # average across templates and normalization.
+    #             text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
+    #             text_classifier = text_classifier.reshape(text_classifier.shape[0]//len(VILD_PROMPT), len(VILD_PROMPT), text_classifier.shape[-1]).mean(1)
+    #             text_classifier /= text_classifier.norm(dim=-1, keepdim=True)
+    #             self.test_text_classifier = text_classifier
+    #         return self.test_text_classifier, self.test_num_templates
 
     def _set_class_information(self, name, train=True):
         self.name = name
@@ -311,7 +311,7 @@ class MinVIS_OV(nn.Module):
                 self.train_num_templates = infos['num_templates']
                 self.train_class_names = infos['class_names']
                 self.train_text_classifier = None
-                self.train_text_classifier, self.train_num_templates = self.get_text_classifier()
+                self.train_text_classifier, self.train_num_templates = self.get_text_classifier(train=train)
                 self.train_text_classifier_dict[name] = self.train_text_classifier
                 self.train_num_templates_dict[name] = self.train_num_templates
                 return self.train_text_classifier, self.train_num_templates
@@ -324,7 +324,7 @@ class MinVIS_OV(nn.Module):
             self.test_num_templates = infos['num_templates']
             self.test_class_names = infos['class_names']
             self.test_text_classifier = None
-            self.test_text_classifier, self.test_num_templates = self.get_text_classifier()
+            self.test_text_classifier, self.test_num_templates = self.get_text_classifier(train=train)
             self.test_text_classifier_dict[name] = self.test_text_classifier
             self.test_num_templates_dict[name] = self.test_num_templates
             return self.test_text_classifier, self.test_num_templates
@@ -341,8 +341,8 @@ class MinVIS_OV(nn.Module):
         self.test_text_classifier = None
         return
 
-    def get_text_classifier(self):
-        if self.training:
+    def get_text_classifier(self, train=False):
+        if self.training or train:
             if self.train_text_classifier is None:
                 text_classifier = []
                 # this is needed to avoid oom, which may happen when num of class is large
