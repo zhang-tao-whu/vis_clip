@@ -50,7 +50,6 @@ def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
     num_before = len(dataset_dicts)
 
     def valid(anns):
-        print(anns)
         for ann in anns:
             if isinstance(ann, list):
                 for instance in ann:
@@ -62,6 +61,7 @@ def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
         return False
 
     dataset_dicts = [x for x in dataset_dicts if valid(x["annotations"])]
+    print(len(dataset_dicts))
     num_after = len(dataset_dicts)
     logger = logging.getLogger(__name__)
     logger.info(
