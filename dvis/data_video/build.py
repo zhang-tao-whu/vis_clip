@@ -50,6 +50,7 @@ def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
     num_before = len(dataset_dicts)
 
     def valid(anns):
+        print(anns)
         for ann in anns:
             if isinstance(ann, list):
                 for instance in ann:
