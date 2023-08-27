@@ -634,6 +634,7 @@ Category ids in annotations are not in [1, #categories]! We'll apply a mapping f
 
                 print(_bboxes)
                 print(_segm)
+                print(not (_segm and _segm[frame_idx]))
                 print(kkk)
 
                 if not (_segm and _segm[frame_idx]):
