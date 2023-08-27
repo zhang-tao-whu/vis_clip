@@ -105,6 +105,7 @@ def get_detection_dataset_dicts(
     dataset_dicts = list(itertools.chain.from_iterable(dataset_dicts))
 
     has_instances = "annotations" in dataset_dicts[0]
+    print('pre_filter', len(dataset_dicts))
     if filter_empty and has_instances:
         dataset_dicts = filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names)
 
