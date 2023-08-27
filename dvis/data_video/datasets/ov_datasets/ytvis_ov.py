@@ -623,6 +623,7 @@ Category ids in annotations are not in [1, #categories]! We'll apply a mapping f
         for frame_idx in range(record["length"]):
             frame_objs = []
             print(anno_dict_list)
+            break
             for anno in anno_dict_list:
                 assert anno["video_id"] == video_id
 
