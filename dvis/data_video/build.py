@@ -60,8 +60,8 @@ def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
                     return True
         return False
 
+    print(dataset_dicts[0].keys())
     dataset_dicts = [x for x in dataset_dicts if valid(x["annotations"])]
-    print(len(dataset_dicts))
     num_after = len(dataset_dicts)
     logger = logging.getLogger(__name__)
     logger.info(
@@ -105,7 +105,6 @@ def get_detection_dataset_dicts(
     dataset_dicts = list(itertools.chain.from_iterable(dataset_dicts))
 
     has_instances = "annotations" in dataset_dicts[0]
-    print('pre_filter', len(dataset_dicts))
     if filter_empty and has_instances:
         dataset_dicts = filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names)
 
