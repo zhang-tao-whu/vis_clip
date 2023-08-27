@@ -50,15 +50,13 @@ def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
     num_before = len(dataset_dicts)
 
     def valid(anns):
-        print(anns)
-        print(kkk)
         for ann in anns:
             if isinstance(ann, list):
                 for instance in ann:
-                    if instance.get("iscrowd", 0) == 0:
+                    if instance.get("iscrowd", 0) == 0 or instance.get("iscrowd", 0) == '0':
                         return True
             else:
-                if ann.get("iscrowd", 0) == 0:
+                if ann.get("iscrowd", 0) == 0 or ann.get("iscrowd", 0) == '0':
                     return True
         return False
 
