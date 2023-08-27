@@ -58,7 +58,6 @@ def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
             else:
                 if ann.get("iscrowd", 0) == 0:
                     return True
-            print(ann)
         return False
 
     dataset_dicts = [x for x in dataset_dicts if valid(x["annotations"])]
