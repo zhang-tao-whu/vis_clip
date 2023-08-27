@@ -102,6 +102,7 @@ def get_detection_dataset_dicts(
         ]
 
     dataset_dicts = list(itertools.chain.from_iterable(dataset_dicts))
+    print(len(dataset_dicts))
 
     has_instances = "annotations" in dataset_dicts[0]
     if filter_empty and has_instances:

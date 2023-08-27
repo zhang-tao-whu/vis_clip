@@ -433,7 +433,6 @@ def load_ytvis_json(json_file, image_root, dataset_name=None, extra_annotation_k
         meta = MetadataCatalog.get(dataset_name)
         cat_ids = sorted(ytvis_api.getCatIds())
         cats = ytvis_api.loadCats(cat_ids)
-        print(cats)
         # The categories in a custom json file may not be sorted.
         thing_classes = [c["name"] for c in sorted(cats, key=lambda x: x["id"])]
         meta.thing_classes = thing_classes
