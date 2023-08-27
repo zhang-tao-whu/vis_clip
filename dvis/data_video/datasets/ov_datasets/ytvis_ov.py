@@ -635,7 +635,10 @@ Category ids in annotations are not in [1, #categories]! We'll apply a mapping f
                 if not (_segm and _segm[frame_idx]):
                     continue
 
-                bbox = _bboxes[frame_idx]
+                if _bboxes is None:
+                    bbox = None
+                else:
+                    bbox = _bboxes[frame_idx]
                 segm = _segm[frame_idx]
 
                 obj["bbox"] = bbox
