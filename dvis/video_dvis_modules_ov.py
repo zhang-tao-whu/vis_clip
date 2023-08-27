@@ -130,6 +130,8 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         mask_pooling_proj=None,
         class_embed=None,
         logit_scale=None,
+        mask_embed=None,
+        decoder_norm=None,
     ):
         super(ReferringTracker_noiser_OV, self).__init__()
 
@@ -197,18 +199,18 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                 )
             )
 
-        self.decoder_norm = nn.LayerNorm(hidden_channel)
+        # self.decoder_norm = nn.LayerNorm(hidden_channel)
 
         # init heads
-        self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
+        # self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
         # mask features projection
-        self.mask_feature_proj = nn.Conv2d(
-            mask_dim,
-            mask_dim,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-        )
+        # self.mask_feature_proj = nn.Conv2d(
+        #     mask_dim,
+        #     mask_dim,
+        #     kernel_size=1,
+        #     stride=1,
+        #     padding=0,
+        # )
 
         # record previous frame information
         self.last_outputs = None
@@ -242,6 +244,8 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         self._mask_pooling_proj = mask_pooling_proj
         self.class_embed = class_embed
         self.logit_scale = logit_scale
+        self.mask_embed = mask_embed
+        self.decoder_norm = decoder_norm
 
     def get_memory(self, bs):
         if self.memory is None:
@@ -303,8 +307,8 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         # mask feature projection
         if self.feature_refusion:
             assert cur_feature is not None
-        mask_features_shape = mask_features.shape
-        mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)  # (b, t, c, h, w)
+        # mask_features_shape = mask_features.shape
+        # mask_features = self.mask_feature_proj(mask_features.flatten(0, 1)).reshape(*mask_features_shape)  # (b, t, c, h, w)
         mask_features_ = []
 
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
