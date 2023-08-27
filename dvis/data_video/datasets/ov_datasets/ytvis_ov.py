@@ -622,6 +622,7 @@ Category ids in annotations are not in [1, #categories]! We'll apply a mapping f
         video_objs = []
         for frame_idx in range(record["length"]):
             frame_objs = []
+            print(anno_dict_list)
             for anno in anno_dict_list:
                 assert anno["video_id"] == video_id
 
@@ -666,8 +667,6 @@ Category ids in annotations are not in [1, #categories]! We'll apply a mapping f
             + "There might be issues in your dataset generation process. "
             "A valid polygon should be a list[float] with even length >= 6."
         )
-    print(len(dataset_dicts))
-    print(dataset_dicts[0])
     return dataset_dicts
 
 def register_ytvis_instances(name, metadata, json_file, image_root):
