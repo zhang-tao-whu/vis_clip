@@ -577,8 +577,10 @@ def load_ytvis_json_lsvis(json_file, image_root, dataset_name=None, extra_annota
 Category ids in annotations are not in [1, #categories]! We'll apply a mapping for you.
 """
                 )
-        id_map = {v: i for i, v in enumerate(cat_ids)}
-        meta.thing_dataset_id_to_contiguous_id = id_map
+        # id_map = {v: i for i, v in enumerate(cat_ids)}
+        # meta.thing_dataset_id_to_contiguous_id = id_map
+        id_map = meta.thing_dataset_id_to_contiguous_id
+
 
     # sort indices for reproducible results
     vid_ids = sorted(ytvis_api.vids.keys())
@@ -629,6 +631,10 @@ Category ids in annotations are not in [1, #categories]! We'll apply a mapping f
 
                 _bboxes = anno.get("bboxes", None)
                 _segm = anno.get("segmentations", None)
+
+                print(_bboxes)
+                print(_segm)
+                print(kkk)
 
                 if not (_segm and _segm[frame_idx]):
                     continue
