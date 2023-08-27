@@ -318,7 +318,7 @@ def _get_lsvis_instances_meta_ov():
 
     thing_dataset_id_to_contiguous_id = {k: i for i, k in enumerate(thing_ids)}
     thing_classes_ov = [k["name"] for k in LSVIS_CATEGORIES_OV]
-    thing_classes = [k["name"] for k in LSVIS_CATEGORIES if k["isthing"] == 1]
+    thing_classes = [k["name"] for k in LSVIS_CATEGORIES]
 
     stuff_classes = []
     stuff_colors = []
