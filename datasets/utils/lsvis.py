@@ -1,7 +1,8 @@
 import json
 import os
 
-json_file = '../lsvis/train_instances.json'
+# json_file = '../lsvis/train_instances.json'
+json_file = 'C:\\Users\\张韬\\AppData\\Roaming\\Kim\\localData\\userData\\59d1cc1c2071495396062024e1a5a7a1\\Kim file\\2023-08\\train_instances.json'
 with open(json_file, 'r') as f:
     json_file = json.load(f)
 
