@@ -612,6 +612,7 @@ Category ids in annotations are not in [1, #categories]! We'll apply a mapping f
     num_instances_without_valid_segmentation = 0
 
     for (vid_dict, anno_dict_list) in vids_anns:
+        print(anno_dict_list)
         record = {}
         record["file_names"] = [os.path.join(image_root, vid_dict["file_names"][i]) for i in range(vid_dict["length"])]
         record["height"] = vid_dict["height"]
