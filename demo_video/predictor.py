@@ -134,13 +134,13 @@ def _get_new_metadata(metadata, additional_thing_classes,
     if merge:
         coco_metadata = MetadataCatalog.get("coco_panoptic_video_ov")
         vipseg_metadata = MetadataCatalog.get("panoVSPW_vps_video_train_ov")
-        additional_thing_classes.extend(coco_metadata.thing_classes)
-        additional_thing_classes.extend(vipseg_metadata.thing_classes)
+        additional_thing_classes.extend(coco_metadata.classes_ov[:len(coco_metadata.thing_classes)])
+        additional_thing_classes.extend(vipseg_metadata.classes_ov[:len(vipseg_metadata.thing_classes)])
         metadata.thing_colors.extend(coco_metadata.thing_colors)
         metadata.thing_colors.extend(vipseg_metadata.thing_colors)
 
-        additional_stuff_classes.extend(coco_metadata.stuff_classes)
-        additional_stuff_classes.extend(vipseg_metadata.stuff_classes)
+        additional_stuff_classes.extend(coco_metadata.classes_ov[-len(coco_metadata.stuff_classes):])
+        additional_stuff_classes.extend(vipseg_metadata.classes_ov[-len(vipseg_metadata.stuff_classes):])
         metadata.stuff_colors.extend(coco_metadata.stuff_colors)
         metadata.stuff_colors.extend(vipseg_metadata.stuff_colors)
 
