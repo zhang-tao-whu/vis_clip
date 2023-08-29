@@ -1245,12 +1245,12 @@ class DVIS_online_OV(MinVIS_OV):
         pred_logits = outputs['pred_logits']
         pred_logits = pred_logits[0]  # (t, q, c)
 
-        out_logits = pred_logits
-        out_logits_ = torch.max(out_logits, dim=0)[0]
-        out_logits_[:, -1] = out_logits[:, :, -1].mean(dim=0)
-        out_logits = out_logits_.unsqueeze(0)
+        # out_logits = pred_logits
+        # out_logits_ = torch.max(out_logits, dim=0)[0]
+        # out_logits_[:, -1] = out_logits[:, :, -1].mean(dim=0)
+        # out_logits = out_logits_.unsqueeze(0)
 
-        # out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
+        out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
         if aux_logits is not None:
             aux_logits = aux_logits[0]
             aux_logits = torch.mean(aux_logits, dim=0)  # (q, c)

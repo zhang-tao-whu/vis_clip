@@ -140,11 +140,12 @@ if __name__ == "__main__":
 	start_time = time.time()
 	with autocast():
 		predictions, visualized_output = demo.run_on_video(vid_frames)
-	logger.info(
-		"detected {} instances per frame in {:.2f}s".format(
-			len(predictions["pred_scores"]), time.time() - start_time
+	if "pred_scores" in predictions.keys():
+		logger.info(
+			"detected {} instances per frame in {:.2f}s".format(
+				len(predictions["pred_scores"]), time.time() - start_time
+			)
 		)
-	)
 
 	# save frames
 	for path, _vis_output in zip(frames_path, visualized_output):
