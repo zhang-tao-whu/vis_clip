@@ -30,7 +30,8 @@ MODEL:
     TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_minvis_OV"
     TRANSFORMER_IN_FEATURE: "multi_scale_pixel_decoder"
     DEEP_SUPERVISION: True
-    NO_OBJECT_WEIGHT: 0.1
+#    NO_OBJECT_WEIGHT: 0.1
+    NO_OBJECT_WEIGHT: 0.01
     CLASS_WEIGHT: 2.0
     MASK_WEIGHT: 5.0
     DICE_WEIGHT: 5.0
