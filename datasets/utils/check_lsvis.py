@@ -2,7 +2,7 @@ import json
 import os
 from PIL import Image
 
-json_file = '../lsvis/train_instances.json'
+json_file = '../lsvis/train_instances_.json'
 with open(json_file, 'r') as f:
     json_file = json.load(f)
 
@@ -48,3 +48,5 @@ for anno in json_file['annotations']:
 print(len(annotations_), '/', len(json_file["annotations"]))
 json_file["annotations"] = annotations_
 
+with open('./train_instances_.json', 'w') as f:
+    json.dump(json_file, f)
