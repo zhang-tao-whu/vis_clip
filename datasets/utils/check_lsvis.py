@@ -25,10 +25,13 @@ for anno in json_file['annotations']:
     for i, file in enumerate(images_files):
         image = Image.open(file)
         image_width, image_height = image.size
+        if anno['segmentations'][i] is None:
+            print(anno['segmentations'])
+            wrong_videos_id.append(video_id)
+            break
         if not (video_height == image_height and video_width == image_width):
             wrong_videos_id.append(video_id)
-        if anno['segmentations'][i] is None:
-            wrong_videos_id.append(video_id)
+            break
             # if anno['segmentations'][i] is None:
             #     print(i, file, video_info)
             #     print(anno['segmentations'][:i])
