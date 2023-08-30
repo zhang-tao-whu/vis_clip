@@ -19,8 +19,9 @@ for anno in json_file['annotations']:
     images_files = video_info["file_names"]
     images_files = [os.path.join('../lsvis/train/JPEGImages', item) for item in images_files]
     assert video_height == height and video_width == width, print((height, width), (video_height, video_width))
-    for file in images_files:
-        print(file)
+    for i, file in enumerate(images_files):
         image = Image.open(file)
         image_width, image_height = image.size
-        assert video_height == image_height and video_width == image_width, print((height, width), (image_height, image_width))
+        assert video_height == image_height and video_width == image_width, print((height, width),
+                                                                                  (image_height, image_width),
+                                                                                  anno['segmentations'][i]["size"])
