@@ -29,4 +29,4 @@ for anno in json_file['annotations']:
             else:
                 if not isinstance(anno['segmentations'][i], dict):
                     print(anno['segmentations'][i], type(anno['segmentations'][i]))
-            print(file, (height, width), (image_height, image_width), anno['segmentations'][i]["size"])
+                print(file, (height, width), (image_height, image_width), anno['segmentations'][i]["size"])
