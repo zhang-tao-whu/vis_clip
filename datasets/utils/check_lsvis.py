@@ -22,6 +22,5 @@ for anno in json_file['annotations']:
     for i, file in enumerate(images_files):
         image = Image.open(file)
         image_width, image_height = image.size
-        assert video_height == image_height and video_width == image_width, print((height, width),
-                                                                                  (image_height, image_width),
-                                                                                  anno['segmentations'][i]["size"])
+        if not (video_height == image_height and video_width == image_width):
+            print(file, (height, width), (image_height, image_width), anno['segmentations'][i]["size"])
