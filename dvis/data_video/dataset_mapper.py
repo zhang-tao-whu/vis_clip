@@ -349,6 +349,7 @@ class YTVISDatasetMapper:
                 ids[_id] = i
 
         dataset_dict["name"] = self.name
+        dataset_dict["pano"] = False
         dataset_dict["video_len"] = len(video_annos)
         dataset_dict["frame_idx"] = list(selected_idx)
         dataset_dict["image"] = []
@@ -571,6 +572,7 @@ class CocoClipDatasetMapper:
             selected_idx = range(video_length)
 
         dataset_dict["name"] = self.name
+        dataset_dict["pano"] = False
         dataset_dict["video_len"] = video_length
         dataset_dict["frame_idx"] = selected_idx
         dataset_dict["image"] = []
@@ -805,6 +807,7 @@ class CocoPanoClipDatasetMapper:
             selected_idx = range(video_length)
 
         dataset_dict["name"] = self.name
+        dataset_dict["pano"] = True
         dataset_dict["video_len"] = video_length
         dataset_dict["frame_idx"] = selected_idx
         dataset_dict["image"] = []

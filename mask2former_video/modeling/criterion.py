@@ -120,7 +120,7 @@ class VideoSetCriterion(nn.Module):
         self.importance_sample_ratio = importance_sample_ratio
         self.frames = frames
 
-    def loss_labels(self, outputs, targets, indices, num_masks):
+    def loss_labels(self, outputs, targets, indices, num_masks, is_pano=False):
         """Classification loss (NLL)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
@@ -135,14 +135,17 @@ class VideoSetCriterion(nn.Module):
         target_classes[idx] = target_classes_o.to(target_classes)
 
         empty_weight = torch.ones(src_logits.shape[2])
-        empty_weight[-1] = self.eos_coef
+        if is_pano:
+            empty_weight[-1] = self.eos_coef
+        else:
+            empty_weight[-1] = 0
         empty_weight = empty_weight.to(src_logits)
 
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, empty_weight)
         losses = {"loss_ce": loss_ce}
         return losses
     
-    def loss_masks(self, outputs, targets, indices, num_masks):
+    def loss_masks(self, outputs, targets, indices, num_masks, is_pano=False):
         """Compute the losses related to the masks: the focal loss and the dice loss.
         targets dicts must contain the key "masks" containing a tensor of dim [nb_target_boxes, h, w]
         """
@@ -210,7 +213,7 @@ class VideoSetCriterion(nn.Module):
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices, num_masks)
 
-    def forward(self, outputs, targets, matcher_outputs=None):
+    def forward(self, outputs, targets, matcher_outputs=None, is_pano=False):
         """This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
@@ -238,7 +241,7 @@ class VideoSetCriterion(nn.Module):
         # Compute all the requested losses
         losses = {}
         for loss in self.losses:
-            losses.update(self.get_loss(loss, outputs, targets, indices, num_masks))
+            losses.update(self.get_loss(loss, outputs, targets, indices, num_masks, is_pano=is_pano))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if "aux_outputs" in outputs:

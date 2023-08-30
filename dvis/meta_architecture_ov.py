@@ -1047,6 +1047,10 @@ class DVIS_online_OV(MinVIS_OV):
                     "task": "vps".
         """
         name = batched_inputs[0]['name']
+        if "pano" in batched_inputs[0].keys():
+            is_pano = batched_inputs[0]["pano"]
+        else:
+            is_pano = False
         for batched_input in batched_inputs:
             assert name == batched_input['name']
 
@@ -1119,7 +1123,7 @@ class DVIS_online_OV(MinVIS_OV):
                 )
             self.iter += 1
             # bipartite matching-based loss
-            losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
+            losses = self.criterion(outputs, targets, matcher_outputs=image_outputs, is_pano=is_pano)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:

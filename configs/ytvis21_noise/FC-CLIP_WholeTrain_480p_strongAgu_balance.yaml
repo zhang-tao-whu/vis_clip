@@ -31,6 +31,7 @@ MODEL:
     TRANSFORMER_IN_FEATURE: "multi_scale_pixel_decoder"
     DEEP_SUPERVISION: True
     NO_OBJECT_WEIGHT: 0.1
+#    NO_OBJECT_WEIGHT: 0.05
     CLASS_WEIGHT: 2.0
     MASK_WEIGHT: 5.0
     DICE_WEIGHT: 5.0
@@ -95,16 +96,16 @@ INPUT:
     MAX_SCALE: 2.0
 
 DATASETS:
-  DATASET_NEED_MAP: [False, False]
-  DATASET_TYPE: ['image_panoptic', 'video_instance']
+  DATASET_NEED_MAP: [False, False, False, False, False]
+  DATASET_TYPE: ['image_panoptic', 'video_panoptic', 'video_instance', 'video_instance', 'video_instance']
   DATASET_TYPE_TEST: ['video_instance', ]
   # The categories of all datasets will be mapped to the categories of the last dataset
-  DATASET_RATIO: [1.0, 1.0]
-  TRAIN: ("coco_panoptic_video_ov", "lsvis_train_ov")
+  DATASET_RATIO: [1.0, 0.3, 0.15, 0.15, 0.15]
+  TRAIN: ("coco_panoptic_video_ov", "panoVSPW_vps_video_train_ov", "ytvis_2019_train_ov", "ytvis_2021_train_ov", "ovis_train_ov")
   TEST: ("ytvis_2019_val_ov",)
-  TEST2TRAIN: [ ]
+  TEST2TRAIN: ["ytvis_2019_train_ov", ]
 
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
 
-OUTPUT_DIR: './output_FCCLIP_coco_lsvis_480p'
+OUTPUT_DIR: './output_FCCLIP_WholeTrain_480p'

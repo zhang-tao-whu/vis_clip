@@ -197,6 +197,7 @@ class PanopticDatasetVideoMapper:
         # Convert the labels to the same format as vis
         ret = {}
         ret['name'] = self.name
+        ret["pano"] = True
         ret["image"] = [item[0] for item in torch.split(dataset_dict["video_images"], 1, dim=0)]
         if not self.is_train:
             dataset_dict.update(ret)
