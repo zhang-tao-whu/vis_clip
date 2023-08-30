@@ -205,13 +205,13 @@ class VideoSetCriterion(nn.Module):
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-    def get_loss(self, loss, outputs, targets, indices, num_masks):
+    def get_loss(self, loss, outputs, targets, indices, num_masks, is_pano=False):
         loss_map = {
             'labels': self.loss_labels,
             'masks': self.loss_masks,
         }
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
-        return loss_map[loss](outputs, targets, indices, num_masks)
+        return loss_map[loss](outputs, targets, indices, num_masks, is_pano=is_pano)
 
     def forward(self, outputs, targets, matcher_outputs=None, is_pano=False):
         """This performs the loss computation.
