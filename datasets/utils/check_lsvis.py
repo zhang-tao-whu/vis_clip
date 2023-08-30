@@ -13,7 +13,7 @@ for item in json_file['videos']:
 
 for anno in json_file['annotations']:
     video_id = anno['video_id']
-    height, width = anno['height', 'width']
+    height, width = anno['height'], anno['width']
     video_info = videoID2videos[video_id]
     video_height, video_width = video_info['height'], video_info['width']
     images_files = video_info["file_names"]
