@@ -24,7 +24,7 @@ for anno in json_file['annotations']:
         image_width, image_height = image.size
         if not (video_height == image_height and video_width == image_width):
             if anno['segmentations'][i] is None:
-                print(file, video_info)
+                print(i, file, video_info)
                 print(anno['segmentations'])
                 continue
             print(file, (height, width), (image_height, image_width), anno['segmentations'][i]["size"])
