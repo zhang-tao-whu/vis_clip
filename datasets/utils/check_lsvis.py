@@ -38,7 +38,7 @@ for anno in json_file['annotations']:
             #     print(file, (height, width), (image_height, image_width), anno['segmentations'][i]["size"])
 
 wrong_videos_id = set(wrong_videos_id)
-
+print(wrong_videos_id)
 videos_ = []
 for video in json_file["videos"]:
     if video["id"] in wrong_videos_id:
@@ -51,7 +51,8 @@ json_file["videos"] = videos_
 annotations_ = []
 for anno in json_file['annotations']:
     video_id = anno['video_id']
-    if video_id in wrong_videos_id:
+    if video_id not in wrong_videos_id:
         annotations_.append(anno)
 print(len(annotations_), '/', len(json_file["annotations"]))
 json_file["annotations"] = annotations_
+
