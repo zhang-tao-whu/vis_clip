@@ -135,10 +135,11 @@ class VideoSetCriterion(nn.Module):
         target_classes[idx] = target_classes_o.to(target_classes)
 
         empty_weight = torch.ones(src_logits.shape[2])
-        if is_pano:
-            empty_weight[-1] = self.eos_coef
-        else:
-            empty_weight[-1] = 0
+        empty_weight[-1] = self.eos_coef
+        # if is_pano:
+        #     empty_weight[-1] = self.eos_coef
+        # else:
+        #     empty_weight[-1] = 0
         empty_weight = empty_weight.to(src_logits)
 
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, empty_weight)

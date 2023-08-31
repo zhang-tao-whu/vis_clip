@@ -55,8 +55,8 @@ MODEL:
 SOLVER:
   IMS_PER_BATCH: 16
   BASE_LR: 0.0001
-  STEPS: (112000,)
-  MAX_ITER: 160000
+  STEPS: (56000,)
+  MAX_ITER: 80000
   WARMUP_FACTOR: 1.0
   WARMUP_ITERS: 10
   WEIGHT_DECAY: 0.05
@@ -95,12 +95,12 @@ INPUT:
     MAX_SCALE: 2.0
 
 DATASETS:
-  DATASET_NEED_MAP: [False, False]
-  DATASET_TYPE: ['image_panoptic', 'video_instance']
+  DATASET_NEED_MAP: [False, False, False]
+  DATASET_TYPE: ['image_panoptic', 'video_instance', 'video_panoptic']
   DATASET_TYPE_TEST: ['video_instance', ]
   # The categories of all datasets will be mapped to the categories of the last dataset
-  DATASET_RATIO: [1.0, 1.0]
-  TRAIN: ("coco_panoptic_video_ov", "lsvis_train_ov")
+  DATASET_RATIO: [1.0, 0.7, 0.5]
+  TRAIN: ("coco_panoptic_video_ov", "lsvis_train_ov", "panoVSPW_vps_video_train_ov")
   TEST: ("ytvis_2019_val_ov",)
   TEST2TRAIN: [ ]
 
