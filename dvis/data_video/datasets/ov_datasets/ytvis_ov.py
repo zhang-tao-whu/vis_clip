@@ -557,11 +557,12 @@ def load_ytvis_json_lsvis(json_file, image_root, dataset_name=None, extra_annota
     id_map = None
     if dataset_name is not None:
         meta = MetadataCatalog.get(dataset_name)
-        cat_ids = sorted(ytvis_api.getCatIds())
-        cats = ytvis_api.loadCats(cat_ids)
+        # cat_ids = sorted(ytvis_api.getCatIds())
+        # cats = ytvis_api.loadCats(cat_ids)
         # The categories in a custom json file may not be sorted.
-        thing_classes = [c["name"] for c in sorted(cats, key=lambda x: x["id"])]
-        meta.thing_classes = thing_classes
+        # thing_classes = [c["name"] for c in sorted(cats, key=lambda x: x["id"])]
+        # meta.thing_classes = thing_classes
+        # thing_classes = meta.thing_classes
 
         # In COCO, certain category ids are artificially removed,
         # and by convention they are always ignored.
@@ -571,13 +572,13 @@ def load_ytvis_json_lsvis(json_file, image_root, dataset_name=None, extra_annota
         # It works by looking at the "categories" field in the json, therefore
         # if users' own json also have incontiguous ids, we'll
         # apply this mapping as well but print a warning.
-        if not (min(cat_ids) == 1 and max(cat_ids) == len(cat_ids)):
-            if "coco" not in dataset_name:
-                logger.warning(
-                    """
-Category ids in annotations are not in [1, #categories]! We'll apply a mapping for you.
-"""
-                )
+#         if not (min(cat_ids) == 1 and max(cat_ids) == len(cat_ids)):
+#             if "coco" not in dataset_name:
+#                 logger.warning(
+#                     """
+# Category ids in annotations are not in [1, #categories]! We'll apply a mapping for you.
+# """
+#                 )
         # id_map = {v: i for i, v in enumerate(cat_ids)}
         # meta.thing_dataset_id_to_contiguous_id = id_map
         id_map = meta.thing_dataset_id_to_contiguous_id
