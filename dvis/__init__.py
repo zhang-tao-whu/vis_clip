@@ -12,6 +12,7 @@ from .config import add_minvis_config, add_dvis_config
 from .video_mask2former_transformer_decoder import\
     VideoMultiScaleMaskedTransformerDecoder_minvis, VideoMultiScaleMaskedTransformerDecoder_dvis
 from .meta_architecture import MinVIS, DVIS_online, DVIS_offline
+from .ctvis import CTMinVIS
 from .ClTracker import ClDVIS_online
 
 # video
