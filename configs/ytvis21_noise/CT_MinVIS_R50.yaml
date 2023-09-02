@@ -89,7 +89,7 @@ DATASETS:
   # The categories of all datasets will be mapped to the categories of the last dataset
   DATASET_RATIO: [1.0, 1.0]
   TRAIN: ("coco2ytvis2021_train", "ytvis_2021_train")
-  TEST: ("ytvis_2023_val",)
+  TEST: ("ytvis_2021_val",)
 
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
