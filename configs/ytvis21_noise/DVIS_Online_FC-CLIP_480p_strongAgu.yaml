@@ -1,4 +1,4 @@
-_BASE_: FC-CLIP_WholeTrain_480p_strongAgu.yaml
+_BASE_: FC-CLIP_onlyCOCO_480p_strongAgu.yaml
 MODEL:
   META_ARCHITECTURE: "DVIS_online_OV"
   MASK_FORMER:
@@ -8,8 +8,8 @@ MODEL:
 
 SOLVER:
   IMS_PER_BATCH: 8
-  STEPS: (56000,)
-  MAX_ITER: 80000
+  STEPS: (28000,)
+  MAX_ITER: 40000
 
 INPUT:
   SAMPLING_FRAME_NUM: 5
