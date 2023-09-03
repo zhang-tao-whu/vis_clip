@@ -1047,6 +1047,10 @@ class DVIS_online_OV(MinVIS_OV):
                     "task": "vps".
         """
         name = batched_inputs[0]['name']
+        if name == "coco_panoptic_video_ov":
+            ignore_cls = False
+        else:
+            ignore_cls = True
         if "pano" in batched_inputs[0].keys():
             is_pano = batched_inputs[0]["pano"]
         else:
@@ -1127,7 +1131,10 @@ class DVIS_online_OV(MinVIS_OV):
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
-                    losses[k] *= self.criterion.weight_dict[k]
+                    if ignore_cls and "loss_ce" in k:
+                        losses[k] *= 0.0
+                    else:
+                        losses[k] *= self.criterion.weight_dict[k]
                 else:
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
