@@ -14,7 +14,7 @@ MODEL:
 SOLVER:
   IMS_PER_BATCH: 8
   AMP:
-    ENABLED: False
+    ENABLED: True
 INPUT:
   MIN_SIZE_TEST: 480
 OUTPUT_DIR: './output_CT_ClDVIS_Offline_VitAdapterL_OVIS'
