@@ -40,9 +40,10 @@ def dice_loss(
     return loss.sum() / num_masks
 
 
-dice_loss_jit = torch.jit.script(
-    dice_loss
-)  # type: torch.jit.ScriptModule
+# dice_loss_jit = torch.jit.script(
+#     dice_loss
+# )  # type: torch.jit.ScriptModule
+dice_loss_jit = dice_loss
 
 
 def sigmoid_ce_loss(
@@ -65,9 +66,10 @@ def sigmoid_ce_loss(
     return loss.mean(1).sum() / num_masks
 
 
-sigmoid_ce_loss_jit = torch.jit.script(
-    sigmoid_ce_loss
-)  # type: torch.jit.ScriptModule
+# sigmoid_ce_loss_jit = torch.jit.script(
+#     sigmoid_ce_loss
+# )  # type: torch.jit.ScriptModule
+sigmoid_ce_loss_jit = sigmoid_ce_loss
 
 
 def calculate_uncertainty(logits):

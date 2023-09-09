@@ -30,10 +30,10 @@ def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor):
     return loss
 
 
-batch_dice_loss_jit = torch.jit.script(
-    batch_dice_loss
-)  # type: torch.jit.ScriptModule
-
+# batch_dice_loss_jit = torch.jit.script(
+#     batch_dice_loss
+# )  # type: torch.jit.ScriptModule
+batch_dice_loss_jit = batch_dice_loss
 
 def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor):
     """
@@ -62,9 +62,10 @@ def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor):
     return loss / hw
 
 
-batch_sigmoid_ce_loss_jit = torch.jit.script(
-    batch_sigmoid_ce_loss
-)  # type: torch.jit.ScriptModule
+# batch_sigmoid_ce_loss_jit = torch.jit.script(
+#     batch_sigmoid_ce_loss
+# )  # type: torch.jit.ScriptModule
+batch_sigmoid_ce_loss_jit = batch_sigmoid_ce_loss
 
 
 class VideoHungarianMatcher(nn.Module):
