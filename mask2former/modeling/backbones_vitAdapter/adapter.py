@@ -261,6 +261,24 @@ class InteractionBlockWithCls_Efficient(nn.Module):
         else:
             self.extra_extractors = None
 
+    def foward_vit_blocks(self, blocks, x, windows_nums=3):
+        bs = x.shape[0]
+        nums = bs // windows_nums
+        if bs != windows_nums * nums:
+            nums += 1
+
+        ret = []
+        for i in range(nums):
+            start = i * windows_nums
+            end = min(start + windows_nums, bs)
+            x_ = x[start: end]
+            for idx, blk in enumerate(blocks):
+                x_ = blk(x_)
+            ret.append(x_)
+
+        del x
+        return torch.cat(ret, dim=0)
+
     def forward(self, x, c, cls, blocks, deform_inputs1, deform_inputs2, H, W, finetune=False):
         if finetune:
             x = torch.cat((cls, x), dim=1)
@@ -348,7 +366,7 @@ class SpatialPriorModule(nn.Module):
 
 def get_adapter_args(name='vitl', backbone_weight=None,
                      freeze_backbone=False, finetune=False,
-                     finetune_indexes=[0, ]):
+                     finetune_indexes=[0, ], with_cp=False):
     if freeze_backbone:
         assert backbone_weight is not None
     vit_backbone = get_models(name, backbone_weight)
@@ -366,7 +384,7 @@ def get_adapter_args(name='vitl', backbone_weight=None,
             'deform_ratio': 0.5,
             'add_vit_feature': True,
             'use_extra_extractor': True,
-            'with_cp': False,
+            'with_cp': with_cp,
             'interaction_indexes': [[0, 5], [6, 11], [12, 17], [18, 23]],
         }
     elif name == 'vitb':
@@ -382,7 +400,7 @@ def get_adapter_args(name='vitl', backbone_weight=None,
             'deform_ratio': 0.5,
             'add_vit_feature': True,
             'use_extra_extractor': True,
-            'with_cp': False,
+            'with_cp': with_cp,
             'interaction_indexes': [[0, 2], [3, 5], [6, 8], [9, 11]],
         }
     else:
@@ -573,12 +591,14 @@ class D2VitAdapterDinoV2(DinoV2ViTAdapter, Backbone):
         freeze_backbone = cfg.MODEL.VIT_ADAPTER.FREEZE_VIT
         finetune = cfg.MODEL.VIT_ADAPTER.FINETUNE
         finetune_indexes = cfg.MODEL.VIT_ADAPTER.FINETUNE_INDEXES
+        with_cp = cfg.MODEL.VIT_ADAPTER.WITH_CP
         adapter_args = get_adapter_args(
             name=name,
             backbone_weight=backbone_weight,
             freeze_backbone=freeze_backbone,
             finetune=finetune,
             finetune_indexes=finetune_indexes,
+            with_cp=with_cp,
         )
         super().__init__(**adapter_args)
 

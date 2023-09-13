@@ -96,6 +96,7 @@ def add_maskformer2_config(cfg):
     cfg.MODEL.VIT_ADAPTER.FREEZE_VIT = True
     cfg.MODEL.VIT_ADAPTER.FINETUNE = False
     cfg.MODEL.VIT_ADAPTER.FINETUNE_INDEXES = [0, ]
+    cfg.MODEL.VIT_ADAPTER.WITH_CP = True
 
     # NOTE: maskformer2 extra configs
     # transformer module
