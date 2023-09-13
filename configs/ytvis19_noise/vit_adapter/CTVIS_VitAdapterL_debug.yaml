@@ -1,8 +1,6 @@
 _BASE_: ../MinVIS_R50.yaml
 MODEL:
   META_ARCHITECTURE: "CTMinVIS"
-  BACKBONE:
-    NAME: "D2VitAdapterDinoV2"
   VIT_ADAPTER:
     FINETUNE: False
     NAME: 'vitl'
