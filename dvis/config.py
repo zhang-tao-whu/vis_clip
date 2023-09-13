@@ -60,4 +60,17 @@ def add_dvis_config(cfg):
     cfg.SEED = 42
     cfg.DATALOADER.NUM_WORKERS = 4
 
+    # contrastive learning plugin
+    cfg.MODEL.CL_PLUGIN = CN()
+    cfg.MODEL.CL_PLUGIN.CL_PLUGIN_NAME = "SimpleCLPlugin"
+    cfg.MODEL.CL_PLUGIN.REID_WEIGHT = 2.
+    cfg.MODEL.CL_PLUGIN.AUX_REID_WEIGHT = 3.
+    cfg.MODEL.CL_PLUGIN.NUM_NEGATIVES = 99
+    cfg.MODEL.CL_PLUGIN.FUSION_LOSS = False
+    cfg.MODEL.CL_PLUGIN.BIO_CL = False
+    cfg.MODEL.CL_PLUGIN.ONE_DIRECTION = True
+    cfg.MODEL.CL_PLUGIN.MOMENTUM_EMBED = True
+    cfg.MODEL.CL_PLUGIN.NOISE_EMBED = False
+
+
 

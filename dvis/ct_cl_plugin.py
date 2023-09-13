@@ -47,33 +47,25 @@ class TrainTracklet(object):
     def update(self, positive_embed, negative_embed, frame_id=0):
         # update with noise
         if self.noise_embed and positive_embed is None:
-            if np.random.rand() < 0.05:
+            if np.random.rand() < 0.999:
                 positive_embed = None
-                noise_embed = None
             else:
-                # perform noise process when cur object is occluded
                 index = random.randint(0, negative_embed.shape[0] - 1)
-                noise_embed = negative_embed[index][None, ...]
-                positive_embed = noise_embed
-                # select a negative embeds as cur positive embeds
+                positive_embed = negative_embed[index][None, ...]
         else:
-            # dont add noise
-            noise_embed = None
+            pass
 
         # if self.noise_embed and noise_embed is not None:
         #     positive_embed = noise_embed
 
-        self.reid_embeds.append(positive_embed)  # save all reid_embeds of T frames
-        self.negative_embeds.append(negative_embed)  #save all negetive embeds of T frames
-        # self.similarity_guided_reid_embed_list # save all momentum reid embeds
+        self.reid_embeds.append(positive_embed)
+        self.negative_embeds.append(negative_embed)
 
         if positive_embed is not None:
             self.positive_embed_list.append(positive_embed)
             if self.exist_frames == 0:
-                # first frame
                 self.similarity_guided_reid_embed = positive_embed
-                self.similarity_guided_reid_embed_list.append(
-                    self.similarity_guided_reid_embed)
+                self.similarity_guided_reid_embed_list.append(self.similarity_guided_reid_embed)
             else:
                 # Similarity-Guided Feature Fusion
                 # https://arxiv.org/abs/2203.14208v1
@@ -82,23 +74,20 @@ class TrainTracklet(object):
                     if embedding is not None:
                         all_reid_embed.append(embedding)
                 all_reid_embed = torch.cat(all_reid_embed, dim=0)
-                # mean similarity with all previous embed
+
                 similarity = torch.sum(torch.einsum("bc,c->b",
-                                                    F.normalize(
-                                                        all_reid_embed, dim=-1),
+                                                    F.normalize(all_reid_embed, dim=-1),
                                                     F.normalize(positive_embed.squeeze(),
                                                                 dim=-1))) / self.exist_frames  # noqa
                 beta = max(0, similarity)
-                # momentum update similarity_guided_reid_embed, maye avoid the negative effect of occlusion
-                self.similarity_guided_reid_embed = (1 - beta) * self.similarity_guided_reid_embed + beta * positive_embed  # noqa
+                self.similarity_guided_reid_embed = (
+                                                                1 - beta) * self.similarity_guided_reid_embed + beta * positive_embed  # noqa
                 self.similarity_guided_reid_embed_list.append(
                     self.similarity_guided_reid_embed)
             self.exist_frames += 1
         else:
             # no instance in the current frame
-            # if occluded, ignore cur information
-            self.similarity_guided_reid_embed_list.append(
-                self.similarity_guided_reid_embed)
+            self.similarity_guided_reid_embed_list.append(self.similarity_guided_reid_embed)
 
     def exist_before(self, frame_id):
         return frame_id != sum([1 if _ is None else 0 for _ in self.reid_embeds[:frame_id]])
@@ -107,10 +96,9 @@ class TrainTracklet(object):
         return frame_id != sum([1 if _ is None else 0 for _ in self.reid_embeds[frame_id + 1:]])
 
     def get_positive_negative_embeddings(self, frame_id):
-        anchor_embedding = self.reid_embeds[frame_id] # anchor is cur pos embeds
-        positive_embedding = None  
-        if self.exist_before(frame_id): # if this instance appear in previous frames
-            # 0.5 using momentum embed as pos, 0.5 sing last appear frame embed as pos
+        anchor_embedding = self.reid_embeds[frame_id]
+        positive_embedding = None
+        if self.exist_before(frame_id):
             if self.momentum_embed and np.random.rand() > 0.5:
                 positive_embedding = self.similarity_guided_reid_embed_list[frame_id - 1]
             else:
@@ -120,7 +108,6 @@ class TrainTracklet(object):
                         break
         else:
             if self.exist_after(frame_id):
-                # if previous is not appear, from future to select one as pos
                 for embedding in self.reid_embeds[frame_id + 1:]:
                     if embedding is not None:
                         positive_embedding = embedding
@@ -149,11 +136,9 @@ class SimpleTrainMemory:
 
     def update(self, instance_id, reid_embed, negative_embed):
         if instance_id not in self.exist_ids:
-            # if no instance_id, init a empty TrainTracklet
             self.tracklets[instance_id] = TrainTracklet(
                 instance_id, self.maximum_cache, momentum_embed=self.momentum_embed, noise_embed=self.noise_embed)
             self.num_tracklets += 1
-        # push cur embedding into TrainTracklet
         self[instance_id].update(reid_embed, negative_embed)
 
     def __getitem__(self, instance_id):
@@ -174,7 +159,6 @@ class SimpleTrainMemory:
         return self[instance_id].reid_embeds[frame_id] is not None
 
     def exist_reid_embeds(self):
-        # return all memory bank momentum reid embeds for all instances
         memory_bank_embeds = []
         memory_bank_ids = []
 
@@ -184,13 +168,13 @@ class SimpleTrainMemory:
             memory_bank_ids.append(instance_id)
 
         memory_bank_embeds = torch.stack(memory_bank_embeds, dim=0)
-        memory_bank_ids = memory_bank_embeds.new_tensor(
-            memory_bank_ids).to(dtype=torch.long)
+        memory_bank_ids = memory_bank_embeds.new_tensor(memory_bank_ids).to(dtype=torch.long)
 
         return memory_bank_ids, memory_bank_embeds
 
     def get_training_samples(self, instance_id, frame_id):
-        anchor_embedding, positive_embedding, negative_embedding = self[instance_id].get_positive_negative_embeddings(frame_id)  # noqa
+        anchor_embedding, positive_embedding, negative_embedding = self[instance_id].get_positive_negative_embeddings(
+            frame_id)  # noqa
 
         return anchor_embedding, positive_embedding, negative_embedding
 
@@ -214,8 +198,7 @@ class CTCLPlugin(nn.Module):
         self.bio_cl = bio_cl
         self.momentum_embed = momentum_embed
         self.noise_embed = noise_embed
-        self.train_memory_bank = SimpleTrainMemory(
-            momentum_embed=self.momentum_embed, noise_embed=self.noise_embed)
+        self.train_memory_bank = SimpleTrainMemory(momentum_embed=self.momentum_embed, noise_embed=self.noise_embed)
 
     @classmethod
     def from_config(cls, cfg):
@@ -253,8 +236,7 @@ class CTCLPlugin(nn.Module):
         num_images = det_outputs['pred_logits'].shape[0]
         index_list = []
         for i in range(self.sampling_frame_num):
-            index_list.append(torch.arange(
-                i, num_images, step=self.sampling_frame_num, device=self.device))
+            index_list.append(torch.arange(i, num_images, step=self.sampling_frame_num, device=self.device))
 
         for key in outputs_keys:
             if key in ['aux_outputs', 'interm_outputs']:
@@ -262,8 +244,7 @@ class CTCLPlugin(nn.Module):
             else:
                 for i in range(self.sampling_frame_num):
                     outputs_list[i][key] = det_outputs[key][index_list[i]]
-        # outputs_list, [per frame bs output, ...], len is sampling frames
-        # per frame bs output, dict, e.g. 'mask' is (b, q, h, w)
+
         return outputs_list
 
     def train_loss(self, det_outputs, gt_instances, matcher):
@@ -272,23 +253,16 @@ class CTCLPlugin(nn.Module):
 
         indices_list = []
         for i in range(self.sampling_frame_num):
-            # perform per frame matching indices
             outputs = outputs_list[i]
             targets = targets_list[i]
-            outputs_without_aux = {k: v for k,
-                                   v in outputs.items() if k != "aux_outputs"}
+            outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
             # [matched_row, matched_colum]
             indices = matcher(outputs_without_aux, targets)
             indices_list.append(indices)
 
         losses = dict()
 
-        if "pred_fusion_embeds" in det_outputs:
-            losses.update(self.get_reid_loss(
-                targets_list, outputs_list, indices_list, name="fusion"))
-        else:
-            losses.update(self.get_reid_loss(
-                targets_list, outputs_list, indices_list, name="reid"))
+        losses.update(self.get_reid_loss(targets_list, outputs_list, indices_list))
 
         for k in list(losses.keys()):
             if k in self.weight_dict:
@@ -297,7 +271,7 @@ class CTCLPlugin(nn.Module):
                 losses.pop(k)
         return losses
 
-    def get_reid_loss(self, targets_list, outputs_list, indices_list, name=None):
+    def get_reid_loss(self, targets_list, outputs_list, indices_list):
         contrastive_items = []
 
         batch_size = len(targets_list[0])
@@ -306,76 +280,60 @@ class CTCLPlugin(nn.Module):
             self.train_memory_bank.empty()
             indice_list = [indices[i] for indices in indices_list]
             target_list = [targets[i] for targets in targets_list]
-            # get a single frame image indices and targets
 
             gt2query_id_list = [indice[0][torch.sort(
                 indice[1])[1]] for indice in indice_list]
-            # get gt2query dict, e.g., {0: pred_0_idx, ..., n_gt - 1: pred_n-1_idx}
-            if name is not None:
-                reid_embedding_list = [
-                    outputs[f'pred_{name}_embed'][i] for outputs in outputs_list]
-            else:
-                reid_embedding_list = [outputs[f'pred_embed'][i]
-                                       for outputs in outputs_list]
-            # get per image reid_embeds, [(q, c), ...], len is sampling frame nums
-            num_instances = target_list[0]['valid'].shape[0] # get valid instances nums for per video
-            # frame-by-frame compute momentum reid_embeds and prepare neg embeddings and anchor embeddings
+
+            reid_embedding_list = [outputs[f'pred_embeds'][i]
+                                   for outputs in outputs_list]
+            num_instances = target_list[0]['valid'].shape[0]  # num of instances in this frame
+
+            # Step 1: Store and update the embeddings into memory bank first
             for j in range(self.sampling_frame_num):
                 anchor_embeddings = reid_embedding_list[j]
                 anchor_target = target_list[j]
-                # get cur embeddings and corresponding targets
 
-                # for per instance
                 for instance_i in range(num_instances):
                     if anchor_target['valid'][instance_i]:  # instance exists
-                        anchor_query_id = gt2query_id_list[j][instance_i]
+                        anchor_query_id = gt2query_id_list[j][instance_i]  # query id
                         anchor_embedding = anchor_embeddings[anchor_query_id][None, ...]
 
                         negative_query_id = sorted(
-                            random.sample(set(range(self.num_negatives + 1)) - set([anchor_query_id.item()]),  # noqa
+                            random.sample(set(range(self.num_negatives + 1)) - set([anchor_query_id.item()]),
                                           self.num_negatives))  # noqa
                         negative_embedding = anchor_embeddings[negative_query_id]
-                        # using other embeddings in cur frames as negative embeddings
                     else:  # not exists
                         anchor_embedding = None
                         negative_embedding = anchor_embeddings
 
-                    # instance_i, using gt index to set pred instance id
                     self.train_memory_bank.update(
-                        instance_i, anchor_embedding, negative_embedding)  # update noise
+                        instance_i, anchor_embedding, negative_embedding)  # update the memory bank
 
+            # Step 2: build contrastive items frame by frame
             for frame_id in range(self.sampling_frame_num):
                 if frame_id == 0:
-                    # frame 0, do not compute loss
                     continue
                 else:
                     # query -> memory_bank
-                    # per instance process
                     for instance_i in range(num_instances):
-                        # only on valid frame valid instance, do compute
                         if self.train_memory_bank.valid(instance_i, frame_id):
-                            # get anchor & pos & neg for cur frame cur instance
                             anchor_embedding, positive_embedding, negative_embedding = self.train_memory_bank.get_training_samples(
                                 instance_i, frame_id)  # noqa
                             if positive_embedding is None:
                                 # No valid positive embedding
                                 continue
                             num_positive = positive_embedding.shape[0]
-                            # concate pos and neg to get whole constractive samples
-                            pos_neg_embedding = torch.cat(
-                                [positive_embedding, negative_embedding], dim=0)
-                            # generate label, pos is 1, neg is 0
+
+                            pos_neg_embedding = torch.cat([positive_embedding, negative_embedding], dim=0)
+
                             pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
                                                                         dtype=torch.int64)  # noqa
                             pos_neg_label[:num_positive] = 1.
 
                             # dot product
-                            dot_product = torch.einsum(
-                                'ac,kc->ak', [pos_neg_embedding, anchor_embedding])
-                            aux_normalize_pos_neg_embedding = nn.functional.normalize(
-                                pos_neg_embedding, dim=1)
-                            aux_normalize_anchor_embedding = nn.functional.normalize(
-                                anchor_embedding, dim=1)
+                            dot_product = torch.einsum('ac,kc->ak', [pos_neg_embedding, anchor_embedding])
+                            aux_normalize_pos_neg_embedding = nn.functional.normalize(pos_neg_embedding, dim=1)
+                            aux_normalize_anchor_embedding = nn.functional.normalize(anchor_embedding, dim=1)
 
                             aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
                                                                                aux_normalize_anchor_embedding])
@@ -384,58 +342,67 @@ class CTCLPlugin(nn.Module):
                                 'cosine_similarity': aux_cosine_similarity,
                                 'label': pos_neg_label})
 
-                    if self.bio_cl:
-                        # memory_bank -> query
-                        for instance_i in range(num_instances):
-                            if self.train_memory_bank[instance_i].similarity_guided_reid_embed_list[frame_id - 1] is not None and \
-                                    self.train_memory_bank[instance_i].reid_embeds[frame_id] is not None:
-                                anchor_embedding = self.train_memory_bank[
-                                    instance_i].similarity_guided_reid_embed_list[frame_id - 1]
-                                positive_embedding = self.train_memory_bank[instance_i].reid_embeds[frame_id]
-                                negative_embedding = self.train_memory_bank[
-                                    instance_i].negative_embeds[frame_id]
+                    # if self.bio_cl:
+                    #     # memory_bank -> query
+                    #     for instance_i in range(num_instances):
+                    #         if self.train_memory_bank[instance_i].similarity_guided_reid_embed_list[frame_id - 1] is not None and \
+                    #                 self.train_memory_bank[instance_i].reid_embeds[frame_id] is not None:
+                    #             anchor_embedding = self.train_memory_bank[
+                    #                 instance_i].similarity_guided_reid_embed_list[frame_id - 1]
+                    #             positive_embedding = self.train_memory_bank[instance_i].reid_embeds[frame_id]
+                    #             negative_embedding = self.train_memory_bank[
+                    #                 instance_i].negative_embeds[frame_id]
 
-                                num_positive = positive_embedding.shape[0]
+                    #             num_positive = positive_embedding.shape[0]
 
-                                pos_neg_embedding = torch.cat(
-                                    [positive_embedding, negative_embedding], dim=0)
+                    #             pos_neg_embedding = torch.cat(
+                    #                 [positive_embedding, negative_embedding], dim=0)
 
-                                pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
-                                                                            dtype=torch.int64)  # noqa
-                                pos_neg_label[:num_positive] = 1.
+                    #             pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
+                    #                                                         dtype=torch.int64)  # noqa
+                    #             pos_neg_label[:num_positive] = 1.
 
-                                # dot product
-                                dot_product = torch.einsum(
-                                    'ac,kc->ak', [pos_neg_embedding, anchor_embedding])
-                                aux_normalize_pos_neg_embedding = nn.functional.normalize(
-                                    pos_neg_embedding, dim=1)
-                                aux_normalize_anchor_embedding = nn.functional.normalize(
-                                    anchor_embedding, dim=1)
+                    #             # dot product
+                    #             dot_product = torch.einsum(
+                    #                 'ac,kc->ak', [pos_neg_embedding, anchor_embedding])
+                    #             aux_normalize_pos_neg_embedding = nn.functional.normalize(
+                    #                 pos_neg_embedding, dim=1)
+                    #             aux_normalize_anchor_embedding = nn.functional.normalize(
+                    #                 anchor_embedding, dim=1)
 
-                                aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
-                                                                                   aux_normalize_anchor_embedding])
-                                contrastive_items.append({
-                                    'dot_product': dot_product,
-                                    'cosine_similarity': aux_cosine_similarity,
-                                    'label': pos_neg_label})
+                    #             aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
+                    #                                                                aux_normalize_anchor_embedding])
+                    #             contrastive_items.append({
+                    #                 'dot_product': dot_product,
+                    #                 'cosine_similarity': aux_cosine_similarity,
+                    #                 'label': pos_neg_label})
 
         # we follow the losses in IDOL
-        losses = loss_reid(contrastive_items, outputs_list[0], name=name)
+        losses = loss_reid(contrastive_items, outputs_list[0])
 
         return losses
 
     def prepare_targets(self, targets):
         # prepare for track part
-        # process per image targets
+        new_targets = []
         for targets_per_image in targets:
-            inst_ids = targets_per_image["ids"]
+            h, w = targets_per_image.image_size
+            image_size_xyxy = torch.as_tensor(
+                [w, h, w, h], dtype=torch.float, device=self.device)
+            gt_classes = targets_per_image.gt_classes
+            gt_boxes = targets_per_image.gt_boxes.tensor / image_size_xyxy
+            gt_boxes = box_xyxy_to_cxcywh(gt_boxes)
+            if isinstance(targets_per_image.gt_masks, BitMasks):
+                gt_masks = targets_per_image.gt_masks.tensor
+            else:
+                gt_masks = targets_per_image.gt_masks
+            inst_ids = targets_per_image.gt_ids
             valid_id = inst_ids != -1  # if an object is disappeared，its gt_ids is -1
-            targets_per_image.update({'inst_id': inst_ids, 'valid': valid_id})
 
-        new_targets = targets
+            new_targets.append(
+                {"labels": gt_classes, "boxes": gt_boxes, 'masks': gt_masks, 'inst_id': inst_ids, 'valid': valid_id})
         bz = len(new_targets) // self.sampling_frame_num
         ids_list = []
-        # get image ids for per time frame, (bz, )
         for i in range(self.sampling_frame_num):
             ids_list.append(
                 list(range(i, bz * self.sampling_frame_num, self.sampling_frame_num)))
@@ -444,8 +411,6 @@ class CTCLPlugin(nn.Module):
         for i in range(self.sampling_frame_num):
             targets_list.append([new_targets[j] for j in ids_list[i]])
 
-        # [per bz frame gt, ...], len is sampling feames
-        # per bz frame gt, [per image gt, ...], len is bz
         return targets_list
 
 
@@ -465,13 +430,11 @@ def get_world_size() -> int:
     return dist.get_world_size()
 
 
-def loss_reid(qd_items, outputs, reduce=False, name=None):
-    # outputs only using when have not contrastive items
-    # compute two loss, contrastive loss & similarity loss
+def loss_reid(qd_items, outputs, reduce=False):
     contras_loss = 0
     aux_loss = 0
 
-    num_qd_items = len(qd_items) # n_instances * frames
+    num_qd_items = len(qd_items)
     if reduce:  # it seems worse when reduce is True
         num_qd_items = torch.as_tensor(
             [num_qd_items], dtype=torch.float, device=outputs['pred_embeds'].device)
@@ -481,19 +444,12 @@ def loss_reid(qd_items, outputs, reduce=False, name=None):
         num_qd_items = torch.clamp(
             num_qd_items / get_world_size(), min=1).item()
 
-    # if none items, return 0 loss
     if len(qd_items) == 0:
-        if name is not None:
-            losses = {f'{name}_loss_reid': outputs[f'pred_{name}_embeds'].sum() * 0,
-                      f'{name}_loss_aux_reid': outputs[f'pred_{name}_embeds'].sum() * 0}
-
-        else:
-            losses = {'loss_reid': outputs['pred_embeds'].sum() * 0,
-                      'loss_aux_reid': outputs['pred_embeds'].sum() * 0}
+        losses = {'loss_reid': outputs['pred_embeds'].sum() * 0,
+                  'loss_aux_reid': outputs['pred_embeds'].sum() * 0}
         return losses
 
     for qd_item in qd_items:
-        # (n_pos, n_anchor) -> (n_anchor, n_pos)
         pred = qd_item['dot_product'].permute(1, 0)
         label = qd_item['label'].unsqueeze(0)
         # contrastive loss
@@ -508,8 +464,7 @@ def loss_reid(qd_items, outputs, reduce=False, name=None):
         _pos_expand = torch.repeat_interleave(pred_pos, pred.shape[1], dim=1)
         _neg_expand = pred_neg.repeat(1, pred.shape[1])
         # [bz,N], N is all pos and negative samples on reference frame, label indicate it's pos or negative
-        x = torch.nn.functional.pad(
-            (_neg_expand - _pos_expand), (0, 1), "constant", 0)
+        x = torch.nn.functional.pad((_neg_expand - _pos_expand), (0, 1), "constant", 0)
         contras_loss += torch.logsumexp(x, dim=1)
 
         aux_pred = qd_item['cosine_similarity'].permute(1, 0)
@@ -517,10 +472,6 @@ def loss_reid(qd_items, outputs, reduce=False, name=None):
 
         aux_loss += (torch.abs(aux_pred - aux_label) ** 2).mean()
 
-    if name is not None:
-        losses = {f'{name}_loss_reid': contras_loss.sum() / num_qd_items,
-                  f'{name}_loss_aux_reid': aux_loss / num_qd_items}
-    else:
-        losses = {'loss_reid': contras_loss.sum() / num_qd_items,
-                  'loss_aux_reid': aux_loss / num_qd_items}
+    losses = {'loss_reid': contras_loss.sum() / num_qd_items,
+              'loss_aux_reid': aux_loss / num_qd_items}
     return losses
