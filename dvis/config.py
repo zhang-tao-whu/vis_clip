@@ -62,7 +62,7 @@ def add_dvis_config(cfg):
 
     # contrastive learning plugin
     cfg.MODEL.CL_PLUGIN = CN()
-    cfg.MODEL.CL_PLUGIN.CL_PLUGIN_NAME = "SimpleCLPlugin"
+    cfg.MODEL.CL_PLUGIN.CL_PLUGIN_NAME = "CTCLPlugin"
     cfg.MODEL.CL_PLUGIN.REID_WEIGHT = 2.
     cfg.MODEL.CL_PLUGIN.AUX_REID_WEIGHT = 3.
     cfg.MODEL.CL_PLUGIN.NUM_NEGATIVES = 99
