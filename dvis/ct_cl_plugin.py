@@ -263,7 +263,6 @@ class CTCLPlugin(nn.Module):
             # [matched_row, matched_colum]
             indices = matcher(outputs_without_aux, targets)
             indices_list.append(indices)
-        return {}
 
         losses = dict()
 

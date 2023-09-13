@@ -179,6 +179,7 @@ class CTMinVIS(nn.Module):
             item["masks"] = item["masks"].squeeze(1)
             item["ids"] = item["ids"].squeeze(1)
         outputs['pred_masks'] = outputs['pred_masks'].squeeze(2)
+        outputs['pred_reid_embed'] = einops.rearrange(outputs['pred_reid_embed'], 'b c t q -> (b t) q c')
         return outputs, targets
 
     def forward(self, batched_inputs):
