@@ -174,7 +174,7 @@ class CTMinVIS(nn.Module):
         return self.pixel_mean.device
 
     def prepare_for_cl_plugin(self, outputs, targets):
-        del outputs['aux_outputs']
+        del outputs['aux_outputs'], outputs['pred_embds'], outputs['pred_embds_without_norm'], outputs['mask_features']
         for item in targets:
             item["masks"] = item["masks"].squeeze(1)
             item["ids"] = item["ids"].squeeze(1)
