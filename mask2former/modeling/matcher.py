@@ -105,9 +105,6 @@ class HungarianMatcher(nn.Module):
             out_prob = outputs["pred_logits"][b].softmax(-1)  # [num_queries, num_classes]
             tgt_ids = targets[b]["labels"]
 
-            print('out_prob_shape:', out_prob.shape)
-            print('tgt_ids_shape:', tgt_ids.shape)
-
             # Compute the classification cost. Contrary to the loss, we don't use the NLL,
             # but approximate it in 1 - proba[target class].
             # The 1 is a constant that doesn't change the matching, it can be ommitted.
@@ -116,11 +113,6 @@ class HungarianMatcher(nn.Module):
             out_mask = outputs["pred_masks"][b]  # [num_queries, H_pred, W_pred]
             # gt masks are already padded when preparing target
             tgt_mask = targets[b]["masks"].to(out_mask)
-
-            print('out_mask_shape:', out_mask.shape)
-            print('tgt_mask_shape:', tgt_mask.shape)
-            print(out_mask)
-            print(kkk)
 
             out_mask = out_mask[:, None]
             tgt_mask = tgt_mask[:, None]
