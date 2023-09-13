@@ -354,6 +354,7 @@ class CTMinVIS(nn.Module):
         outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1).detach()
         outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2).detach()
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).detach()
+        outputs['pred_reid_embed'] = torch.cat([x['pred_reid_embed'] for x in out_list], dim=2).detach()
 
         return outputs
 
