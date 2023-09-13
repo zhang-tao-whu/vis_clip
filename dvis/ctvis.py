@@ -177,6 +177,7 @@ class CTMinVIS(nn.Module):
         for item in targets:
             item["masks"] = item["masks"].squeeze(1)
             item["ids"] = item["ids"].squeeze(1)
+        outputs['pred_masks'] = outputs['pred_masks'].squeeze(2)
         return outputs, targets
 
     def forward(self, batched_inputs):
