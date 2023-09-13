@@ -190,7 +190,8 @@ class VideoMultiScaleMaskedTransformerDecoder_ctdvis(VideoMultiScaleMaskedTransf
             'pred_reid_embed': reid_embed,
             'mask_features': mask_features
         }
-
+        print(out.keys())
+        print(kk)
         return out
 
     def forward_prediction_heads(self, output, mask_features, attn_mask_target_size):
