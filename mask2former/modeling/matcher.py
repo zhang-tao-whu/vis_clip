@@ -119,6 +119,8 @@ class HungarianMatcher(nn.Module):
 
             print('out_mask_shape:', out_mask.shape)
             print('tgt_mask_shape:', tgt_mask.shape)
+            print(out_mask)
+            print(kkk)
 
             out_mask = out_mask[:, None]
             tgt_mask = tgt_mask[:, None]
