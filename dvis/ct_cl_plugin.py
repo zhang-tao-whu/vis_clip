@@ -243,7 +243,6 @@ class CTCLPlugin(nn.Module):
             if key in ['aux_outputs', 'interm_outputs']:
                 pass
             else:
-                print(det_outputs[key].shape, index_list)
                 for i in range(self.sampling_frame_num):
                     outputs_list[i][key] = det_outputs[key][index_list[i]]
         # outputs_list, [per frame bs output, ...], len is sampling frames
