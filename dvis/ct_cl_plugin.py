@@ -266,12 +266,7 @@ class CTCLPlugin(nn.Module):
 
         losses = dict()
 
-        if "pred_fusion_embeds" in det_outputs:
-            losses.update(self.get_reid_loss(
-                targets_list, outputs_list, indices_list, name="fusion"))
-        else:
-            losses.update(self.get_reid_loss(
-                targets_list, outputs_list, indices_list, name="reid"))
+        losses.update(self.get_reid_loss(targets_list, outputs_list, indices_list))
 
         for k in list(losses.keys()):
             if k in self.weight_dict:
@@ -293,7 +288,7 @@ class CTCLPlugin(nn.Module):
             gt2query_id_list = [indice[0][torch.sort(
                 indice[1])[1]] for indice in indice_list]
 
-            reid_embedding_list = [outputs[f'pred_embeds'][i]
+            reid_embedding_list = [outputs[f'pred_reid_embed'][i]
                                    for outputs in outputs_list]
             num_instances = target_list[0]['valid'].shape[0]  # num of instances in this frame
 
@@ -440,7 +435,7 @@ def loss_reid(qd_items, outputs, reduce=False):
     num_qd_items = len(qd_items)
     if reduce:  # it seems worse when reduce is True
         num_qd_items = torch.as_tensor(
-            [num_qd_items], dtype=torch.float, device=outputs['pred_embeds'].device)
+            [num_qd_items], dtype=torch.float, device=outputs['pred_reid_embed'].device)
 
         if is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_qd_items)
@@ -448,8 +443,8 @@ def loss_reid(qd_items, outputs, reduce=False):
             num_qd_items / get_world_size(), min=1).item()
 
     if len(qd_items) == 0:
-        losses = {'loss_reid': outputs['pred_embeds'].sum() * 0,
-                  'loss_aux_reid': outputs['pred_embeds'].sum() * 0}
+        losses = {'loss_reid': outputs['pred_reid_embed'].sum() * 0,
+                  'loss_aux_reid': outputs['pred_reid_embed'].sum() * 0}
         return losses
 
     for qd_item in qd_items:
