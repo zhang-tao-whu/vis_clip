@@ -395,6 +395,9 @@ class CTCLPlugin(nn.Module):
         # prepare for track part
         # process per image targets
         for targets_per_image in targets:
+            for key in targets_per_image.keys():
+                print(key, targets_per_image['key'].shape)
+
             inst_ids = targets_per_image["ids"]
             valid_id = inst_ids != -1  # if an object is disappeared，its gt_ids is -1
             targets_per_image.update({'inst_id': inst_ids, 'valid': valid_id})
