@@ -236,7 +236,8 @@ class CTCLPlugin(nn.Module):
         num_images = det_outputs['pred_logits'].shape[0]
         index_list = []
         for i in range(self.sampling_frame_num):
-            index_list.append(torch.arange(i, num_images, step=self.sampling_frame_num, device=self.device))
+            index_list.append(torch.arange(
+                i, num_images, step=self.sampling_frame_num, device=self.device))
 
         for key in outputs_keys:
             if key in ['aux_outputs', 'interm_outputs']:
@@ -244,7 +245,8 @@ class CTCLPlugin(nn.Module):
             else:
                 for i in range(self.sampling_frame_num):
                     outputs_list[i][key] = det_outputs[key][index_list[i]]
-
+        # outputs_list, [per frame bs output, ...], len is sampling frames
+        # per frame bs output, dict, e.g. 'mask' is (b, q, h, w)
         return outputs_list
 
     def train_loss(self, det_outputs, gt_instances, matcher):
@@ -253,16 +255,23 @@ class CTCLPlugin(nn.Module):
 
         indices_list = []
         for i in range(self.sampling_frame_num):
+            # perform per frame matching indices
             outputs = outputs_list[i]
             targets = targets_list[i]
-            outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
+            outputs_without_aux = {k: v for k,
+                                            v in outputs.items() if k != "aux_outputs"}
             # [matched_row, matched_colum]
             indices = matcher(outputs_without_aux, targets)
             indices_list.append(indices)
 
         losses = dict()
 
-        losses.update(self.get_reid_loss(targets_list, outputs_list, indices_list))
+        if "pred_fusion_embeds" in det_outputs:
+            losses.update(self.get_reid_loss(
+                targets_list, outputs_list, indices_list, name="fusion"))
+        else:
+            losses.update(self.get_reid_loss(
+                targets_list, outputs_list, indices_list, name="reid"))
 
         for k in list(losses.keys()):
             if k in self.weight_dict:
@@ -384,25 +393,16 @@ class CTCLPlugin(nn.Module):
 
     def prepare_targets(self, targets):
         # prepare for track part
-        new_targets = []
+        # process per image targets
         for targets_per_image in targets:
-            h, w = targets_per_image.image_size
-            image_size_xyxy = torch.as_tensor(
-                [w, h, w, h], dtype=torch.float, device=self.device)
-            gt_classes = targets_per_image.gt_classes
-            gt_boxes = targets_per_image.gt_boxes.tensor / image_size_xyxy
-            gt_boxes = box_xyxy_to_cxcywh(gt_boxes)
-            if isinstance(targets_per_image.gt_masks, BitMasks):
-                gt_masks = targets_per_image.gt_masks.tensor
-            else:
-                gt_masks = targets_per_image.gt_masks
-            inst_ids = targets_per_image.gt_ids
+            inst_ids = targets_per_image["ids"]
             valid_id = inst_ids != -1  # if an object is disappeared，its gt_ids is -1
+            targets_per_image.update({'inst_id': inst_ids, 'valid': valid_id})
 
-            new_targets.append(
-                {"labels": gt_classes, "boxes": gt_boxes, 'masks': gt_masks, 'inst_id': inst_ids, 'valid': valid_id})
+        new_targets = targets
         bz = len(new_targets) // self.sampling_frame_num
         ids_list = []
+        # get image ids for per time frame, (bz, )
         for i in range(self.sampling_frame_num):
             ids_list.append(
                 list(range(i, bz * self.sampling_frame_num, self.sampling_frame_num)))
@@ -411,6 +411,8 @@ class CTCLPlugin(nn.Module):
         for i in range(self.sampling_frame_num):
             targets_list.append([new_targets[j] for j in ids_list[i]])
 
+        # [per bz frame gt, ...], len is sampling feames
+        # per bz frame gt, [per image gt, ...], len is bz
         return targets_list
 
 
