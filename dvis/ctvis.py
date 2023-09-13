@@ -295,6 +295,7 @@ class CTMinVIS(nn.Module):
 
     def post_processing(self, outputs):
         # pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_embds']
+        print(outputs.keys())
         pred_logits, pred_masks, pred_embds = outputs['pred_logits'], outputs['pred_masks'], outputs['pred_reid_embed']
 
         pred_logits = pred_logits[0]
