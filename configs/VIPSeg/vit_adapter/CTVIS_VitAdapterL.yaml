@@ -24,4 +24,9 @@ INPUT:
   SAMPLING_FRAME_NUM: 11
   SAMPLING_FRAME_RANGE: 5
   MIN_SIZE_TEST: 720
+  CROP:
+    ENABLED: True
+    PSEUDO:
+      CROP:
+        ENABLED: True
 OUTPUT_DIR: './output_CTVIS_VitAdapterL_VIPSeg'

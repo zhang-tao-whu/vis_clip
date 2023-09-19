@@ -17,4 +17,9 @@ SOLVER:
   IMS_PER_BATCH: 8
 INPUT:
   MIN_SIZE_TEST: 720
+  CROP:
+    ENABLED: True
+    PSEUDO:
+      CROP:
+        ENABLED: True
 OUTPUT_DIR: './output_CT_ClDVIS_Online_VitAdapterL_VIPSeg'
