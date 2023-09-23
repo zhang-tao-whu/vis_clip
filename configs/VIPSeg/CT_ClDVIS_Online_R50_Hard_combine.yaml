@@ -15,9 +15,9 @@ INPUT:
   SAMPLING_FRAME_NUM: 5
   SAMPLING_FRAME_RANGE: 2
   CROP:
-    ENABLED: True
+    ENABLED: False
   PSEUDO:
     CROP:
-      ENABLED: True
+      ENABLED: False
 
 OUTPUT_DIR: './output_CT_ClDVIS_Online_R50_VIPSeg_Hard_combine'

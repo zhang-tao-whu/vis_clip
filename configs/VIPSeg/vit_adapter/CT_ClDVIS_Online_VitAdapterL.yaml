@@ -18,8 +18,8 @@ SOLVER:
 INPUT:
   MIN_SIZE_TEST: 720
   CROP:
-    ENABLED: True
+    ENABLED: False
   PSEUDO:
     CROP:
-      ENABLED: True
+      ENABLED: False
 OUTPUT_DIR: './output_CT_ClDVIS_Online_VitAdapterL_VIPSeg'
