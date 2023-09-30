@@ -190,7 +190,7 @@ class SemanticDatasetVideoMapper:
         sem_seg_gt = sem_seg_gt[:, :, 0]
         sem_seg_gt[sem_seg_gt == 0] = 255
         sem_seg_gt = sem_seg_gt - 1
-        sem_seg_gt[sem_seg_gt >= 124] = 255
+        #sem_seg_gt[sem_seg_gt >= 124] = 255
         sem_seg_gt[sem_seg_gt == 254] = 255
         return sem_seg_gt
 
