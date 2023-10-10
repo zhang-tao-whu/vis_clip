@@ -37,6 +37,9 @@ _PREDEFINED_SPLITS_YTVIS_2021 = {
                        "ytvis_2021/valid.json"),
     "ytvis_2021_test": ("ytvis_2021/test/JPEGImages",
                         "ytvis_2021/test.json"),
+}
+
+_PREDEFINED_SPLITS_YTVIS_2022 = {
     "ytvis_2022_val": ("ytvis_2022/valid/JPEGImages",
                        "ytvis_2022/instances.json"),
 }
@@ -82,6 +85,16 @@ def register_all_ytvis_2021(root):
             os.path.join(root, image_root),
         )
 
+def register_all_ytvis_2022(root):
+    for key, (image_root, json_file) in _PREDEFINED_SPLITS_YTVIS_2022.items():
+        # Assume pre-defined datasets live in `./datasets`.
+        register_ytvis_instances(
+            key,
+            _get_ytvis_2021_instances_meta(),
+            os.path.join(root, json_file) if "://" not in json_file else json_file,
+            os.path.join(root, image_root),
+        )
+
 
 def register_all_ovis(root):
     for key, (image_root, json_file) in _PREDEFINED_SPLITS_OVIS.items():
@@ -108,6 +121,7 @@ if __name__.endswith(".builtin"):
     _root = os.getenv("DETECTRON2_DATASETS", "datasets")
     #register_all_ytvis_2019(_root)
     #register_all_ytvis_2021(_root)
+    register_all_ytvis_2022(_root)
     register_all_ovis(_root)
     register_all_coco_video(_root)
     from . import vps
