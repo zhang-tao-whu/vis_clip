@@ -37,6 +37,8 @@ _PREDEFINED_SPLITS_YTVIS_2021 = {
                        "ytvis_2021/valid.json"),
     "ytvis_2021_test": ("ytvis_2021/test/JPEGImages",
                         "ytvis_2021/test.json"),
+    "ytvis_2022_val": ("ytvis_2022/valid/JPEGImages",
+                       "ytvis_2022/instances.json"),
 }
 
 # ==== Predefined splits for OVIS ===========
