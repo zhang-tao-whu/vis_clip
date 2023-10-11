@@ -348,13 +348,14 @@ class CTMinVIS(nn.Module):
             del features['res2'], features['res3'], features['res4'], features['res5']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
+            del out['mask_features']
             out['pred_masks'] = out['pred_masks'].detach().cpu().to(torch.float32)
             out_list.append(out)
 
         # merge outputs
         outputs = {}
         outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1).to(torch.float32).detach().cpu()
-        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2).to(torch.float32).detach().cpu()
+        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).to(torch.float32).detach().cpu()
         outputs['pred_reid_embed'] = torch.cat([x['pred_reid_embed'] for x in out_list], dim=2).to(torch.float32).detach().cpu()
 
