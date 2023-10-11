@@ -216,7 +216,7 @@ class CTMinVIS(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training and self.window_inference:
-            outputs = self.run_window_inference(images.tensor, window_size=2)
+            outputs = self.run_window_inference(images.tensor, window_size=3)
         else:
             features = self.backbone(images.tensor)
             outputs = self.sem_seg_head(features)
@@ -353,10 +353,10 @@ class CTMinVIS(nn.Module):
 
         # merge outputs
         outputs = {}
-        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1).detach()
-        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2).detach()
-        outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).detach()
-        outputs['pred_reid_embed'] = torch.cat([x['pred_reid_embed'] for x in out_list], dim=2).detach()
+        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1).detach().cpu()
+        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2).detach().cpu()
+        outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2).detach().cpu()
+        outputs['pred_reid_embed'] = torch.cat([x['pred_reid_embed'] for x in out_list], dim=2).detach().cpu()
 
         return outputs
 
