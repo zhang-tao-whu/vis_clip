@@ -815,6 +815,8 @@ class ClDVIS_online(MinVIS):
             ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-K predictions
             scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
+            # for feature visualization
+            print(topk_indices)
             labels_per_image = labels[topk_indices]
             topk_indices = topk_indices // self.sem_seg_head.num_classes
             pred_masks = pred_masks[topk_indices]
@@ -1439,6 +1441,12 @@ class TemporalRefiner(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # (b, c, t, q)
         }
+
+        # for pca visualization
+        import numpy as np
+        embeds = outputs[:, -1].permute(2, 3, 0, 1).clone().detach().cpu().numpy()  # (b, c, t, q)
+        np.save('./representations/refiner.npy', embeds)
+
         return out
 
     @torch.jit.unused
