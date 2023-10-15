@@ -30,7 +30,7 @@ from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
 from dvis import add_minvis_config, add_dvis_config
 from predictor import VisualizationDemo, VisualizationDemo_windows
-
+from ct_dvis import add_ctdvis_config
 
 def setup_cfg(args):
 	# load config from file and command-line arguments
@@ -40,6 +40,7 @@ def setup_cfg(args):
 	add_maskformer2_video_config(cfg)
 	add_minvis_config(cfg)
 	add_dvis_config(cfg)
+	add_ctdvis_config(cfg)
 	cfg.merge_from_file(args.config_file)
 	cfg.merge_from_list(args.opts)
 	cfg.freeze()
@@ -128,8 +129,9 @@ if __name__ == "__main__":
 			for path, _vis_output in zip(_frames_path, visualized_output):
 				out_filename = os.path.join(output_root, os.path.basename(path))
 				_vis_output.save(out_filename)
-			for id in predictions['pred_ids']:
-				instances.add(id)
+			if 'pred_ids' in predictions.keys():
+				for id in predictions['pred_ids']:
+					instances.add(id)
 			del visualized_output, vid_frames, _frames_path, predictions
 
 			vid_frames = []
