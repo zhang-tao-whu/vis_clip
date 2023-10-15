@@ -367,6 +367,12 @@ class ClReferringTracker_noiser(torch.nn.Module):
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
         }
+
+        # for pca visualization
+        import numpy as np
+        embeds = outputs[:, -1].permute(2, 3, 0, 1).clone().detach().cpu().numpy()  # (b, c, t, q)
+        np.save('./representations/tracker.npy', embeds)
+
         if return_indices:
             return out, ret_indices
         else:
