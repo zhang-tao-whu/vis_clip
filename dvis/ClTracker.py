@@ -368,11 +368,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
            'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
         }
 
-        # for pca visualization
-        import numpy as np
-        embeds = outputs[:, -1].permute(2, 3, 0, 1).clone().detach().cpu().numpy()  # (b, c, t, q)
-        np.save('./representations/tracker.npy', embeds)
-
         if return_indices:
             return out, ret_indices
         else:
@@ -804,6 +799,11 @@ class ClDVIS_online(MinVIS):
         outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
         outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
+
+        # for pca visualization
+        import numpy as np
+        embeds = outputs['pred_embds'].clone().detach().cpu().numpy()  # (b, c, t, q)
+        np.save('./representations/tracker.npy', embeds)
 
         return outputs
 
