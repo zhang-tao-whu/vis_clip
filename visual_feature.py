@@ -8,7 +8,7 @@ import numpy as np
 #indexes = [61, 0, 65, 32, 42, 90, 70, 88, 58, 81, 4, 3, 54, 45, 18]
 # indexes = [61, 0, 58, 65, 42, 32, 81, 90, 70, 88, 45, 4, 3, 18]
 indexes = [32, 61, 9]
-name = 'refiner'
+name = 'tracker'
 suffix = '_cl'
 #suffix = ''
 
