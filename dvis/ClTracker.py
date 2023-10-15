@@ -816,9 +816,9 @@ class ClDVIS_online(MinVIS):
             # keep top-K predictions
             scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
             # for feature visualization
-            print(topk_indices)
             labels_per_image = labels[topk_indices]
             topk_indices = topk_indices // self.sem_seg_head.num_classes
+            print(topk_indices)
             pred_masks = pred_masks[topk_indices]
             pred_ids = pred_id[topk_indices]
 
