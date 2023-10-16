@@ -2,7 +2,7 @@ import numpy as np
 import os
 from PIL import Image
 import sys
-import tqdm
+from tqdm import tqdm
 
 class Evaluator(object):
     def __init__(self, num_class):
