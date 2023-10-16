@@ -748,8 +748,9 @@ class ClDVIS_online(MinVIS):
         pred_logits = outputs['pred_logits']
         pred_logits = pred_logits[0]  # (t, q, c)
         if self.task != 'vss':
-            print("****************************************not vss***************************")
             out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
+        else:
+            out_logits = pred_logits.unsqueeze(0)
         if aux_logits is not None:
             aux_logits = aux_logits[0]
             if self.task != 'vss':
