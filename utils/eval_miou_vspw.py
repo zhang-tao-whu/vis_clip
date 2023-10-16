@@ -42,7 +42,7 @@ class Evaluator(object):
 
     def _generate_matrix(self, gt_image, pre_image):
         # for vspw label preprocessing
-        gt_image[sem_seg_gt == 0] = 255
+        gt_image[gt_image == 0] = 255
         gt_image = gt_image - 1
 
         mask = (gt_image >= 0) & (gt_image < self.num_class)
