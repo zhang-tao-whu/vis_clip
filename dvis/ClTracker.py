@@ -747,14 +747,10 @@ class ClDVIS_online(MinVIS):
         """
         pred_logits = outputs['pred_logits']
         pred_logits = pred_logits[0]  # (t, q, c)
-        if self.task != 'vss':
-            out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
-        else:
-            out_logits = pred_logits.unsqueeze(0)
+        out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
         if aux_logits is not None:
             aux_logits = aux_logits[0]
-            if self.task != 'vss':
-                aux_logits = torch.mean(aux_logits, dim=0)  # (q, c)
+            aux_logits = torch.mean(aux_logits, dim=0)  # (q, c)
         outputs['pred_logits'] = out_logits
         outputs['ids'] = [torch.arange(0, outputs['pred_masks'].size(1))]
         if aux_logits is not None:
@@ -948,7 +944,6 @@ class ClDVIS_online(MinVIS):
         mask_cls = F.softmax(pred_cls, dim=-1)[..., :-1]
         if aux_pred_cls is not None:
             aux_pred_cls = F.softmax(aux_pred_cls, dim=-1)[..., :-1]
-            # mask_cls[..., :-1] = torch.maximum(mask_cls[..., :-1], aux_pred_cls.to(mask_cls))
             mask_cls = torch.maximum(mask_cls, aux_pred_cls.to(mask_cls))
         mask_pred = pred_masks
         # interpolation to original image size
@@ -960,8 +955,7 @@ class ClDVIS_online(MinVIS):
             cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
         )
 
-        # semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
-        semseg = torch.einsum("tqc,qthw->cthw", mask_cls, cur_masks)
+        semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
         sem_score, sem_mask = semseg.max(0)
         sem_mask = sem_mask
         return {
