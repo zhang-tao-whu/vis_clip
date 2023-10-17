@@ -199,6 +199,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_reference = None
         return
 
+
     def forward(self, frame_embeds, mask_features, resume=False,
                 return_indices=False, frame_classes=None,
                 frame_embeds_no_norm=None):
@@ -248,6 +249,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             activate=False,
                             cur_classes=single_frame_classes,
                         )
+
+                        # for init ablation
+                        noised_init = noised_init * 0.0
+
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
@@ -302,6 +307,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             activate=self.training,
                             cur_classes=single_frame_classes,
                         )
+
+                        # for init ablation
+                        noised_init = noised_init * 0.0
+
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
@@ -801,9 +810,9 @@ class ClDVIS_online(MinVIS):
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
 
         # for pca visualization
-        import numpy as np
-        embeds = outputs['pred_embds'].clone().detach().cpu().numpy()  # (b, c, t, q)
-        np.save('./representations/tracker.npy', embeds)
+        # import numpy as np
+        # embeds = outputs['pred_embds'].clone().detach().cpu().numpy()  # (b, c, t, q)
+        # np.save('./representations/tracker.npy', embeds)
 
         return outputs
 
@@ -1450,9 +1459,9 @@ class TemporalRefiner(torch.nn.Module):
         }
 
         # for pca visualization
-        import numpy as np
-        embeds = outputs[:, -1].permute(2, 3, 0, 1).clone().detach().cpu().numpy()  # (b, c, t, q)
-        np.save('./representations/refiner.npy', embeds)
+        # import numpy as np
+        # embeds = outputs[:, -1].permute(2, 3, 0, 1).clone().detach().cpu().numpy()  # (b, c, t, q)
+        # np.save('./representations/refiner.npy', embeds)
 
         return out
 
