@@ -193,6 +193,9 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
+        # for init ablation
+        self.initial_value = nn.Embedding(1, hidden_channel)
+
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
@@ -252,6 +255,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
                         # for init ablation
                         noised_init = noised_init * 0.0
+                        noised_init = noised_init + self.initial_value.weight.unsqueeze(0)
 
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
@@ -310,6 +314,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
                         # for init ablation
                         noised_init = noised_init * 0.0
+                        noised_init = noised_init + self.initial_value.weight.unsqueeze(0)
 
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
