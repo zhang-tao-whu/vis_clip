@@ -103,7 +103,7 @@ class ReferringCrossAttentionLayer(nn.Module):
         # when set "indentify = tgt", ReferringCrossAttentionLayer is same as CrossAttentionLayer
 
         # for ablation
-        tgt = tgt * 0.0 + indentify
+        # tgt = tgt * 0.0 + indentify
 
         if self.normalize_before:
             return self.forward_pre(indentify, tgt, key, memory, memory_mask,
