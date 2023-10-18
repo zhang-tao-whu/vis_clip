@@ -101,6 +101,10 @@ class ReferringCrossAttentionLayer(nn.Module):
         query_pos=None
     ):
         # when set "indentify = tgt", ReferringCrossAttentionLayer is same as CrossAttentionLayer
+
+        # for ablation
+        tgt = tgt * 0.0 + indentify
+
         if self.normalize_before:
             return self.forward_pre(indentify, tgt, key, memory, memory_mask,
                                     memory_key_padding_mask, pos, query_pos)
@@ -252,7 +256,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             activate=False,
                             cur_classes=single_frame_classes,
                             # for init ablation
-                            remove=True
+                            # remove=True
                         )
 
                         # for init ablation
@@ -314,7 +318,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             activate=self.training,
                             cur_classes=single_frame_classes,
                             # for init ablation
-                            remove=True
+                            # remove=True
                         )
 
                         # for init ablation
