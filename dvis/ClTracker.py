@@ -838,7 +838,6 @@ class ClDVIS_online(MinVIS):
             # for feature visualization
             labels_per_image = labels[topk_indices]
             topk_indices = topk_indices // self.sem_seg_head.num_classes
-            print(topk_indices[scores_per_image > 0.3])
             pred_masks = pred_masks[topk_indices]
             pred_ids = pred_id[topk_indices]
 
