@@ -98,12 +98,14 @@ class ReferringCrossAttentionLayer(nn.Module):
         memory_mask=None,
         memory_key_padding_mask=None,
         pos=None,
-        query_pos=None
+        query_pos=None,
+        standard=False
     ):
         # when set "indentify = tgt", ReferringCrossAttentionLayer is same as CrossAttentionLayer
 
         # for ablation
-        # tgt = tgt * 0.0 + indentify
+        if standard:
+            tgt = tgt * 0.0 + indentify
 
         if self.normalize_before:
             return self.forward_pre(indentify, tgt, key, memory, memory_mask,
@@ -143,6 +145,15 @@ class ClReferringTracker_noiser(torch.nn.Module):
             )
 
             self.transformer_cross_attention_layers.append(
+                ReferringCrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+            self.transformer_cross_attention_layers_.append(
                 ReferringCrossAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
@@ -275,6 +286,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             pos=None, query_pos=None
                         )
 
+                        output = self.transformer_cross_attention_layers_[j](
+                            output, self.ref_proj(frame_key),
+                            frame_key, single_frame_embeds_no_norm,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None, standard=True
+                        )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -294,6 +313,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             pos=None, query_pos=None
                         )
 
+                        output = self.transformer_cross_attention_layers_[j](
+                            output, self.ref_proj(ms_output[-1]),
+                            frame_key, single_frame_embeds_no_norm,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None, standard=True
+                        )
+
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
                             tgt_key_padding_mask=None,
@@ -311,30 +338,30 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
                 for j in range(self.num_layers):
                     if j == 0:
-                        # indices, noised_init = self.noiser(
-                        #     self.last_frame_embeds,
-                        #     single_frame_embeds,
-                        #     cur_embeds_no_norm=single_frame_embeds_no_norm,
-                        #     activate=self.training,
-                        #     cur_classes=single_frame_classes,
-                        #     # for init ablation
-                        #     # remove=True
-                        # )
-
-                        # for init ablation
-                        #noised_init = noised_init * 0.0
-                        #noised_init = noised_init + self.initial_value.weight.unsqueeze(0)
-                        #noised_init = self.last_outputs[-1]
-
                         indices, noised_init = self.noiser(
-                            self.last_outputs[-1],
-                            self.last_outputs[-1],
-                            cur_embeds_no_norm=self.last_outputs[-1].detach(),
+                            self.last_frame_embeds,
+                            single_frame_embeds,
+                            cur_embeds_no_norm=single_frame_embeds_no_norm,
                             activate=self.training,
                             cur_classes=single_frame_classes,
                             # for init ablation
                             # remove=True
                         )
+
+                        # for init ablation
+                        #noised_init = noised_init * 0.0
+                        #noised_init = noised_init + self.initial_value.weight.unsqueeze(0)
+                        noised_init = self.last_outputs[-1]
+
+                        # indices, noised_init = self.noiser(
+                        #     self.last_outputs[-1],
+                        #     self.last_outputs[-1],
+                        #     cur_embeds_no_norm=self.last_outputs[-1].detach(),
+                        #     activate=self.training,
+                        #     cur_classes=single_frame_classes,
+                        #     # for init ablation
+                        #     # remove=True
+                        # )
 
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
@@ -345,6 +372,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
+                        )
+
+                        output = self.transformer_cross_attention_layers_[j](
+                            output, reference, frame_key,
+                            single_frame_embeds_no_norm,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None, standard=True
                         )
 
                         output = self.transformer_self_attention_layers[j](
@@ -364,6 +399,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
+                        )
+
+                        output = self.transformer_cross_attention_layers_[j](
+                            output, reference, frame_key,
+                            single_frame_embeds_no_norm,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None, standard=True
                         )
 
                         output = self.transformer_self_attention_layers[j](
