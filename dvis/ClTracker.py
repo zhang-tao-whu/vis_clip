@@ -131,6 +131,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.num_layers = decoder_layer_num
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
+        self.transformer_cross_attention_layers_ = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
         for _ in range(self.num_layers):
