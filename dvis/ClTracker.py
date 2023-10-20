@@ -963,6 +963,7 @@ class ClDVIS_online(MinVIS):
                 "pred_masks": sem_mask.cpu(),
                 "task": "vss",
             }
+    
 
     def get_cl_loss_ref(self, outputs, referecne_match_result):
         # outputs['pred_keys'] = (b t) q c
