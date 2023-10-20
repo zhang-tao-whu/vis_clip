@@ -86,14 +86,9 @@ class Noiser:
         indices = indices[1]
         return indices
 
-    def __call__(self, ref_embeds, cur_embeds, cur_embeds_no_norm=None, activate=False, cur_classes=None, remove=False):
+    def __call__(self, ref_embeds, cur_embeds, cur_embeds_no_norm=None, activate=False, cur_classes=None):
         if cur_embeds_no_norm is None:
             cur_embeds_no_norm = cur_embeds
-
-        # init ablation
-        if remove:
-            list(range(cur_embeds.shape[0])), cur_embeds_no_norm
-
         matched_indices = self.match_embds(ref_embeds, cur_embeds)
         if activate and random.random() < self.noise_ratio:
             if self.mode == 'hard':

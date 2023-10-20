@@ -98,15 +98,9 @@ class ReferringCrossAttentionLayer(nn.Module):
         memory_mask=None,
         memory_key_padding_mask=None,
         pos=None,
-        query_pos=None,
-        standard=False
+        query_pos=None
     ):
         # when set "indentify = tgt", ReferringCrossAttentionLayer is same as CrossAttentionLayer
-
-        # for ablation
-        if standard:
-            tgt = tgt * 0.0 + indentify
-
         if self.normalize_before:
             return self.forward_pre(indentify, tgt, key, memory, memory_mask,
                                     memory_key_padding_mask, pos, query_pos)
@@ -153,7 +147,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 )
             )
 
-
             self.transformer_ffn_layers.append(
                 FFNLayer(
                     d_model=hidden_channel,
@@ -198,18 +191,13 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_frame_embeds = None
         self.last_reference = None
 
-        # self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
-        self.noiser = Noiser(noise_ratio=0.3, mode=noise_mode)
-
-        # for init ablation
-        # self.initial_value = nn.Embedding(1, hidden_channel)
+        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
         self.last_reference = None
         return
-
 
     def forward(self, frame_embeds, mask_features, resume=False,
                 return_indices=False, frame_classes=None,
@@ -259,15 +247,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             cur_embeds_no_norm=single_frame_embeds_no_norm,
                             activate=False,
                             cur_classes=single_frame_classes,
-                            # for init ablation
-                            # remove=True
                         )
-
-                        # for init ablation
-                        #noised_init = noised_init * 0.0
-                        #noised_init = noised_init + self.initial_value.weight.unsqueeze(0)
-                        # noised_init = frame_key
-
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
@@ -276,10 +256,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             frame_key, single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
-                            pos=None, query_pos=None,
-                            #standard=True
+                            pos=None, query_pos=None
                         )
-
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -297,10 +275,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             frame_key, single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
-                            pos=None, query_pos=None,
-                            #standard=True
+                            pos=None, query_pos=None
                         )
-
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -325,25 +301,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             cur_embeds_no_norm=single_frame_embeds_no_norm,
                             activate=self.training,
                             cur_classes=single_frame_classes,
-                            # for init ablation
-                            # remove=True
                         )
-
-                        # for init ablation
-                        #noised_init = noised_init * 0.0
-                        #noised_init = noised_init + self.initial_value.weight.unsqueeze(0)
-                        # noised_init = self.last_outputs[-1]
-
-                        # indices, noised_init = self.noiser(
-                        #     self.last_outputs[-1],
-                        #     self.last_outputs[-1],
-                        #     cur_embeds_no_norm=self.last_outputs[-1],
-                        #     activate=self.training,
-                        #     cur_classes=single_frame_classes,
-                        #     # for init ablation
-                        #     # remove=True
-                        # )
-
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
@@ -352,10 +310,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
-                            pos=None, query_pos=None,
-                            #standard=True
+                            pos=None, query_pos=None
                         )
-
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -373,10 +329,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
-                            pos=None, query_pos=None,
-                            #standard=True
+                            pos=None, query_pos=None
                         )
-
 
                         output = self.transformer_self_attention_layers[j](
                             output, tgt_mask=None,
@@ -413,7 +367,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
         }
-
         if return_indices:
             return out, ret_indices
         else:
@@ -846,11 +799,6 @@ class ClDVIS_online(MinVIS):
         outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
 
-        # for pca visualization
-        # import numpy as np
-        # embeds = outputs['pred_embds'].clone().detach().cpu().numpy()  # (b, c, t, q)
-        # np.save('./representations/tracker.npy', embeds)
-
         return outputs
 
     def inference_video_vis(
@@ -867,7 +815,6 @@ class ClDVIS_online(MinVIS):
             ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-K predictions
             scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
-            # for feature visualization
             labels_per_image = labels[topk_indices]
             topk_indices = topk_indices // self.sem_seg_head.num_classes
             pred_masks = pred_masks[topk_indices]
@@ -996,8 +943,7 @@ class ClDVIS_online(MinVIS):
     ):
         mask_cls = F.softmax(pred_cls, dim=-1)[..., :-1]
         if aux_pred_cls is not None:
-            aux_pred_cls = F.softmax(aux_pred_cls, dim=-1)[:, :-1]
-            # mask_cls[..., :-1] = torch.maximum(mask_cls[..., :-1], aux_pred_cls.to(mask_cls))
+            aux_pred_cls = F.softmax(aux_pred_cls, dim=-1)[..., :-1]
             mask_cls = torch.maximum(mask_cls, aux_pred_cls.to(mask_cls))
         mask_pred = pred_masks
         # interpolation to original image size
@@ -1493,12 +1439,6 @@ class TemporalRefiner(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # (b, c, t, q)
         }
-
-        # for pca visualization
-        # import numpy as np
-        # embeds = outputs[:, -1].permute(2, 3, 0, 1).clone().detach().cpu().numpy()  # (b, c, t, q)
-        # np.save('./representations/refiner.npy', embeds)
-
         return out
 
     @torch.jit.unused
@@ -1696,7 +1636,7 @@ class ClDVIS_offline(ClDVIS_online):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
 
-        weight_dict.update({'loss_reid': 0})
+        #weight_dict.update({'loss_reid': 2})
         losses = ["labels", "masks"]
 
         criterion = VideoSetCriterion(
