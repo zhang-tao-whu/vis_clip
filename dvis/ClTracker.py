@@ -198,7 +198,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_frame_embeds = None
         self.last_reference = None
 
-        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
+        # self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
+        self.noiser = Noiser(noise_ratio=0.3, mode=noise_mode)
 
         # for init ablation
         # self.initial_value = nn.Embedding(1, hidden_channel)
@@ -276,7 +277,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None,
-                            standard=True
+                            #standard=True
                         )
 
 
@@ -297,7 +298,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None,
-                            standard=True
+                            #standard=True
                         )
 
 
@@ -318,30 +319,30 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
                 for j in range(self.num_layers):
                     if j == 0:
-                        indices, noised_init = self.noiser(
-                            self.last_frame_embeds,
-                            single_frame_embeds,
-                            cur_embeds_no_norm=single_frame_embeds_no_norm,
-                            activate=self.training,
-                            cur_classes=single_frame_classes,
-                            # for init ablation
-                            # remove=True
-                        )
-
-                        # for init ablation
-                        #noised_init = noised_init * 0.0
-                        #noised_init = noised_init + self.initial_value.weight.unsqueeze(0)
-                        noised_init = self.last_outputs[-1]
-
                         # indices, noised_init = self.noiser(
-                        #     self.last_outputs[-1],
-                        #     self.last_outputs[-1],
-                        #     cur_embeds_no_norm=self.last_outputs[-1].detach(),
+                        #     self.last_frame_embeds,
+                        #     single_frame_embeds,
+                        #     cur_embeds_no_norm=single_frame_embeds_no_norm,
                         #     activate=self.training,
                         #     cur_classes=single_frame_classes,
                         #     # for init ablation
                         #     # remove=True
                         # )
+
+                        # for init ablation
+                        #noised_init = noised_init * 0.0
+                        #noised_init = noised_init + self.initial_value.weight.unsqueeze(0)
+                        # noised_init = self.last_outputs[-1]
+
+                        indices, noised_init = self.noiser(
+                            self.last_outputs[-1],
+                            self.last_outputs[-1],
+                            cur_embeds_no_norm=self.last_outputs[-1],
+                            activate=self.training,
+                            cur_classes=single_frame_classes,
+                            # for init ablation
+                            # remove=True
+                        )
 
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
@@ -352,7 +353,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None,
-                            standard=True
+                            #standard=True
                         )
 
 
@@ -373,7 +374,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None,
-                            standard=True
+                            #standard=True
                         )
 
 
