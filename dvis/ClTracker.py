@@ -1296,36 +1296,36 @@ class TemporalRefiner(torch.nn.Module):
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
         self.transformer_obj_self_attention_layers = nn.ModuleList()
-        self.transformer_time_self_attention_layers = nn.ModuleList()
+        # self.transformer_time_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
-        # self.conv_short_aggregate_layers = nn.ModuleList()
-        # self.conv_norms = nn.ModuleList()
+        self.conv_short_aggregate_layers = nn.ModuleList()
+        self.conv_norms = nn.ModuleList()
 
         for _ in range(self.num_layers):
-            self.transformer_time_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-
-            # self.conv_short_aggregate_layers.append(
-            #     nn.Sequential(
-            #         nn.Conv1d(hidden_channel, hidden_channel,
-            #                   kernel_size=5, stride=1,
-            #                   padding='same', padding_mode='replicate'),
-            #         nn.ReLU(inplace=True),
-            #         nn.Conv1d(hidden_channel, hidden_channel,
-            #                   kernel_size=3, stride=1,
-            #                   padding='same', padding_mode='replicate'),
+            # self.transformer_time_self_attention_layers.append(
+            #     SelfAttentionLayer(
+            #         d_model=hidden_channel,
+            #         nhead=num_head,
+            #         dropout=0.0,
+            #         normalize_before=False,
             #     )
             # )
 
-            # self.conv_norms.append(nn.LayerNorm(hidden_channel))
+            self.conv_short_aggregate_layers.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channel, hidden_channel,
+                              kernel_size=5, stride=1,
+                              padding='same', padding_mode='replicate'),
+                    nn.ReLU(inplace=True),
+                    nn.Conv1d(hidden_channel, hidden_channel,
+                              kernel_size=3, stride=1,
+                              padding='same', padding_mode='replicate'),
+                )
+            )
+
+            self.conv_norms.append(nn.LayerNorm(hidden_channel))
 
             self.transformer_obj_self_attention_layers.append(
                 SelfAttentionLayer(
@@ -1391,20 +1391,20 @@ class TemporalRefiner(torch.nn.Module):
             output = output.flatten(1, 2)  # (t, bq, c)
 
             # do long temporal attention
-            output = self.transformer_time_self_attention_layers[i](
-                output, tgt_mask=temporal_mask,
-                tgt_key_padding_mask=None,
-                query_pos=None
-            )
+            # output = self.transformer_time_self_attention_layers[i](
+            #     output, tgt_mask=temporal_mask,
+            #     tgt_key_padding_mask=None,
+            #     query_pos=None
+            # )
 
             # do short temporal conv
-            # output = output.permute(1, 2, 0)  # (bq, c, t)
-            # output = self.conv_norms[i](
-            #     (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)
-            # ).transpose(1, 2)
-            # output = output.reshape(
-            #     n_batch, n_instance, n_channel, n_frames
-            # ).permute(1, 0, 3, 2).flatten(1, 2)  # (q, bt, c)
+            output = output.permute(1, 2, 0)  # (bq, c, t)
+            output = self.conv_norms[i](
+                (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)
+            ).transpose(1, 2)
+            output = output.reshape(
+                n_batch, n_instance, n_channel, n_frames
+            ).permute(1, 0, 3, 2).flatten(1, 2)  # (q, bt, c)
 
             # do objects self attention
             output = self.transformer_obj_self_attention_layers[i](
