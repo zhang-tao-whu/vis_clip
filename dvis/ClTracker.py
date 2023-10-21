@@ -1295,9 +1295,9 @@ class TemporalRefiner(torch.nn.Module):
         # init transformer layers
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
-        # self.transformer_obj_self_attention_layers = nn.ModuleList()
+        self.transformer_obj_self_attention_layers = nn.ModuleList()
         self.transformer_time_self_attention_layers = nn.ModuleList()
-        self.transformer_cross_attention_layers = nn.ModuleList()
+        # self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
         self.conv_short_aggregate_layers = nn.ModuleList()
@@ -1327,23 +1327,23 @@ class TemporalRefiner(torch.nn.Module):
 
             self.conv_norms.append(nn.LayerNorm(hidden_channel))
 
-            # self.transformer_obj_self_attention_layers.append(
-            #     SelfAttentionLayer(
-            #         d_model=hidden_channel,
-            #         nhead=num_head,
-            #         dropout=0.0,
-            #         normalize_before=False,
-            #     )
-            # )
-
-            self.transformer_cross_attention_layers.append(
-                CrossAttentionLayer(
+            self.transformer_obj_self_attention_layers.append(
+                SelfAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
                     dropout=0.0,
                     normalize_before=False,
                 )
             )
+
+            # self.transformer_cross_attention_layers.append(
+            #     CrossAttentionLayer(
+            #         d_model=hidden_channel,
+            #         nhead=num_head,
+            #         dropout=0.0,
+            #         normalize_before=False,
+            #     )
+            # )
 
             self.transformer_ffn_layers.append(
                 FFNLayer(
@@ -1407,19 +1407,19 @@ class TemporalRefiner(torch.nn.Module):
             ).permute(1, 0, 3, 2).flatten(1, 2)  # (q, bt, c)
 
             # do objects self attention
-            # output = self.transformer_obj_self_attention_layers[i](
-            #     output, tgt_mask=None,
-            #     tgt_key_padding_mask=None,
-            #     query_pos=None
-            # )
+            output = self.transformer_obj_self_attention_layers[i](
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=None
+            )
 
             # do cross attention
-            output = self.transformer_cross_attention_layers[i](
-                output, frame_embeds,
-                memory_mask=None,
-                memory_key_padding_mask=None,
-                pos=None, query_pos=None
-            )
+            # output = self.transformer_cross_attention_layers[i](
+            #     output, frame_embeds,
+            #     memory_mask=None,
+            #     memory_key_padding_mask=None,
+            #     pos=None, query_pos=None
+            # )
 
             # FFN
             output = self.transformer_ffn_layers[i](
