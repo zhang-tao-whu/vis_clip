@@ -29,7 +29,8 @@ class ReferringCrossAttentionLayer(nn.Module):
         nhead,
         dropout=0.0,
         activation="relu",
-        normalize_before=False
+        normalize_before=False,
+        standard=False
     ):
         super().__init__()
         self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
@@ -37,6 +38,7 @@ class ReferringCrossAttentionLayer(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.activation = _get_activation_fn(activation)
         self.normalize_before = normalize_before
+        self.standard = standard
         self._reset_parameters()
 
     def _reset_parameters(self):
@@ -101,6 +103,9 @@ class ReferringCrossAttentionLayer(nn.Module):
         query_pos=None
     ):
         # when set "indentify = tgt", ReferringCrossAttentionLayer is same as CrossAttentionLayer
+        if self.standard:
+            tgt = tgt * 0.0 + indentify
+
         if self.normalize_before:
             return self.forward_pre(indentify, tgt, key, memory, memory_mask,
                                     memory_key_padding_mask, pos, query_pos)
@@ -144,6 +149,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                     nhead=num_head,
                     dropout=0.0,
                     normalize_before=False,
+                    standard=True
                 )
             )
 
@@ -248,6 +254,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             activate=False,
                             cur_classes=single_frame_classes,
                         )
+
+                        # for reference as init value
+                        noised_init = frame_key
+
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
@@ -302,6 +312,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             activate=self.training,
                             cur_classes=single_frame_classes,
                         )
+
+                        # for reference as init value
+                        noised_init = self.last_outputs[-1]
+
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
