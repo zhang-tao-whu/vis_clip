@@ -15,4 +15,4 @@ INPUT:
   SAMPLING_FRAME_NUM: 5
   SAMPLING_FRAME_RANGE: 2
 
-OUTPUT_DIR: './ablation_random_shuffle_4w'
+OUTPUT_DIR: './ablation_random_shuffle_4w_r10'
