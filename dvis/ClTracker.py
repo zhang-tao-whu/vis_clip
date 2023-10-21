@@ -1295,13 +1295,13 @@ class TemporalRefiner(torch.nn.Module):
         # init transformer layers
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
-        self.transformer_obj_self_attention_layers = nn.ModuleList()
+        # self.transformer_obj_self_attention_layers = nn.ModuleList()
         self.transformer_time_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
-        # self.conv_short_aggregate_layers = nn.ModuleList()
-        # self.conv_norms = nn.ModuleList()
+        self.conv_short_aggregate_layers = nn.ModuleList()
+        self.conv_norms = nn.ModuleList()
 
         for _ in range(self.num_layers):
             self.transformer_time_self_attention_layers.append(
@@ -1313,28 +1313,28 @@ class TemporalRefiner(torch.nn.Module):
                 )
             )
 
-            # self.conv_short_aggregate_layers.append(
-            #     nn.Sequential(
-            #         nn.Conv1d(hidden_channel, hidden_channel,
-            #                   kernel_size=5, stride=1,
-            #                   padding='same', padding_mode='replicate'),
-            #         nn.ReLU(inplace=True),
-            #         nn.Conv1d(hidden_channel, hidden_channel,
-            #                   kernel_size=3, stride=1,
-            #                   padding='same', padding_mode='replicate'),
-            #     )
-            # )
-            #
-            # self.conv_norms.append(nn.LayerNorm(hidden_channel))
-
-            self.transformer_obj_self_attention_layers.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
+            self.conv_short_aggregate_layers.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channel, hidden_channel,
+                              kernel_size=5, stride=1,
+                              padding='same', padding_mode='replicate'),
+                    nn.ReLU(inplace=True),
+                    nn.Conv1d(hidden_channel, hidden_channel,
+                              kernel_size=3, stride=1,
+                              padding='same', padding_mode='replicate'),
                 )
             )
+
+            self.conv_norms.append(nn.LayerNorm(hidden_channel))
+
+            # self.transformer_obj_self_attention_layers.append(
+            #     SelfAttentionLayer(
+            #         d_model=hidden_channel,
+            #         nhead=num_head,
+            #         dropout=0.0,
+            #         normalize_before=False,
+            #     )
+            # )
 
             self.transformer_cross_attention_layers.append(
                 CrossAttentionLayer(
@@ -1399,19 +1399,19 @@ class TemporalRefiner(torch.nn.Module):
 
             # do short temporal conv
             output = output.permute(1, 2, 0)  # (bq, c, t)
-            # output = self.conv_norms[i](
-            #     (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)
-            # ).transpose(1, 2)
+            output = self.conv_norms[i](
+                (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)
+            ).transpose(1, 2)
             output = output.reshape(
                 n_batch, n_instance, n_channel, n_frames
             ).permute(1, 0, 3, 2).flatten(1, 2)  # (q, bt, c)
 
             # do objects self attention
-            output = self.transformer_obj_self_attention_layers[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=None
-            )
+            # output = self.transformer_obj_self_attention_layers[i](
+            #     output, tgt_mask=None,
+            #     tgt_key_padding_mask=None,
+            #     query_pos=None
+            # )
 
             # do cross attention
             output = self.transformer_cross_attention_layers[i](
@@ -1799,9 +1799,9 @@ class ClDVIS_offline(ClDVIS_online):
             # bipartite matching-based loss
             losses, matching_result = self.criterion(outputs, targets,
                                                      matcher_outputs=image_outputs, ret_match_result=True)
-            # cl_loss = self.get_cl_loss(outputs, matching_result)
-            cl_loss = self.get_cl_loss_with_memory(outputs, matching_result, targets)
-            losses.update(cl_loss)
+
+            #cl_loss = self.get_cl_loss_with_memory(outputs, matching_result, targets)
+            #losses.update(cl_loss)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
