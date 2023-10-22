@@ -60,7 +60,7 @@ class Noiser:
         ret_indices = torch.arange(cur_embeds.shape[0], dtype=torch.int64).numpy()
         ret_indices[(indices[:, 0, 0] < cur_embeds.shape[-1] // 2).to(torch.bool).numpy()] =\
             np.array(indices_)[(indices[:, 0, 0] < cur_embeds.shape[-1] // 2).to(torch.bool).numpy()]
-        return list(ret_indices.numpy()), ret_embeds
+        return list(ret_indices), ret_embeds
 
     def _push_new_embeds(self, cur_embeds, cur_classes):
         unique_cls = list(torch.unique(cur_classes, sorted=False).cpu().numpy())
