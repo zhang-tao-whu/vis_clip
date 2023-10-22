@@ -43,9 +43,10 @@ class Noiser:
         noise_init = cur_embeds[indices]
         weight_ratio = torch.rand(cur_embeds.shape[0], 1, 1)
         noise_init = cur_embeds * weight_ratio.to(cur_embeds) + noise_init * (1.0 - weight_ratio.to(cur_embeds))
-        ret_indices = torch.arange(cur_embeds.shape[0], dtype=torch.int64)
-        ret_indices[(weight_ratio[:, 0, 0] < 0.5).to(torch.bool)] = indices[(weight_ratio[:, 0, 0] < 0.5).to(torch.bool)]
-        return list(ret_indices.numpy()), noise_init
+        ret_indices = torch.arange(cur_embeds.shape[0], dtype=torch.int64).numpy()
+        ret_indices[(weight_ratio[:, 0, 0] < 0.5).to(torch.bool).numpy()] =\
+            np.array(indices)[(weight_ratio[:, 0, 0] < 0.5).to(torch.bool).numpy()]
+        return list(ret_indices), noise_init
 
     def _cc_noise_forward(self, cur_embeds, cur_classes):
         assert cur_classes is not None
