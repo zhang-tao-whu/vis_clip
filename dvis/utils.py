@@ -57,8 +57,9 @@ class Noiser:
 
         indices_, cur_embeds_ = self._hard_noise_forward(cur_embeds)
         ret_embeds = cur_embeds * weight + cur_embeds_ * (1 - weight)
-        ret_indices = torch.arange(cur_embeds.shape[0], dtype=torch.int64)
-        ret_indices[indices[:, 0, 0] < cur_embeds.shape[-1] // 2] = indices_[indices[:, 0, 0] < cur_embeds.shape[-1] // 2]
+        ret_indices = torch.arange(cur_embeds.shape[0], dtype=torch.int64).numpy()
+        ret_indices[(indices[:, 0, 0] < cur_embeds.shape[-1] // 2).to(torch.bool).numpy()] =\
+            np.array(indices_)[(indices[:, 0, 0] < cur_embeds.shape[-1] // 2).to(torch.bool).numpy()]
         return list(ret_indices.numpy()), ret_embeds
 
     def _push_new_embeds(self, cur_embeds, cur_classes):
