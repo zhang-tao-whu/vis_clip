@@ -42,7 +42,7 @@ class Noiser:
         np.random.shuffle(indices)
         noise_init = cur_embeds[indices]
         weight_ratio = torch.rand(cur_embeds.shape[0], 1, 1)
-        noise_init = cur_embeds * weight_ratio + noise_init * (1.0 - weight_ratio)
+        noise_init = cur_embeds * weight_ratio.to(cur_embeds) + noise_init * (1.0 - weight_ratio.to(cur_embeds))
         ret_indices = torch.arange(cur_embeds.shape[0], dtype=torch.int64)
         ret_indices[weight_ratio[:, 0, 0] < 0.5] = indices[weight_ratio[:, 0, 0] < 0.5]
         return list(ret_indices.numpy()), noise_init
@@ -52,7 +52,7 @@ class Noiser:
         # embeds (q, b, c), classes (q)
         indices = torch.randint(0, cur_embeds.shape[-1], (cur_embeds.shape[0], )).unsqueeze(-1).unsqueeze(-1)
         weight = torch.arange(cur_embeds.shape[-1], dtype=torch.int64).unsqueeze(0).unsqueeze(0)
-        weight = (weight < indices).to(torch.float32)
+        weight = (weight < indices).to(torch.float32).to(cur_embeds)
 
         indices_, cur_embeds_ = self._hard_noise_forward(cur_embeds)
         ret_embeds = cur_embeds * weight + cur_embeds_ * (1 - weight)
