@@ -5,7 +5,7 @@ from scipy.optimize import linear_sum_assignment
 
 class Noiser:
     def __init__(self, noise_ratio=0.8, mode='hard', memory_max_len=100):
-        assert mode in ['none', 'hard', 'object_hard', 'overall_class_hard']
+        assert mode in ['none', 'hard', 'object_hard', 'overall_class_hard', 'wa', 'cc']
         self.mode = mode
         self.noise_ratio = noise_ratio
 
@@ -34,6 +34,31 @@ class Noiser:
         indices = list(indices[rand_indices])
         noise_init = cur_embeds[indices]
         return indices, noise_init
+
+    def _wa_noise_forward(self, cur_embeds, cur_classes):
+        assert cur_classes is not None
+        # embeds (q, b, c), classes (q)
+        indices = list(range(cur_embeds.shape[0]))
+        np.random.shuffle(indices)
+        noise_init = cur_embeds[indices]
+        weight_ratio = torch.rand(cur_embeds.shape[0], 1, 1)
+        noise_init = cur_embeds * weight_ratio + noise_init * (1.0 - weight_ratio)
+        ret_indices = torch.arange(cur_embeds.shape[0], dtype=torch.int64)
+        ret_indices[weight_ratio[:, 0, 0] < 0.5] = indices[weight_ratio[:, 0, 0] < 0.5]
+        return list(ret_indices.numpy()), noise_init
+
+    def _cc_noise_forward(self, cur_embeds, cur_classes):
+        assert cur_classes is not None
+        # embeds (q, b, c), classes (q)
+        indices = torch.randint(0, cur_embeds.shape[-1], (cur_embeds.shape[0], )).unsqueeze(-1).unsqueeze(-1)
+        weight = torch.arange(cur_embeds.shape[-1], dtype=torch.int64).unsqueeze(0).unsqueeze(0)
+        weight = (weight < indices).to(torch.float32)
+
+        indices_, cur_embeds_ = self._hard_noise_forward(cur_embeds)
+        ret_embeds = cur_embeds * weight + cur_embeds_ * (1 - weight)
+        ret_indices = torch.arange(cur_embeds.shape[0], dtype=torch.int64)
+        ret_indices[indices[:, 0, 0] < cur_embeds.shape[-1] // 2] = indices_[indices[:, 0, 0] < cur_embeds.shape[-1] // 2]
+        return list(ret_indices.numpy()), ret_embeds
 
     def _push_new_embeds(self, cur_embeds, cur_classes):
         unique_cls = list(torch.unique(cur_classes, sorted=False).cpu().numpy())
@@ -93,6 +118,12 @@ class Noiser:
         if activate and random.random() < self.noise_ratio:
             if self.mode == 'hard':
                 indices, noise_init = self._hard_noise_forward(cur_embeds_no_norm)
+                return indices, noise_init
+            elif self.mode == 'wa':
+                indices, noise_init = self._wa_noise_forward(cur_embeds_no_norm, cur_classes)
+                return indices, noise_init
+            elif self.mode == 'cc':
+                indices, noise_init = self._cc_noise_forward(cur_embeds_no_norm, cur_classes)
                 return indices, noise_init
             elif self.mode == 'object_hard':
                 indices, noise_init = self._object_hard_noise_forward(cur_embeds_no_norm, cur_classes)
