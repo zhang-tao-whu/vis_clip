@@ -191,8 +191,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_frame_embeds = None
         self.last_reference = None
 
-        # self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
-        self.noiser = Noiser(noise_ratio=1.0, mode=noise_mode)
+        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
+        #self.noiser = Noiser(noise_ratio=1.0, mode=noise_mode)
 
     def _clear_memory(self):
         del self.last_outputs
