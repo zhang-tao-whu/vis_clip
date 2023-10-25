@@ -1,0 +1,19 @@
+_BASE_: CT_MinVIS_R50.yaml
+MODEL:
+  META_ARCHITECTURE: "ClDVIS_online"
+  MASK_FORMER:
+    TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_ctdvis"
+  TRACKER:
+    NOISE_MODE: "wa"
+    USE_CL: False
+
+SOLVER:
+  IMS_PER_BATCH: 8
+  STEPS: (112000,)
+  MAX_ITER: 160000
+
+INPUT:
+  SAMPLING_FRAME_NUM: 5
+  SAMPLING_FRAME_RANGE: 2
+
+OUTPUT_DIR: './ablation_wa_16w_r5_wo_closs'
