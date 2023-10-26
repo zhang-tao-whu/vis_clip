@@ -122,8 +122,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
         mask_dim=256,
         class_num=25,
         noise_mode='hard',
+        splits=[3, 3]
     ):
         super(ClReferringTracker_noiser, self).__init__()
+        self.splits = splits
+        assert sum(splits) == decoder_layer_num
 
         # init transformer layers
         self.num_heads = num_head
@@ -143,15 +146,35 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 )
             )
 
-            self.transformer_cross_attention_layers.append(
-                ReferringCrossAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                    standard=True
+            # self.transformer_cross_attention_layers.append(
+            #     ReferringCrossAttentionLayer(
+            #         d_model=hidden_channel,
+            #         nhead=num_head,
+            #         dropout=0.0,
+            #         normalize_before=False,
+            #         standard=True
+            #     )
+            # )
+            if _ < self.splits[0]:
+                self.transformer_cross_attention_layers.append(
+                    ReferringCrossAttentionLayer(
+                        d_model=hidden_channel,
+                        nhead=num_head,
+                        dropout=0.0,
+                        normalize_before=False,
+                        standard=False
+                    )
                 )
-            )
+            else:
+                self.transformer_cross_attention_layers.append(
+                    ReferringCrossAttentionLayer(
+                        d_model=hidden_channel,
+                        nhead=num_head,
+                        dropout=0.0,
+                        normalize_before=False,
+                        standard=True
+                    )
+                )
 
             self.transformer_ffn_layers.append(
                 FFNLayer(
@@ -197,7 +220,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_frame_embeds = None
         self.last_reference = None
 
-        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
+        self.noiser = Noiser(noise_ratio=0.5, mode=noise_mode)
 
     def _clear_memory(self):
         del self.last_outputs
@@ -256,7 +279,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         )
 
                         # for reference as init value
-                        noised_init = frame_key
+                        # noised_init = frame_key
 
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
@@ -314,7 +337,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         )
 
                         # for reference as init value
-                        noised_init = self.last_outputs[-1]
+                        # noised_init = self.last_outputs[-1]
 
                         ms_output.append(single_frame_embeds_no_norm[indices])
                         self.last_frame_embeds = single_frame_embeds[indices]
