@@ -16,7 +16,7 @@ from panopticapi.utils import rgb2id
 from .utils import Video_BitMasks, Video_Boxes
 import random
 
-__all__ = ["PanopticDatasetVideoMapper"]
+#__all__ = ["PanopticDatasetVideoMapper"]
 
 
 class PanopticDatasetVideoMapper:

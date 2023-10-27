@@ -30,7 +30,7 @@ from .augmentation import build_augmentation, build_pseudo_augmentation
 
 from .datasets.ytvis import COCO_TO_YTVIS_2019, COCO_TO_YTVIS_2021, COCO_TO_OVIS
 
-__all__ = ["YTVISDatasetMapper", "CocoClipDatasetMapper"]
+#__all__ = ["YTVISDatasetMapper", "CocoClipDatasetMapper"]
 
 
 def filter_empty_instances(instances, by_box=True, by_mask=True, box_threshold=1e-5):
