@@ -1037,14 +1037,9 @@ class DVIS_online_OV(MinVIS_OV):
                                                                             name=batched_inputs[0]['name'])
 
         if not self.training and self.window_inference:
-            if self.segmenter_clip_enable:
-                outputs = self.run_window_inference(images.tensor, window_size=self.clip_size,
-                                                    text_classifier=text_classifier,
-                                                    num_templates=num_templates)
-            else:
-                outputs = self.run_window_inference(images.tensor, window_size=self.window_size,
-                                                    text_classifier=text_classifier,
-                                                    num_templates=num_templates)
+            outputs = self.run_window_inference(images.tensor, window_size=self.window_size,
+                                                text_classifier=text_classifier,
+                                                num_templates=num_templates)
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
@@ -1052,10 +1047,7 @@ class DVIS_online_OV(MinVIS_OV):
                 features = self.backbone(images.tensor)
                 features['text_classifier'] = text_classifier
                 features['num_templates'] = num_templates
-                if self.segmenter_clip_enable:
-                    image_outputs = self.sem_seg_head(features, clip_size=self.clip_size)
-                else:
-                    image_outputs = self.sem_seg_head(features)
+                image_outputs = self.sem_seg_head(features)
                 if 'transformer_features' in image_outputs.keys():
                     cur_features = image_outputs['transformer_features']
                 else:
