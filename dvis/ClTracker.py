@@ -309,6 +309,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                     else:
                         if j == self.splits[0]:
                             propagation = torch.cat([frame_key, ms_output[-1]], dim=-1)
+                            propagation = self.fuse(propagation)
                             output = self.transformer_cross_attention_layers[j](
                                 propagation, self.ref_proj(ms_output[-1]),
                                 frame_key, single_frame_embeds_no_norm,
@@ -385,6 +386,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
                         if j == self.splits[0]:
                             propagation = torch.cat([self.last_outputs[-1], ms_output[-1]], dim=-1)
+                            propagation = self.fuse(propagation)
                             output = self.transformer_cross_attention_layers[j](
                                 propagation, self.ref_proj(ms_output[-1]),
                                 frame_key, single_frame_embeds_no_norm,
