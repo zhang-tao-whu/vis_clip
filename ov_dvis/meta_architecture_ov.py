@@ -80,8 +80,6 @@ class MinVIS_OV(nn.Module):
         # video
         num_frames,
         window_inference,
-        segmenter_clip_enable,
-        clip_size,
         # fc-clip
         geometric_ensemble_alpha: float,
         geometric_ensemble_beta: float,
@@ -133,9 +131,6 @@ class MinVIS_OV(nn.Module):
 
         self.num_frames = num_frames
         self.window_inference = window_inference
-
-        self.segmenter_clip_enable = segmenter_clip_enable
-        self.clip_size = clip_size
 
         # FC-CLIP args
         self.mask_pooling = MaskPooling()
@@ -428,8 +423,6 @@ class MinVIS_OV(nn.Module):
             # video
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
             "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
-            "segmenter_clip_enable": cfg.MODEL.MASK_FORMER.TEST.SEGMENTER_CLIP_ENABLE,
-            "clip_size": cfg.MODEL.MASK_FORMER.TEST.CLIP_SIZE,
             # fc clip
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
@@ -798,8 +791,6 @@ class DVIS_online_OV(MinVIS_OV):
         max_iter_num,
         window_size,
         task,
-        segmenter_clip_enable,
-        clip_size,
         # fc-clip
         geometric_ensemble_alpha: float,
         geometric_ensemble_beta: float,
@@ -852,8 +843,6 @@ class DVIS_online_OV(MinVIS_OV):
             # video
             num_frames=num_frames,
             window_inference=window_inference,
-            segmenter_clip_enable=segmenter_clip_enable,
-            clip_size=clip_size,
             # dc clip
             geometric_ensemble_alpha=geometric_ensemble_alpha,
             geometric_ensemble_beta=geometric_ensemble_beta,
@@ -980,8 +969,6 @@ class DVIS_online_OV(MinVIS_OV):
             "max_iter_num": max_iter_num,
             "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
-            "segmenter_clip_enable": cfg.MODEL.MASK_FORMER.TEST.SEGMENTER_CLIP_ENABLE,
-            "clip_size": cfg.MODEL.MASK_FORMER.TEST.CLIP_SIZE,
             # fc clip
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
