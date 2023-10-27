@@ -400,7 +400,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                 memory_key_padding_mask=None,
                                 pos=None, query_pos=None
                             )
-                        
+
                         # output = self.transformer_cross_attention_layers[j](
                         #     ms_output[-1], reference, frame_key,
                         #     single_frame_embeds_no_norm,
