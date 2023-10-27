@@ -420,7 +420,7 @@ def _get_coco_instances_meta_ov():
     return meta
 
 def load_ytvis_json(json_file, image_root, dataset_name=None, extra_annotation_keys=None):
-    from ..ytvis_api.ytvos import YTVOS
+    from dvis.data_video.datasets.ytvis_api.ytvos import YTVOS
 
     timer = Timer()
     json_file = PathManager.get_local_path(json_file)
@@ -795,7 +795,7 @@ def register_all_ovis_ov(root):
 
 def get_ytvis19_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(YTVIS_CATEGORIES_2019)
-    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/ytvis19_instance_with_prompt_eng.txt').read().splitlines()
+    coco_id_names = open('./ov_dvis/data_video/datasets/ov_datasets/ytvis19_instance_with_prompt_eng.txt').read().splitlines()
     coco_idx = 0
     for line in coco_id_names:
         idx, name = line.split(':')
@@ -811,7 +811,7 @@ def get_ytvis19_categories_with_prompt_eng():
 
 def get_lsvis_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(LSVIS_CATEGORIES)
-    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/lsvis_instance_with_prompt_eng.txt').read().splitlines()
+    coco_id_names = open('./ov_dvis/data_video/datasets/ov_datasets/lsvis_instance_with_prompt_eng.txt').read().splitlines()
     coco_idx = 0
     for line in coco_id_names:
         idx, name = line.split(':')
@@ -826,7 +826,7 @@ def get_lsvis_categories_with_prompt_eng():
 
 def get_ytvis21_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(YTVIS_CATEGORIES_2021)
-    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/ytvis21_instance_with_prompt_eng.txt').read().splitlines()
+    coco_id_names = open('./ov_dvis/data_video/datasets/ov_datasets/ytvis21_instance_with_prompt_eng.txt').read().splitlines()
     coco_idx = 0
     for line in coco_id_names:
         idx, name = line.split(':')
@@ -842,7 +842,7 @@ def get_ytvis21_categories_with_prompt_eng():
 
 def get_ovis_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(OVIS_CATEGORIES)
-    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/ovis_instance_with_prompt_eng.txt').read().splitlines()
+    coco_id_names = open('./ov_dvis/data_video/datasets/ov_datasets/ovis_instance_with_prompt_eng.txt').read().splitlines()
     coco_idx = 0
     for line in coco_id_names:
         idx, name = line.split(':')
@@ -857,7 +857,7 @@ def get_ovis_categories_with_prompt_eng():
 
 def get_coco_categories_with_prompt_eng():
     COCO_CATEGORIES_ = copy.deepcopy(COCO_CATEGORIES)
-    coco_id_names = open('./dvis/data_video/datasets/ov_datasets/coco_panoptic_with_prompt_eng.txt').read().splitlines()
+    coco_id_names = open('./ov_dvis/data_video/datasets/ov_datasets/coco_panoptic_with_prompt_eng.txt').read().splitlines()
     coco_idx = 0
     for line in coco_id_names:
         idx, name = line.split(':')

@@ -259,7 +259,7 @@ def get_metadata_ov(json_file):
     def get_vipseg_categories_with_prompt_eng():
         COCO_CATEGORIES_ = copy.deepcopy(categories)
         coco_id_names = open(
-            './dvis/data_video/datasets/ov_datasets/vipseg_panoptic_with_prompt_eng.txt').read().splitlines()
+            './ov_dvis/data_video/datasets/ov_datasets/vipseg_panoptic_with_prompt_eng.txt').read().splitlines()
         coco_idx = 0
         for line in coco_id_names:
             idx, name = line.split(':')
