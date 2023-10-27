@@ -1227,10 +1227,7 @@ class DVIS_online_OV(MinVIS_OV):
             features = self.backbone(images_tensor[start_idx:end_idx])
             features['text_classifier'] = text_classifier
             features['num_templates'] = num_templates
-            if self.segmenter_clip_enable:
-                out = self.sem_seg_head(features, clip_size=window_size)
-            else:
-                out = self.sem_seg_head(features)
+            out = self.sem_seg_head(features)
             if 'transformer_features' in out.keys():
                 cur_features = out['transformer_features']
             else:
