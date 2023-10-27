@@ -224,6 +224,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # fuse denosing result and propagation
         self.fuse = MLP(hidden_channel * 2, hidden_channel * 2, hidden_channel, 3)
+        self.proj_propagation = nn.Linear(hidden_channel, hidden_channel)
 
 
     def _clear_memory(self):
@@ -308,7 +309,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         ms_output.append(output)
                     else:
                         if j == self.splits[0]:
-                            propagation = torch.cat([frame_key, ms_output[-1]], dim=-1)
+                            propagation = self.proj_propagation(frame_key)
+                            if random.random() < 0.5:
+                                propagation = torch.cat([propagation, ms_output[-1]], dim=-1)
+                            else:
+                                propagation = torch.cat([ms_output[-1], propagation], dim=-1)
                             propagation = self.fuse(propagation)
                             output = self.transformer_cross_attention_layers[j](
                                 propagation, self.ref_proj(ms_output[-1]),
@@ -385,7 +390,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
                     else:
 
                         if j == self.splits[0]:
-                            propagation = torch.cat([self.last_outputs[-1], ms_output[-1]], dim=-1)
+                            propagation = self.proj_propagation(self.last_outputs[-1])
+                            if random.random() < 0.5:
+                                propagation = torch.cat([propagation, ms_output[-1]], dim=-1)
+                            else:
+                                propagation = torch.cat([ms_output[-1], propagation], dim=-1)
                             propagation = self.fuse(propagation)
                             output = self.transformer_cross_attention_layers[j](
                                 propagation, self.ref_proj(ms_output[-1]),
