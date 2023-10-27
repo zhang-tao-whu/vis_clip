@@ -101,8 +101,9 @@ DATASETS:
   DATASET_TYPE_TEST: ['video_instance', ]
   # The categories of all datasets will be mapped to the categories of the last dataset
   DATASET_RATIO: [1.0, 0.2]
-  TRAIN: ("coco_panoptic_video_ov", "ovis_train_ov")
-  TEST: ("ytvis_2019_val_ov",)
+  #TRAIN: ("coco_panoptic_video_ov", "ovis_train_ov")
+  TRAIN: ("coco_panoptic_video_ov", )
+  TEST: ("ovis_train_ov",)
   TEST2TRAIN: [  ]
 
 DATALOADER:
