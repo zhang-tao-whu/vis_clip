@@ -117,7 +117,6 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         decoder_layer_num=6,
         mask_dim=256,
         noise_mode='hard',
-        feature_refusion=False,
         # frozen fc-clip head
         mask_pooling=None,
         mask_pooling_proj=None,
@@ -134,36 +133,8 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         self.transformer_self_attention_layers = nn.ModuleList()
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
-        if feature_refusion:
-            self.memory_feature = None
-            self.feature2query_fusion_layers = nn.ModuleList()
-
-            self.mem_cur_feature_fusion = SelfAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,
-            )
-
-            self.feature_proj = nn.Conv2d(
-                mask_dim,
-                mask_dim,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            )
 
         for _ in range(self.num_layers):
-            if feature_refusion:
-                self.feature2query_fusion_layers.append(
-                    ReferringCrossAttentionLayer(
-                        d_model=hidden_channel,
-                        nhead=num_head,
-                        dropout=0.0,
-                        normalize_before=False,
-                    )
-                )
-
             self.transformer_self_attention_layers.append(
                 SelfAttentionLayer(
                     d_model=hidden_channel,
