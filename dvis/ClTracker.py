@@ -220,7 +220,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_frame_embeds = None
         self.last_reference = None
 
-        self.noiser = Noiser(noise_ratio=0.5, mode=noise_mode)
+        # self.noiser = Noiser(noise_ratio=0.5, mode=noise_mode)
+        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
         # fuse denosing result and propagation
         self.fuse = MLP(hidden_channel * 2, hidden_channel * 2, hidden_channel, 3)
