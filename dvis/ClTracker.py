@@ -202,6 +202,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+        self.ref_proj_2 = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
 
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
@@ -291,7 +292,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
-                            noised_init, self.ref_proj(frame_key),
+                            # noised_init, self.ref_proj(frame_key),
+                            noised_init, self.ref_proj_2(frame_key),
                             frame_key, single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
@@ -317,7 +319,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                 propagation = torch.cat([ms_output[-1], propagation], dim=-1)
                             propagation = self.fuse(propagation)
                             output = self.transformer_cross_attention_layers[j](
-                                propagation, self.ref_proj(ms_output[-1]),
+                                # propagation, self.ref_proj(ms_output[-1]),
+                                propagation, self.ref_proj_2(ms_output[-1]),
                                 frame_key, single_frame_embeds_no_norm,
                                 memory_mask=None,
                                 memory_key_padding_mask=None,
@@ -325,7 +328,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             )
                         else:
                             output = self.transformer_cross_attention_layers[j](
-                                ms_output[-1], self.ref_proj(ms_output[-1]),
+                                # ms_output[-1], self.ref_proj(ms_output[-1]),
+                                ms_output[-1], self.ref_proj_2(ms_output[-1]),
                                 frame_key, single_frame_embeds_no_norm,
                                 memory_mask=None,
                                 memory_key_padding_mask=None,
@@ -371,7 +375,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
-                            noised_init, reference, frame_key,
+                            #noised_init, reference, frame_key,
+                            noised_init, self.ref_proj_2(self.last_outputs[-1]), frame_key,
                             single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
@@ -398,7 +403,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                 propagation = torch.cat([ms_output[-1], propagation], dim=-1)
                             propagation = self.fuse(propagation)
                             output = self.transformer_cross_attention_layers[j](
-                                propagation, self.ref_proj(ms_output[-1]),
+                                # propagation, self.ref_proj(ms_output[-1]),
+                                propagation, self.ref_proj_2(ms_output[-1]),
                                 frame_key, single_frame_embeds_no_norm,
                                 memory_mask=None,
                                 memory_key_padding_mask=None,
@@ -406,7 +412,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                             )
                         else:
                             output = self.transformer_cross_attention_layers[j](
-                                ms_output[-1], self.ref_proj(ms_output[-1]),
+                                # ms_output[-1], self.ref_proj(ms_output[-1]),
+                                ms_output[-1], self.ref_proj_2(ms_output[-1]),
                                 frame_key, single_frame_embeds_no_norm,
                                 memory_mask=None,
                                 memory_key_padding_mask=None,
