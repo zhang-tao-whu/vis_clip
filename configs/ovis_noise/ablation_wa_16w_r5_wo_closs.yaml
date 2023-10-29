@@ -16,4 +16,4 @@ INPUT:
   SAMPLING_FRAME_NUM: 5
   SAMPLING_FRAME_RANGE: 2
 
-OUTPUT_DIR: './ablation_wa_16w_r5_wo_closs'
+OUTPUT_DIR: './ablation_wa_16w_r5_wo_closs_try2'
