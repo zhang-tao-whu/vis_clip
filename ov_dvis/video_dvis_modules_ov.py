@@ -162,9 +162,15 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                 )
             )
 
+        # for cl learning
+        self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+        # for reference and query merge
+        self.merge = nn.Linear(hidden_channel, hidden_channel)
+
         # record previous frame information
         self.last_outputs = None
         self.last_frame_embeds = None
+        self.last_reference = None
 
         self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
@@ -179,6 +185,7 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
+        self.last_reference = None
         return
 
     def forward(self, frame_embeds, mask_features, resume=False,
@@ -193,7 +200,6 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         :param return_indices: whether return the match indices
         :return: output dict, including masks, classes, embeds.
         """
-        mask_features_ = []
 
         frame_embeds = frame_embeds.permute(2, 3, 0, 1)  # t, q, b, c
         if frame_embeds_no_norm is not None:
@@ -201,6 +207,8 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
         ret_indices = []
+
+        all_frames_references = []
 
         for i in range(n_frame):
             ms_output = []
@@ -213,11 +221,12 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                 single_frame_classes = None
             else:
                 single_frame_classes = frame_classes[i]
-            if i == 0 and resume is False:
-                self._clear_memory()
+
+            frame_key = single_frame_embeds_no_norm
+
             # the first frame of a video
             if i == 0 and resume is False:
-                # self._clear_memory()
+                self._clear_memory()
                 for j in range(self.num_layers):
                     if j == 0:
                         indices, noised_init = self.noiser(
@@ -231,24 +240,8 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
-                            noised_init, single_frame_embeds_no_norm, single_frame_embeds_no_norm,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], ms_output[-1], single_frame_embeds_no_norm,
+                            noised_init, self.ref_proj(frame_key),
+                            frame_key, single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
@@ -264,7 +257,30 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                             output
                         )
                         ms_output.append(output)
+                    else:
+                        output = self.transformer_cross_attention_layers[j](
+                            ms_output[-1], self.ref_proj(ms_output[-1]),
+                            frame_key, single_frame_embeds_no_norm,
+                            memory_mask=None,
+                            memory_key_padding_mask=None,
+                            pos=None, query_pos=None
+                        )
+
+                        output = self.transformer_self_attention_layers[j](
+                            output, tgt_mask=None,
+                            tgt_key_padding_mask=None,
+                            query_pos=None
+                        )
+                        # FFN
+                        output = self.transformer_ffn_layers[j](
+                            output
+                        )
+                        ms_output.append(output)
+                self.last_reference = self.ref_proj(frame_key)
             else:
+                reference = self.ref_proj(self.last_outputs[-1])
+                self.last_reference = reference
+
                 for j in range(self.num_layers):
                     if j == 0:
                         indices, noised_init = self.noiser(
@@ -278,7 +294,8 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                         self.last_frame_embeds = single_frame_embeds[indices]
                         ret_indices.append(indices)
                         output = self.transformer_cross_attention_layers[j](
-                            noised_init, self.last_outputs[-1], single_frame_embeds_no_norm,
+                            noised_init, reference, frame_key,
+                            single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
@@ -295,9 +312,9 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                         )
                         ms_output.append(output)
                     else:
-
                         output = self.transformer_cross_attention_layers[j](
-                            ms_output[-1], self.last_outputs[-1], single_frame_embeds_no_norm,
+                            ms_output[-1], reference, frame_key,
+                            single_frame_embeds_no_norm,
                             memory_mask=None,
                             memory_key_padding_mask=None,
                             pos=None, query_pos=None
@@ -313,15 +330,21 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                             output
                         )
                         ms_output.append(output)
+
+            all_frames_references.append(self.last_reference)
+
             ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
             self.last_outputs = ms_output
             outputs.append(ms_output[1:])
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
+        all_frames_references = torch.stack(all_frames_references, dim=0)  # (t, q, b, c)
+
         mask_features_ = mask_features
         if not self.training:
             outputs = outputs[:, -1:]
             del mask_features
-        outputs_class, outputs_masks = self.prediction(outputs, mask_features_, text_classifier, num_templates)
+        outputs_class, outputs_masks = self.prediction(outputs, mask_features_, text_classifier,
+                                                       num_templates, all_frames_references)
         #outputs = self.decoder_norm(outputs)
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
@@ -329,7 +352,8 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
            'aux_outputs': self._set_aux_loss(
                outputs_class, outputs_masks
            ),
-           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1)  # (b, c, t, q)
+           'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q)
+           'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
         }
         if return_indices:
             return out, ret_indices
@@ -345,7 +369,7 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
                 for a, b in zip(outputs_class[:-1], outputs_seg_masks[:-1])
                 ]
 
-    def prediction(self, outputs, mask_features, text_classifier, num_templates):
+    def prediction(self, outputs, mask_features, text_classifier, num_templates, references):
         # outputs (t, l, q, b, c)
         # mask_features (b, t, c, h, w)
         decoder_output = self.decoder_norm(outputs)
@@ -353,6 +377,10 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         # outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (l, b, q, t, cls+1)
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
+
+        references = references.unsqueeze(1).repeat(1, decoder_output.size(0), 1, 1, 1).permute(1, 3, 0, 2, 4)
+        decoder_output_cls = torch.cat([references, decoder_output], dim=-1)
+        decoder_output_cls = self.merge(decoder_output_cls)
 
         # fc-clip class head forward
         # mean pooling
@@ -363,7 +391,7 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         maskpool_embeddings = self.mask_pooling(x=mask_features, mask=outputs_mask_)  # [lbt, q, c]
         maskpool_embeddings = maskpool_embeddings.reshape(l, b, t, *maskpool_embeddings.shape[-2:])  # (l b t q c)
         maskpool_embeddings = self._mask_pooling_proj(maskpool_embeddings)
-        class_embed = self.class_embed(maskpool_embeddings + decoder_output)
+        class_embed = self.class_embed(maskpool_embeddings + decoder_output_cls)
         outputs_class = get_classification_logits(class_embed, text_classifier, self.logit_scale, num_templates)
         outputs_class = outputs_class.transpose(2, 3)  # (l, b, q, t, cls+1)
 

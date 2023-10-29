@@ -20,6 +20,7 @@ from scipy.optimize import linear_sum_assignment
 
 from .video_dvis_modules_ov import ReferringTracker_noiser_OV
 from .video_mask2former_transformer_decoder_ov import MaskPooling
+from dvis.ClTracker import loss_reid
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,10 @@ class MinVIS_OV(nn.Module):
 
         self.void_embedding = nn.Embedding(1, backbone.dim_latent)  # use this for void
         # init private void embedding for each dataset
-        # self.additional_void_embedding = nn.Embedding(len(train_metadatas) - 1, backbone.dim_latent)
+        if len(train_metadatas) - 1 > 0:
+            self.additional_void_embedding = nn.Embedding(len(train_metadatas) - 1, backbone.dim_latent)
+        else:
+            self.additional_void_embedding = None
 
         self.train_class_prepares = {}
         self.train_names2id = {}
@@ -184,8 +188,13 @@ class MinVIS_OV(nn.Module):
                 res.append(x_)
             return res
         if self.training or not self.test_use_all_vocabulary:
-            void_embed = self.void_embedding.weight
-            void_embed = F.normalize(void_embed, dim=-1)
+            _zero = self.void_embedding.weight.sum() * 0.0 + self.additional_void_embedding.weight.sum() * 0.0
+            i = self.train_names2id[name]
+            if i == 0:
+                void_embed = self.void_embedding.weight
+            else:
+                void_embed = self.additional_void_embedding.weight[i - 1: i]
+            void_embed = F.normalize(void_embed, dim=-1) + _zero
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
             num_templates = num_templates + [1]
             return text_classifier, num_templates
@@ -218,7 +227,17 @@ class MinVIS_OV(nn.Module):
                 train_classifiers.append(self.train_text_classifier_dict[key])
 
             train_classifiers = torch.cat(train_classifiers, dim=0)[train2test_category_overlapping_list]
-            void_embed = self.void_embedding.weight
+
+            if name in self.test2train.keys():
+                i = self.train_names2id[self.test2train[name]]
+                if i == 0:
+                    void_embed = self.void_embedding.weight
+                else:
+                    void_embed = self.additional_void_embedding.weight[i - 1: i]
+            else:
+                void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
+                void_embed = F.normalize(void_embed, dim=-1).detach()
+                void_embed = torch.mean(void_embed, dim=0, keepdim=True)
             void_embed = F.normalize(void_embed, dim=-1)
             text_classifier = torch.cat([text_classifier, void_embed, train_classifiers], dim=0)
             num_templates = num_templates + [1 + len(train_classifiers)]
@@ -478,20 +497,13 @@ class MinVIS_OV(nn.Module):
                                                                             name=batched_inputs[0]['name'])
 
         if not self.training and self.window_inference:
-            if self.segmenter_clip_enable:
-                outputs = self.run_window_inference(images.tensor, window_size=self.clip_size,
-                                                    text_classifier=text_classifier, num_templates=num_templates)
-            else:
-                outputs = self.run_window_inference(images.tensor, window_size=3,
-                                                    text_classifier=text_classifier, num_templates=num_templates)
+            outputs = self.run_window_inference(images.tensor, window_size=3,
+                                                text_classifier=text_classifier, num_templates=num_templates)
         else:
             features = self.backbone(images.tensor)
             features['text_classifier'] = text_classifier
             features['num_templates'] = num_templates
-            if self.segmenter_clip_enable:
-                outputs = self.sem_seg_head(features, clip_size=self.clip_size)
-            else:
-                outputs = self.sem_seg_head(features)
+            outputs = self.sem_seg_head(features)
 
         if self.training:
             # mask classification target
@@ -902,13 +914,15 @@ class DVIS_online_OV(MinVIS_OV):
             "loss_dice": dice_weight
         }
 
-
         if deep_supervision:
             dec_layers = cfg.MODEL.MASK_FORMER.DEC_LAYERS
             aux_weight_dict = {}
             for i in range(dec_layers - 1):
                 aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
+
+        if cfg.MODEL.TRACKER.USE_CL:
+            weight_dict.update({'loss_reid': 2})
 
         losses = ["labels", "masks"]
 
@@ -1069,17 +1083,19 @@ class DVIS_online_OV(MinVIS_OV):
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
             if self.iter < self.max_iter_num // 2:
-            #if self.iter < 0:
-                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
-                    outputs, targets, image_outputs=image_outputs
-                )
+                losses, reference_match_result = self.criterion(outputs, targets,
+                                                                matcher_outputs=image_outputs,
+                                                                ret_match_result=True)
             else:
-                image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
-                    outputs, targets, image_outputs=None
-                )
-            self.iter += 1
+                losses, reference_match_result = self.criterion(outputs, targets,
+                                                                matcher_outputs=None,
+                                                                ret_match_result=True)
+
             # bipartite matching-based loss
             losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
+            self.iter += 1
+            losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
+            losses.update(losses_cl)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
@@ -1151,6 +1167,95 @@ class DVIS_online_OV(MinVIS_OV):
                 mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size, pred_id
             )
 
+    def get_cl_loss_ref(self, outputs, referecne_match_result):
+        # outputs['pred_keys'] = (b t) q c
+        # outputs['pred_references'] = (b t) q c
+        references = outputs['pred_references']
+
+        # per frame
+        contrastive_items = []
+        for i in range(references.size(0)):
+            if i == 0:
+                continue
+            frame_reference = references[i]  # (q, c)
+            frame_reference_ = references[i - 1]  # (q, c)
+
+            if i != references.size(0) - 1:
+                frame_reference_next = references[i + 1]
+            else:
+                frame_reference_next = None
+
+            frame_ref_gt_indices = referecne_match_result[i]
+
+            gt2ref = {}
+            for i_ref, i_gt in zip(frame_ref_gt_indices[0], frame_ref_gt_indices[1]):
+                gt2ref[i_gt.item()] = i_ref.item()
+            # per instance
+            for i_gt in gt2ref.keys():
+                i_ref = gt2ref[i_gt]
+
+                anchor_embeds = frame_reference[[i_ref]]
+                pos_embeds = frame_reference_[[i_ref]]
+                neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
+                neg_embeds = frame_reference_[neg_range]
+
+                num_positive = pos_embeds.shape[0]
+                # concate pos and neg to get whole constractive samples
+                pos_neg_embedding = torch.cat(
+                    [pos_embeds, neg_embeds], dim=0)
+                # generate label, pos is 1, neg is 0
+                pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
+                                                            dtype=torch.int64)  # noqa
+                pos_neg_label[:num_positive] = 1.
+
+                # dot product
+                dot_product = torch.einsum(
+                    'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
+                aux_normalize_pos_neg_embedding = nn.functional.normalize(
+                    pos_neg_embedding, dim=1)
+                aux_normalize_anchor_embedding = nn.functional.normalize(
+                    anchor_embeds, dim=1)
+
+                aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
+                                                                   aux_normalize_anchor_embedding])
+                contrastive_items.append({
+                    'dot_product': dot_product,
+                    'cosine_similarity': aux_cosine_similarity,
+                    'label': pos_neg_label})
+
+                if frame_reference_next is not None:
+                    pos_embeds = frame_reference_next[[i_ref]]
+                    neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
+                    # print(neg_range, '---------', i_key)
+                    neg_embeds = frame_reference_next[neg_range]
+
+                    num_positive = pos_embeds.shape[0]
+                    # concate pos and neg to get whole constractive samples
+                    pos_neg_embedding = torch.cat(
+                        [pos_embeds, neg_embeds], dim=0)
+                    # generate label, pos is 1, neg is 0
+                    pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
+                                                                dtype=torch.int64)  # noqa
+                    pos_neg_label[:num_positive] = 1.
+
+                    # dot product
+                    dot_product = torch.einsum(
+                        'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
+                    aux_normalize_pos_neg_embedding = nn.functional.normalize(
+                        pos_neg_embedding, dim=1)
+                    aux_normalize_anchor_embedding = nn.functional.normalize(
+                        anchor_embeds, dim=1)
+
+                    aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
+                                                                       aux_normalize_anchor_embedding])
+                    contrastive_items.append({
+                        'dot_product': dot_product,
+                        'cosine_similarity': aux_cosine_similarity,
+                        'label': pos_neg_label})
+
+        losses = loss_reid(contrastive_items, outputs)
+        return losses
+
     def _get_instance_labels(self, pred_logits):
         # b, t, q, c
         pred_logits = pred_logits[0]  # (t, q, c)
@@ -1162,6 +1267,7 @@ class DVIS_online_OV(MinVIS_OV):
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
+        outputs['pred_references'] = einops.rearrange(outputs['pred_references'], 'b c t q -> (b t) q c')
         if image_outputs is not None:
             image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
             image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')

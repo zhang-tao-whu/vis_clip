@@ -96,13 +96,12 @@ INPUT:
     MAX_SCALE: 2.0
 
 DATASETS:
-  DATASET_NEED_MAP: [False, False]
-  DATASET_TYPE: ['image_panoptic', 'video_instance', ]
-  DATASET_TYPE_TEST: ['video_instance', ]
+  DATASET_NEED_MAP: [False,]
+  DATASET_TYPE: ['image_panoptic',]
+  DATASET_TYPE_TEST: ['video_instance',]
   # The categories of all datasets will be mapped to the categories of the last dataset
-  DATASET_RATIO: [1.0, 0.2]
-  #TRAIN: ("coco_panoptic_video_ov", "ovis_train_ov")
-  TRAIN: ("coco_panoptic_video_ov", )
+  DATASET_RATIO: [1.0,]
+  TRAIN: ("coco_panoptic_video_ov",)
   TEST: ("ovis_train_ov",)
   TEST2TRAIN: [  ]
 
