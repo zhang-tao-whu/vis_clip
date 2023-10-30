@@ -229,6 +229,9 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
                     v = v.item()
                     if v not in id_apper_frame.keys():
                         id_apper_frame[v] = f
+            print(id_apper_frame)
+            import time
+            time.sleep(1)
 
             # obtain the object ID that first appears in each frame
             apper_frame_id = {}
@@ -240,10 +243,6 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
                     apper_frame_id[f] = [id]
             need_match_frames = list(apper_frame_id.keys())
             need_match_frames.sort()
-
-            print(need_match_frames)
-            import time
-            time.sleep(1)
 
             # per frame match
             used_query_idx = []
