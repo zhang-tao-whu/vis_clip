@@ -1552,6 +1552,7 @@ class DVIS_online_OV(MinVIS_OV):
                 "task": "vss",
             }
 
+
 # @META_ARCH_REGISTRY.register()
 # class DVIS_offline(DVIS_online):
 #     """
