@@ -92,7 +92,7 @@ class Trainer(DefaultTrainer):
         mapper_dict = {
             'video_instance': OpenVocabularyYTVISDatasetMapper,
             'video_panoptic': OpenVocabularyPanopticDatasetVideoMapper,
-            'video_semantic': SemanticDatasetVideoMapper,
+            #'video_semantic': SemanticDatasetVideoMapper,
             'image_instance': OpenVocabularyCocoClipDatasetMapper,
             'image_panoptic': OpenVocabularyCocoPanoClipDatasetMapper,
         }
