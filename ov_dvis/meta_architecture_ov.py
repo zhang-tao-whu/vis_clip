@@ -705,12 +705,12 @@ class MinVIS_OV(nn.Module):
         gt_instances = []
         for targets_per_video in targets:
             _num_instance = len(targets_per_video["instances"][0])
-            print('*********************', _num_instance, "**********************")
-            if _num_instance == 0:
-                print(targets_per_video)
-            import time
-            time.sleep(1)
-            
+            # print('*********************', _num_instance, "**********************")
+            # if _num_instance == 0:
+            #     print(targets_per_video)
+            # import time
+            # time.sleep(1)
+
             mask_shape = [_num_instance, self.num_frames, h_pad, w_pad]
             gt_masks_per_video = torch.zeros(mask_shape, dtype=torch.bool, device=self.device)
 

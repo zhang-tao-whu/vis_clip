@@ -223,6 +223,9 @@ class VideoSetCriterion(nn.Module):
         # Retrieve the matching between the outputs of the last layer and the targets
         indices = self.matcher(outputs_without_aux, targets)
         # [per image indicates], per image indicates -> (pred inds, gt inds)
+        print(indices)
+        import time
+        time.sleep(1)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_masks = sum(len(t["labels"]) for t in targets)
