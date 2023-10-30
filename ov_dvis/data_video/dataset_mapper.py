@@ -371,3 +371,33 @@ class OpenVocabularyCocoPanoClipDatasetMapper:
                 instances.gt_masks = torch.zeros((0, h, w), dtype=torch.uint8)
             dataset_dict["instances"].append(instances)
         return dataset_dict
+
+def filter_empty_instances_(instances, by_box=True, by_mask=True, box_threshold=1e-5):
+    """
+    Filter out empty instances in an `Instances` object.
+
+    Args:
+        instances (Instances):
+        by_box (bool): whether to filter out instances with empty boxes
+        by_mask (bool): whether to filter out instances with empty masks
+        box_threshold (float): minimum width and height to be considered non-empty
+
+    Returns:
+        Instances: the filtered instances.
+    """
+    assert by_box or by_mask
+    r = []
+    if by_box:
+        r.append(instances.gt_boxes.nonempty(threshold=box_threshold))
+    if instances.has("gt_masks") and by_mask:
+        r.append(instances.gt_masks.flatten(1, 2).sum(dim=-1) != 0)
+
+    if not r:
+        return instances
+    m = r[0]
+    for x in r[1:]:
+        m = m & x
+
+    instances.gt_ids[~m] = -1
+    return instances
+
