@@ -212,9 +212,9 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
     def memory_efficient_forward(self, outputs, targets):
         """More memory-friendly matching"""
         bs, num_queries = outputs["pred_logits"].shape[:2]
-        print(bs, num_queries, targets[0]['ids'])
-        import time
-        time.sleep(1)
+        # print(bs, num_queries, targets[0]['ids'])
+        # import time
+        # time.sleep(1)
 
         indices = []
         # Iterate through batch size
@@ -240,6 +240,10 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
                     apper_frame_id[f] = [id]
             need_match_frames = list(apper_frame_id.keys())
             need_match_frames.sort()
+
+            print(need_match_frames)
+            import time
+            time.sleep(1)
 
             # per frame match
             used_query_idx = []
