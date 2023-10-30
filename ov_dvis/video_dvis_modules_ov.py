@@ -82,14 +82,14 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         # for reference and query merge
-        self.merge = nn.Linear(hidden_channel, hidden_channel)
+        self.merge = nn.Linear(hidden_channel * 2, hidden_channel)
 
         # record previous frame information
         self.last_outputs = None
         self.last_frame_embeds = None
         self.last_reference = None
 
-        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
+        self.noiser = Noiser(noise_ratio=0.5, mode=noise_mode)
 
         # FC-CLIP
         self.mask_pooling = mask_pooling
