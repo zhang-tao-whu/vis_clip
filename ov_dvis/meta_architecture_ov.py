@@ -12,7 +12,7 @@ from detectron2.modeling import META_ARCH_REGISTRY, build_backbone, build_sem_se
 from detectron2.modeling.backbone import Backbone
 from detectron2.structures import Boxes, ImageList, Instances, BitMasks
 
-from mask2former_video.modeling.criterion import VideoSetCriterion
+from mask2former_video.modeling.criterion import VideoSetCriterion_ov
 from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent
 from mask2former_video.utils.memory import retry_if_cuda_oom
 
@@ -412,7 +412,7 @@ class MinVIS_OV(nn.Module):
 
         losses = ["labels", "masks"]
 
-        criterion = VideoSetCriterion(
+        criterion = VideoSetCriterion_ov(
             sem_seg_head.num_classes,
             matcher=matcher,
             weight_dict=weight_dict,
@@ -935,7 +935,7 @@ class DVIS_online_OV(MinVIS_OV):
 
         losses = ["labels", "masks"]
 
-        criterion = VideoSetCriterion(
+        criterion = VideoSetCriterion_ov(
             sem_seg_head.num_classes,
             matcher=matcher,
             weight_dict=weight_dict,

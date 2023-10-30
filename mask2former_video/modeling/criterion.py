@@ -267,3 +267,60 @@ class VideoSetCriterion(nn.Module):
         _repr_indent = 4
         lines = [head] + [" " * _repr_indent + line for line in body]
         return "\n".join(lines)
+
+
+class VideoSetCriterion_ov(VideoSetCriterion):
+    """This class computes the loss for DETR.
+    The process happens in two steps:
+        1) we compute hungarian assignment between ground truth boxes and the outputs of the model
+        2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
+    """
+
+    def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses,
+                 num_points, oversample_ratio, importance_sample_ratio, frames=2):
+        """Create the criterion.
+        Parameters:
+            num_classes: number of object categories, omitting the special no-object category
+            matcher: module able to compute a matching between targets and proposals
+            weight_dict: dict containing as key the names of the losses and as values their relative weight.
+            eos_coef: relative classification weight applied to the no-object category
+            losses: list of all the losses to be applied. See get_loss for list of available losses.
+        """
+        super().__init__()
+        self.num_classes = num_classes
+        self.matcher = matcher
+        self.weight_dict = weight_dict
+        self.eos_coef = eos_coef
+        self.losses = losses
+
+        # pointwise mask loss parameters
+        self.num_points = num_points
+        self.oversample_ratio = oversample_ratio
+        self.importance_sample_ratio = importance_sample_ratio
+        self.frames = frames
+
+    def loss_labels(self, outputs, targets, indices, num_masks):
+        """Classification loss (NLL)
+        targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
+        """
+        assert "pred_logits" in outputs
+        src_logits = outputs["pred_logits"].float()
+
+        idx = self._get_src_permutation_idx(indices)
+        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        target_classes = torch.full(
+            src_logits.shape[:2], src_logits.shape[2] - 1, dtype=torch.int64, device=src_logits.device
+        )
+        target_classes[idx] = target_classes_o.to(target_classes)
+
+        empty_weight = torch.ones(src_logits.shape[2])
+        empty_weight[-1] = self.eos_coef
+        # if is_pano:
+        #     empty_weight[-1] = self.eos_coef
+        # else:
+        #     empty_weight[-1] = 0
+        empty_weight = empty_weight.to(src_logits)
+
+        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, empty_weight)
+        losses = {"loss_ce": loss_ce}
+        return losses
