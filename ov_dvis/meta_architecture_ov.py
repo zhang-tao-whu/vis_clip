@@ -1090,6 +1090,9 @@ class DVIS_online_OV(MinVIS_OV):
 
         if self.training:
             targets = self.prepare_targets(batched_inputs, images)
+            image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
+                outputs, targets, image_outputs=image_outputs
+            )
             # use the segmenter prediction results to guide the matching process during early training phase
             if self.iter < self.max_iter_num // 2:
                 losses, reference_match_result = self.criterion(outputs, targets,
@@ -1101,7 +1104,6 @@ class DVIS_online_OV(MinVIS_OV):
                                                                 ret_match_result=True)
 
             # bipartite matching-based loss
-            losses = self.criterion(outputs, targets, matcher_outputs=image_outputs)
             self.iter += 1
             losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
             losses.update(losses_cl)
