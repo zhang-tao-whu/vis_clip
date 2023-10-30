@@ -217,6 +217,10 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
         # time.sleep(1)
 
         indices = []
+        print(range(bs // self.frames), ',', bs, ',', self.frames)
+        import time
+        time.sleep(1)
+
         # Iterate through batch size
         for b in range(bs // self.frames):
             # find the fist frame where the object appears
@@ -229,9 +233,6 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
                     v = v.item()
                     if v not in id_apper_frame.keys():
                         id_apper_frame[v] = f
-            print(id_apper_frame)
-            import time
-            time.sleep(1)
 
             # obtain the object ID that first appears in each frame
             apper_frame_id = {}
