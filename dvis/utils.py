@@ -49,7 +49,6 @@ class Noiser:
         return list(ret_indices), noise_init
 
     def _wa__noise_forward(self, cur_embeds, cur_classes):
-        assert cur_classes is not None
         # embeds (q, b, c), classes (q)
         indices = list(range(cur_embeds.shape[0]))
         np.random.shuffle(indices)
@@ -59,7 +58,6 @@ class Noiser:
         return None, noise_init
 
     def _cc_noise_forward(self, cur_embeds, cur_classes):
-        assert cur_classes is not None
         # embeds (q, b, c), classes (q)
         indices = torch.randint(0, cur_embeds.shape[-1], (cur_embeds.shape[0], )).unsqueeze(-1).unsqueeze(-1)
         weight = torch.arange(cur_embeds.shape[-1], dtype=torch.int64).unsqueeze(0).unsqueeze(0)
