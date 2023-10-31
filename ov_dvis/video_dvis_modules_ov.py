@@ -402,7 +402,7 @@ class TemporalRefiner_OV(torch.nn.Module):
 
         # FC-CLIP
         self.mask_pooling = mask_pooling
-        self.mask_pooling_proj = mask_pooling_proj
+        self._mask_pooling_proj = mask_pooling_proj
         self.class_embed = class_embed
         self.logit_scale = logit_scale
         self.mask_embed = mask_embed
