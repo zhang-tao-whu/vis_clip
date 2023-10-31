@@ -131,13 +131,28 @@ class ClReferringTracker_noiser(torch.nn.Module):
         # init transformer layers
         self.num_heads = num_head
         self.num_layers = decoder_layer_num
-        self.transformer_self_attention_layers = nn.ModuleList()
-        self.transformer_cross_attention_layers = nn.ModuleList()
-        self.transformer_ffn_layers = nn.ModuleList()
+        self.transformer_self_attention_layers_pathPropogation = nn.ModuleList()
+        self.transformer_cross_attention_layers_pathPropogation = nn.ModuleList()
+        self.transformer_ffn_layers_pathPropogation = nn.ModuleList()
 
-        for _ in range(self.num_layers):
+        self.transformer_self_attention_layers_pathDenosing = nn.ModuleList()
+        self.transformer_cross_attention_layers_pathDenosing = nn.ModuleList()
+        self.transformer_ffn_layers_pathDenosing = nn.ModuleList()
 
-            self.transformer_self_attention_layers.append(
+        self.transformer_self_attention_layers_pathMerge = nn.ModuleList()
+        self.transformer_cross_attention_layers_pathMerge = nn.ModuleList()
+        self.transformer_ffn_layers_pathMerge = nn.ModuleList()
+
+        for _ in range(self.splits[0]):
+            self.transformer_self_attention_layers_pathDenosing.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+            self.transformer_self_attention_layers_pathPropogation.append(
                 SelfAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
@@ -146,37 +161,34 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 )
             )
 
-            # self.transformer_cross_attention_layers.append(
-            #     ReferringCrossAttentionLayer(
-            #         d_model=hidden_channel,
-            #         nhead=num_head,
-            #         dropout=0.0,
-            #         normalize_before=False,
-            #         standard=True
-            #     )
-            # )
-            if _ < self.splits[0]:
-                self.transformer_cross_attention_layers.append(
-                    ReferringCrossAttentionLayer(
-                        d_model=hidden_channel,
-                        nhead=num_head,
-                        dropout=0.0,
-                        normalize_before=False,
-                        standard=False
-                    )
+            self.transformer_cross_attention_layers_pathDenosing.append(
+                ReferringCrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                    standard=False
                 )
-            else:
-                self.transformer_cross_attention_layers.append(
-                    ReferringCrossAttentionLayer(
-                        d_model=hidden_channel,
-                        nhead=num_head,
-                        dropout=0.0,
-                        normalize_before=False,
-                        standard=True
-                    )
+            )
+            self.transformer_cross_attention_layers_pathPropogation.append(
+                ReferringCrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                    standard=True
                 )
+            )
 
-            self.transformer_ffn_layers.append(
+            self.transformer_ffn_layers_pathDenosing.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+            self.transformer_ffn_layers_pathPropogation.append(
                 FFNLayer(
                     d_model=hidden_channel,
                     dim_feedforward=feedforward_channel,
@@ -185,14 +197,36 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 )
             )
 
-        self.use_memory = False
-        if self.use_memory:
-            self.memory_cross_attn = CrossAttentionLayer(
-                d_model=hidden_channel,
-                nhead=num_head,
-                dropout=0.0,
-                normalize_before=False,)
-            self.references_memory = None
+        for _ in range(self.splits[1]):
+
+            self.transformer_self_attention_layers_pathMerge.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
+
+
+            self.transformer_cross_attention_layers_pathMerge.append(
+                ReferringCrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                    standard=True
+                )
+            )
+
+            self.transformer_ffn_layers_pathMerge.append(
+                FFNLayer(
+                    d_model=hidden_channel,
+                    dim_feedforward=feedforward_channel,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
 
         self.decoder_norm = nn.LayerNorm(hidden_channel)
 
@@ -205,6 +239,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.ref_proj_2 = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
 
         for layer in self.ref_proj.layers:
+            weight_init.c2_xavier_fill(layer)
+        for layer in self.ref_proj_2.layers:
             weight_init.c2_xavier_fill(layer)
 
         # mask features projection
@@ -221,19 +257,87 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_frame_embeds = None
         self.last_reference = None
 
-        # self.noiser = Noiser(noise_ratio=0.5, mode=noise_mode)
-        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
+        self.noiser = Noiser(noise_ratio=0.5, mode=noise_mode)
+        # self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
         # fuse denosing result and propagation
-        self.fuse = MLP(hidden_channel * 2, hidden_channel * 2, hidden_channel, 3)
-        self.proj_propagation = nn.Linear(hidden_channel, hidden_channel)
-
+        self.average_weight = nn.Embedding(1, 1)
+        nn.init.constant_(self.average_weight.weight, 0.5)
 
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
         self.last_reference = None
         return
+
+    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn):
+        output = cross_attn(
+            id, query,
+            key, value,
+            memory_mask=None,
+            memory_key_padding_mask=None,
+            pos=None, query_pos=None
+        )
+
+        output = self_attn(
+            output, tgt_mask=None,
+            tgt_key_padding_mask=None,
+            query_pos=None
+        )
+
+        # FFN
+        output = ffn(output)
+        return output
+
+    def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True):
+        ms_output = []
+
+        indices, noised_init = self.noiser(
+            self.last_frame_embeds,
+            frame_embeds,
+            cur_embeds_no_norm=frame_embeds_no_norm,
+            activate=activate,
+        )
+        output_1 = noised_init
+        output_2 = reference
+        reference = self.ref_proj(reference)
+
+        for i in range(self.splits[0]):
+            output_1 = self.layer_forward(id=output_1, query=reference,
+                                          key=frame_embeds_no_norm,
+                                          value=frame_embeds_no_norm,
+                                          cross_attn=self.transformer_cross_attention_layers_pathDenosing[i],
+                                          self_attn=self.transformer_self_attention_layers_pathDenosing[i],
+                                          ffn=self.transformer_ffn_layers_pathDenosing[i])
+            output_2 = self.layer_forward(id=output_2, query=reference,
+                                          key=frame_embeds_no_norm,
+                                          value=frame_embeds_no_norm,
+                                          cross_attn=self.transformer_cross_attention_layers_pathPropogation[i],
+                                          self_attn=self.transformer_self_attention_layers_pathPropogation[i],
+                                          ffn=self.transformer_ffn_layers_pathPropogation[i])
+            ms_output.append(output_1)
+            ms_output.append(output_2)
+
+        if random.random() < 0.5:
+            alpha = random.random() + self.average_weight.weight[0] * 0.0
+        else:
+            alpha = self.average_weight.weight[0]
+        output = output_1 * alpha + output_2 * (1 - alpha)
+
+        for i in range(self.splits[1]):
+            output = self.layer_forward(id=output, query=reference,
+                                        key=frame_embeds_no_norm,
+                                        value=frame_embeds_no_norm,
+                                        cross_attn=self.transformer_cross_attention_layers_pathMerge[i],
+                                        self_attn=self.transformer_self_attention_layers_pathMerge[i],
+                                        ffn=self.transformer_ffn_layers_pathMerge[i])
+            ms_output.append(output)
+
+        self.last_frame_embeds = frame_embeds[indices]
+        self.last_reference = reference
+        ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
+        self.last_outputs = ms_output
+        return ms_output, indices
 
     def forward(self, frame_embeds, mask_features, resume=False,
                 return_indices=False, frame_classes=None,
@@ -259,201 +363,31 @@ class ClReferringTracker_noiser(torch.nn.Module):
         all_frames_references = []
 
         for i in range(n_frame):
-            ms_output = []
             single_frame_embeds = frame_embeds[i]  # q b c
             if frame_embeds_no_norm is not None:
                 single_frame_embeds_no_norm = frame_embeds_no_norm[i]
             else:
                 single_frame_embeds_no_norm = single_frame_embeds
-            if frame_classes is None:
-                single_frame_classes = None
-            else:
-                single_frame_classes = frame_classes[i]
 
-            frame_key = single_frame_embeds_no_norm
-
-            # the first frame of a video
             if i == 0 and resume is False:
                 self._clear_memory()
-                for j in range(self.num_layers):
-                    if j == 0:
-                        indices, noised_init = self.noiser(
-                            single_frame_embeds,
-                            single_frame_embeds,
-                            cur_embeds_no_norm=single_frame_embeds_no_norm,
-                            activate=False,
-                            cur_classes=single_frame_classes,
-                        )
-
-                        # for reference as init value
-                        # noised_init = frame_key
-
-                        ms_output.append(single_frame_embeds_no_norm[indices])
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        ret_indices.append(indices)
-                        output = self.transformer_cross_attention_layers[j](
-                            # noised_init, self.ref_proj(frame_key),
-                            noised_init, self.ref_proj_2(frame_key),
-                            frame_key, single_frame_embeds_no_norm,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-                        if j == self.splits[0]:
-                            propagation = self.proj_propagation(frame_key)
-                            if random.random() < 0.5:
-                                propagation = torch.cat([propagation, ms_output[-1]], dim=-1)
-                            else:
-                                propagation = torch.cat([ms_output[-1], propagation], dim=-1)
-                            propagation = self.fuse(propagation)
-                            output = self.transformer_cross_attention_layers[j](
-                                # propagation, self.ref_proj(ms_output[-1]),
-                                propagation, self.ref_proj_2(ms_output[-1]),
-                                frame_key, single_frame_embeds_no_norm,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=None, query_pos=None
-                            )
-                        else:
-                            output = self.transformer_cross_attention_layers[j](
-                                # ms_output[-1], self.ref_proj(ms_output[-1]),
-                                ms_output[-1], self.ref_proj_2(ms_output[-1]),
-                                frame_key, single_frame_embeds_no_norm,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=None, query_pos=None
-                            )
-                        # output = self.transformer_cross_attention_layers[j](
-                        #     ms_output[-1], self.ref_proj(ms_output[-1]),
-                        #     frame_key, single_frame_embeds_no_norm,
-                        #     memory_mask=None,
-                        #     memory_key_padding_mask=None,
-                        #     pos=None, query_pos=None
-                        # )
-
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                self.last_reference = self.ref_proj(frame_key)
+                self.last_frame_embeds = single_frame_embeds
+                ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
+                                                         single_frame_embeds_no_norm, activate=False)
             else:
-                reference = self.ref_proj(self.last_outputs[-1])
-                self.last_reference = reference
-
-                for j in range(self.num_layers):
-                    if j == 0:
-                        indices, noised_init = self.noiser(
-                            self.last_frame_embeds,
-                            single_frame_embeds,
-                            cur_embeds_no_norm=single_frame_embeds_no_norm,
-                            activate=self.training,
-                            cur_classes=single_frame_classes,
-                        )
-
-                        # for reference as init value
-                        # noised_init = self.last_outputs[-1]
-
-                        ms_output.append(single_frame_embeds_no_norm[indices])
-                        self.last_frame_embeds = single_frame_embeds[indices]
-                        ret_indices.append(indices)
-                        output = self.transformer_cross_attention_layers[j](
-                            #noised_init, reference, frame_key,
-                            noised_init, self.ref_proj_2(self.last_outputs[-1]), frame_key,
-                            single_frame_embeds_no_norm,
-                            memory_mask=None,
-                            memory_key_padding_mask=None,
-                            pos=None, query_pos=None
-                        )
-
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-                    else:
-
-                        if j == self.splits[0]:
-                            propagation = self.proj_propagation(self.last_outputs[-1])
-                            if random.random() < 0.5:
-                                propagation = torch.cat([propagation, ms_output[-1]], dim=-1)
-                            else:
-                                propagation = torch.cat([ms_output[-1], propagation], dim=-1)
-                            propagation = self.fuse(propagation)
-                            output = self.transformer_cross_attention_layers[j](
-                                # propagation, self.ref_proj(ms_output[-1]),
-                                propagation, self.ref_proj_2(ms_output[-1]),
-                                frame_key, single_frame_embeds_no_norm,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=None, query_pos=None
-                            )
-                        else:
-                            output = self.transformer_cross_attention_layers[j](
-                                # ms_output[-1], self.ref_proj(ms_output[-1]),
-                                ms_output[-1], self.ref_proj_2(ms_output[-1]),
-                                frame_key, single_frame_embeds_no_norm,
-                                memory_mask=None,
-                                memory_key_padding_mask=None,
-                                pos=None, query_pos=None
-                            )
-
-                        # output = self.transformer_cross_attention_layers[j](
-                        #     ms_output[-1], reference, frame_key,
-                        #     single_frame_embeds_no_norm,
-                        #     memory_mask=None,
-                        #     memory_key_padding_mask=None,
-                        #     pos=None, query_pos=None
-                        # )
-
-                        output = self.transformer_self_attention_layers[j](
-                            output, tgt_mask=None,
-                            tgt_key_padding_mask=None,
-                            query_pos=None
-                        )
-                        # FFN
-                        output = self.transformer_ffn_layers[j](
-                            output
-                        )
-                        ms_output.append(output)
-
+                ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
+                                                         self.last_outputs[-1], activate=True)
             all_frames_references.append(self.last_reference)
-
-            ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
-            self.last_outputs = ms_output
-            outputs.append(ms_output[1:])
+            outputs.append(ms_outputs)
+            ret_indices.append(indices)
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
-
         all_frames_references = torch.stack(all_frames_references, dim=0)  # (t, q, b, c)
 
-        mask_features_ = mask_features
         if not self.training:
             outputs = outputs[:, -1:]
             del mask_features
-        outputs_class, outputs_masks = self.prediction(outputs, mask_features_, all_frames_references)
-        #outputs = self.decoder_norm(outputs)
+        outputs_class, outputs_masks = self.prediction(outputs, mask_features, all_frames_references)
+
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
            'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
@@ -461,7 +395,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                outputs_class, outputs_masks
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
-           'pred_references': all_frames_references.permute(2, 3, 0, 1),  # (b, c, t, q),
+           'pred_references': self.ref_proj_2(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
         }
         if return_indices:
             return out, ret_indices
