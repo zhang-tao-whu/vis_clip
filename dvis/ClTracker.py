@@ -1298,7 +1298,7 @@ class TemporalRefiner(torch.nn.Module):
         self.num_layers = decoder_layer_num
         self.transformer_obj_self_attention_layers = nn.ModuleList()
         self.transformer_time_self_attention_layers = nn.ModuleList()
-        # self.transformer_cross_attention_layers = nn.ModuleList()
+        self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
         self.conv_short_aggregate_layers = nn.ModuleList()
@@ -1337,14 +1337,14 @@ class TemporalRefiner(torch.nn.Module):
                 )
             )
 
-            # self.transformer_cross_attention_layers.append(
-            #     CrossAttentionLayer(
-            #         d_model=hidden_channel,
-            #         nhead=num_head,
-            #         dropout=0.0,
-            #         normalize_before=False,
-            #     )
-            # )
+            self.transformer_cross_attention_layers.append(
+                CrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                )
+            )
 
             self.transformer_ffn_layers.append(
                 FFNLayer(
@@ -1415,12 +1415,12 @@ class TemporalRefiner(torch.nn.Module):
             )
 
             # do cross attention
-            # output = self.transformer_cross_attention_layers[i](
-            #     output, frame_embeds,
-            #     memory_mask=None,
-            #     memory_key_padding_mask=None,
-            #     pos=None, query_pos=None
-            # )
+            output = self.transformer_cross_attention_layers[i](
+                output, frame_embeds,
+                memory_mask=None,
+                memory_key_padding_mask=None,
+                pos=None, query_pos=None
+            )
 
             # FFN
             output = self.transformer_ffn_layers[i](
