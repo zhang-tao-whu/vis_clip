@@ -36,7 +36,6 @@ class Noiser:
         return indices, noise_init
 
     def _wa_noise_forward(self, cur_embeds, cur_classes):
-        assert cur_classes is not None
         # embeds (q, b, c), classes (q)
         indices = list(range(cur_embeds.shape[0]))
         np.random.shuffle(indices)
