@@ -318,7 +318,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             ms_output.append(output_1)
             ms_output.append(output_2)
 
-        if random.random() < 0.5:
+        if random.random() < 0.5 and self.training:
             alpha = random.random() + self.average_weight.weight[0] * 0.0
         else:
             alpha = self.average_weight.weight[0]
