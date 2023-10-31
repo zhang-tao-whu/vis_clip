@@ -44,7 +44,7 @@ class MaskPooling(nn.Module):
     ):
         super().__init__()
 
-    def forward(self, x, mask):
+    def forward(self, x, mask, return_num=False):
         """
         Args:
             x: [B, C, H, W]
@@ -63,7 +63,10 @@ class MaskPooling(nn.Module):
             x,
             mask / denorm,
         )
-        return mask_pooled_x
+        if return_num:
+            return mask_pooled_x, denorm
+        else:
+            return mask_pooled_x
 
 class MaskPooling_video(nn.Module):
     def __init__(

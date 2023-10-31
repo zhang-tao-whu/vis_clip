@@ -12,7 +12,7 @@ from .config import add_ov_dvis_config
 from .video_mask2former_transformer_decoder_ov import VideoMultiScaleMaskedTransformerDecoder_minvis_OV, \
      VideoMultiScaleMaskedTransformerDecoder_dvis_OV
 
-from .meta_architecture_ov import MinVIS_OV, DVIS_online_OV
+from .meta_architecture_ov import MinVIS_OV, DVIS_online_OV, DVIS_offline_OV
 from .backbones.clip import CLIP
 
 # video
