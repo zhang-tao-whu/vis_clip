@@ -1127,17 +1127,18 @@ class DVIS_online_OV(MinVIS_OV):
         else:
             # when inference, bs must be 1
             mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
-            mask_cls_results = outputs["pred_logits"][0].to(mask_pred_results)  # t q c
+            mask_cls_results = outputs["pred_logits"][0].to(self.device)  # t q c
 
             # We ensemble the pred logits of in-vocab and out-vocab
             if "clip_vis_dense" in outputs.keys():
                 clip_feature = outputs["clip_vis_dense"]
             else:
                 clip_feature = features["clip_vis_dense"]
-            mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
-                                             mode='bilinear', align_corners=False)
-            pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
-            pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
+            # mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
+            #                                  mode='bilinear', align_corners=False)
+            # pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
+            # pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
+            pooled_clip_feature = self.windows_get_maskpool_embeds(clip_feature, mask_pred_results, windows=16)
             out_vocab_cls_results = get_classification_logits(pooled_clip_feature, text_classifier,
                                                               self.backbone.clip_model.logit_scale, num_templates)
             in_vocab_cls_results = mask_cls_results[..., :-1]  # remove void
@@ -1186,6 +1187,36 @@ class DVIS_online_OV(MinVIS_OV):
             return retry_if_cuda_oom(self.inference_video_task)(
                 mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size, pred_id
             )
+
+    def windows_get_maskpool_embeds(self, clip_feature, mask_pred_results, windows=5):
+        """
+        for windows prediction, because mask features consumed too much GPU memory
+        """
+        # clip_feature, (t, c, h, w)
+        # mask_pred_results,  t, q, h, w
+        iters = clip_feature.size(0) // windows
+        if clip_feature.size(0) % windows != 0:
+            iters += 1
+        maskpool_embeddings = []
+        pixel_nums = []
+        for i in range(iters):
+            start_idx = i * windows
+            end_idx = (i + 1) * windows
+            clip_feature_ = clip_feature[start_idx: end_idx].to(self.device)
+            mask_pred_results_ = mask_pred_results[start_idx: end_idx].to(self.device)
+            mask_for_pooling_ = F.interpolate(mask_pred_results_, size=clip_feature.shape[-2:],
+                                              mode='bilinear', align_corners=False)
+            pooled_clip_feature, pixel_num = self.mask_pooling(clip_feature_, mask_for_pooling_, return_num=True)
+            maskpool_embeddings.append(pooled_clip_feature) # (windows q c)
+            pixel_nums.append(pixel_num) # (windows q 1)
+
+        maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
+        pixel_nums = torch.cat(pixel_nums, dim=0)
+        pixel_nums = pixel_nums / torch.sum(pixel_nums, dim=0, keepdim=True)
+        maskpool_embeddings = maskpool_embeddings * pixel_nums
+        maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
+        pooled_clip_feature = self.backbone.visual_prediction_forward(maskpool_embeddings)  # (1 q c)
+        return pooled_clip_feature
 
     def get_cl_loss_ref(self, outputs, referecne_match_result):
         # outputs['pred_keys'] = (b t) q c
@@ -1380,9 +1411,9 @@ class DVIS_online_OV(MinVIS_OV):
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
             track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
-            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach()
+            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
             track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
-            track_out['clip_vis_dense'] = features['clip_vis_dense']
+            track_out['clip_vis_dense'] = features['clip_vis_dense'].to(torch.float32).detach().cpu()
             # track_out['pred_logits'] = track_out['pred_logits'].detach()
             # track_out['pred_masks'] = track_out['pred_masks'].detach()
             # track_out['pred_embds'] = track_out['pred_embds'].detach()
@@ -1393,7 +1424,7 @@ class DVIS_online_OV(MinVIS_OV):
         outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
         outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
-        outputs['clip_vis_dense'] = torch.cat([x['clip_vis_dense'] for x in out_list], dim=0).detach()
+        outputs['clip_vis_dense'] = torch.cat([x['clip_vis_dense'] for x in out_list], dim=0)
 
         return outputs
 

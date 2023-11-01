@@ -68,35 +68,35 @@ class MaskPooling(nn.Module):
         else:
             return mask_pooled_x
 
-class MaskPooling_video(nn.Module):
-    def __init__(
-        self,
-    ):
-        super().__init__()
-
-    def forward(self, x, mask):
-        """
-        Args:
-            x: [B, T, C, H, W]
-            mask: [B, Q, T, H, W]
-        """
-        B, Q, T, H, W = mask.shape
-        mask = mask.permute(0, 2, 1, 3, 4).flatten(0, 1) # (BT, Q, H, W)
-        if not x.shape[-2:] == mask.shape[-2:]:
-            # reshape mask to x
-            mask = F.interpolate(mask, size=x.shape[-2:], mode='bilinear', align_corners=False)
-        mask = mask.reshape(B, T, *mask.shape[1:]) # (B, T, Q, H, W)
-        with torch.no_grad():
-            mask = mask.detach()
-            mask = (mask > 0).to(mask.dtype)
-            denorm = mask.sum(dim=(-1, -2, -4), keepdim=True) + 1e-8
-
-        mask_pooled_x = torch.einsum(
-            "btchw,btqhw->bqc",
-            x,
-            mask / denorm,
-        )
-        return mask_pooled_x
+# class MaskPooling_video(nn.Module):
+#     def __init__(
+#         self,
+#     ):
+#         super().__init__()
+#
+#     def forward(self, x, mask):
+#         """
+#         Args:
+#             x: [B, T, C, H, W]
+#             mask: [B, Q, T, H, W]
+#         """
+#         B, Q, T, H, W = mask.shape
+#         mask = mask.permute(0, 2, 1, 3, 4).flatten(0, 1) # (BT, Q, H, W)
+#         if not x.shape[-2:] == mask.shape[-2:]:
+#             # reshape mask to x
+#             mask = F.interpolate(mask, size=x.shape[-2:], mode='bilinear', align_corners=False)
+#         mask = mask.reshape(B, T, *mask.shape[1:]) # (B, T, Q, H, W)
+#         with torch.no_grad():
+#             mask = mask.detach()
+#             mask = (mask > 0).to(mask.dtype)
+#             denorm = mask.sum(dim=(-1, -2, -4), keepdim=True) + 1e-8
+#
+#         mask_pooled_x = torch.einsum(
+#             "btchw,btqhw->bqc",
+#             x,
+#             mask / denorm,
+#         )
+#         return mask_pooled_x
 
 @TRANSFORMER_DECODER_REGISTRY.register()
 class VideoMultiScaleMaskedTransformerDecoder_dvis_OV(nn.Module):
