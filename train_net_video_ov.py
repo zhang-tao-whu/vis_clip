@@ -122,7 +122,7 @@ class Trainer(DefaultTrainer):
         mapper_dict = {
             'video_instance': OpenVocabularyYTVISDatasetMapper,
             'video_panoptic': OpenVocabularyPanopticDatasetVideoMapper,
-            'video_semantic': SemanticDatasetVideoMapper,
+            # 'video_semantic': SemanticDatasetVideoMapper,
         }
         if dataset_type not in mapper_dict.keys():
             raise NotImplementedError
