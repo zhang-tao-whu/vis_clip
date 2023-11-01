@@ -385,7 +385,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         if not self.training:
             outputs = outputs[:, -1:]
-            del mask_features
         outputs_class, outputs_masks = self.prediction(outputs, mask_features, all_frames_references)
 
         out = {
