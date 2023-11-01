@@ -1412,7 +1412,8 @@ class DVIS_online_OV(MinVIS_OV):
                                             num_templates=num_templates)
 
             # get clip embeddings
-            mask_for_pooling_ = F.interpolate(track_out['pred_masks'], size=features['clip_vis_dense'].shape[-2:],
+            mask_for_pooling_ = F.interpolate(track_out['pred_masks'][0].transpose(0, 1),
+                                              size=features['clip_vis_dense'].shape[-2:],
                                               mode='bilinear', align_corners=False)
             pooled_clip_feature, pixel_num = self.mask_pooling(features['clip_vis_dense'], mask_for_pooling_,
                                                                return_num=True)
