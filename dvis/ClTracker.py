@@ -261,8 +261,16 @@ class ClReferringTracker_noiser(torch.nn.Module):
         # self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
         # fuse denosing result and propagation
-        self.average_weight = nn.Embedding(1, 1)
-        nn.init.constant_(self.average_weight.weight, 0.5)
+        # self.fuse_mode = 'lw'
+        self.fuse_mode = 'lf'
+        assert self.fuse_mode in ['lw', 'lf', 'la']
+        if self.fuse_mode == 'lw':
+            self.average_weight = nn.Embedding(1, 1)
+            nn.init.constant_(self.average_weight.weight, 0.5)
+        elif self.fuse_mode == 'lf':
+            self.fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
+        elif self.fuse_mode == 'la':
+            self.activation = MLP(hidden_channel, hidden_channel, 1, 3)
 
     def _clear_memory(self):
         del self.last_outputs
@@ -318,12 +326,21 @@ class ClReferringTracker_noiser(torch.nn.Module):
             ms_output.append(output_1)
             ms_output.append(output_2)
 
-        if random.random() < 0.5 and self.training:
-            alpha = random.random() + self.average_weight.weight[0] * 0.0
-        else:
-            alpha = self.average_weight.weight[0]
-            print(alpha)
-        output = output_1 * alpha + output_2 * (1 - alpha)
+
+        if self.fuse_mode == 'lw':
+            if random.random() < 0.5 and self.training:
+                alpha = random.random() + self.average_weight.weight[0] * 0.0
+            else:
+                alpha = self.average_weight.weight[0]
+            output = output_1 * alpha + output_2 * (1 - alpha)
+        elif self.fuse_mode == 'lf':
+            output = torch.cat([output_1, output_2], dim=-1)
+            output = self.fuse(output)
+        elif self.fuse_mode == 'la':
+            activation1 = self.activation(output_1).sigmoid()
+            activation2 = self.activation(output_2).sigmoid()
+            activation = activation1 + activation2
+            output = (output_1 * activation1 + output_2 * activation2) / activation
 
         for i in range(self.splits[1]):
             output = self.layer_forward(id=output, query=reference,
