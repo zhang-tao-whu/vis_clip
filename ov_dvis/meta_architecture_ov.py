@@ -1212,6 +1212,7 @@ class DVIS_online_OV(MinVIS_OV):
 
         maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
         pixel_nums = torch.cat(pixel_nums, dim=0)
+        print(maskpool_embeddings.shape, pixel_nums.shape)
         pixel_nums = pixel_nums / torch.sum(pixel_nums, dim=0, keepdim=True)
         maskpool_embeddings = maskpool_embeddings * pixel_nums
         maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
