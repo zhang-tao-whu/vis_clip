@@ -20,6 +20,7 @@ def add_dvis_config(cfg):
     cfg.MODEL.TRACKER = CN()
     cfg.MODEL.TRACKER.DECODER_LAYERS = 6
     cfg.MODEL.TRACKER.NOISE_MODE = 'none'
+    cfg.MODEL.TRACKER.NOISE_RATIO = 0.5
     cfg.MODEL.TRACKER.USE_CL = True
     cfg.MODEL.REFINER = CN()
     cfg.MODEL.REFINER.DECODER_LAYERS = 6

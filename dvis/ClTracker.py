@@ -117,6 +117,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         mask_dim=256,
         class_num=25,
         noise_mode='hard',
+        noise_ratio=0.5,
     ):
         super(ClReferringTracker_noiser, self).__init__()
 
@@ -191,7 +192,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_frame_embeds = None
         self.last_reference = None
 
-        self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
+        self.noiser = Noiser(noise_ratio=noise_ratio, mode=noise_mode)
 
     def _clear_memory(self):
         del self.last_outputs
@@ -550,6 +551,7 @@ class ClDVIS_online(MinVIS):
             num_head=cfg.MODEL.MASK_FORMER.NHEADS,
             decoder_layer_num=cfg.MODEL.TRACKER.DECODER_LAYERS,
             noise_mode=cfg.MODEL.TRACKER.NOISE_MODE,
+            noise_ratio=cfg.MODEL.TRACKER.NOISE_RATIO,
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
         )
