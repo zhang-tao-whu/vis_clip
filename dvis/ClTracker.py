@@ -322,6 +322,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             alpha = random.random() + self.average_weight.weight[0] * 0.0
         else:
             alpha = self.average_weight.weight[0]
+            print(alpha)
         output = output_1 * alpha + output_2 * (1 - alpha)
 
         for i in range(self.splits[1]):
