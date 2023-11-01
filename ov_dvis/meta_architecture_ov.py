@@ -1380,7 +1380,7 @@ class DVIS_online_OV(MinVIS_OV):
             for j in range(len(track_out['aux_outputs'])):
                 del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
             track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
-            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
+            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach()
             track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
             track_out['clip_vis_dense'] = features['clip_vis_dense']
             # track_out['pred_logits'] = track_out['pred_logits'].detach()
