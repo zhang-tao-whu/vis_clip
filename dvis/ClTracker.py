@@ -122,7 +122,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         mask_dim=256,
         class_num=25,
         noise_mode='hard',
-        splits=[3, 3]
+        # splits=[3, 3]
+        splits=[3, 6]
     ):
         super(ClReferringTracker_noiser, self).__init__()
         self.splits = splits
@@ -263,8 +264,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         # fuse denosing result and propagation
         # self.fuse_mode = 'lw'
         # self.fuse_mode = 'lf'
-        # self.fuse_mode = 'la' # best 37.0 4wIter
-        self.fuse_mode = 'laf'
+        self.fuse_mode = 'la' # best 37.0 4wIter
+        # self.fuse_mode = 'laf'
         assert self.fuse_mode in ['lw', 'lf', 'la', 'laf']
         if self.fuse_mode == 'lw':
             self.average_weight = nn.Embedding(1, 1)
