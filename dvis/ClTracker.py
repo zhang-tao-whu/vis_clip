@@ -265,7 +265,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         # self.fuse_mode = 'lf'
         # self.fuse_mode = 'la' # best 37.0 4wIter
         self.fuse_mode = 'laf'
-        assert self.fuse_mode in ['lw', 'lf', 'la']
+        assert self.fuse_mode in ['lw', 'lf', 'la', 'laf']
         if self.fuse_mode == 'lw':
             self.average_weight = nn.Embedding(1, 1)
             nn.init.constant_(self.average_weight.weight, 0.5)
