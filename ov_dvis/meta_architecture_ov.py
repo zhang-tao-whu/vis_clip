@@ -1963,7 +1963,7 @@ class DVIS_offline_OV(DVIS_online_OV):
         else:
             # when inference, bs must be 1
             mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
-            mask_cls_results = outputs["pred_logits"][0]  # t q c
+            mask_cls_results = outputs["pred_logits"][0].to(self.device)  # t q c
 
             # We ensemble the pred logits of in-vocab and out-vocab
             clip_feature = outputs["clip_vis_dense"]
