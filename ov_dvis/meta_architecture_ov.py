@@ -1967,10 +1967,11 @@ class DVIS_offline_OV(DVIS_online_OV):
 
             # We ensemble the pred logits of in-vocab and out-vocab
             clip_feature = outputs["clip_vis_dense"]
-            mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
-                                             mode='bilinear', align_corners=False)
-            pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
-            pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
+            # mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
+            #                                  mode='bilinear', align_corners=False)
+            # pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
+            # pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
+            pooled_clip_feature = self.windows_get_maskpool_embeds(clip_feature, mask_pred_results)
             out_vocab_cls_results = get_classification_logits(pooled_clip_feature, text_classifier,
                                                               self.backbone.clip_model.logit_scale, num_templates)
             in_vocab_cls_results = mask_cls_results[..., :-1]  # remove void
@@ -2019,6 +2020,36 @@ class DVIS_offline_OV(DVIS_online_OV):
                 mask_cls_result, mask_pred_result, image_size, height, width,
                 first_resize_size, pred_id, aux_pred_cls=aux_pred_logits,
             )
+
+    def windows_get_maskpool_embeds(self, clip_feature, mask_pred_results, windows=36):
+        """
+        for windows prediction, because mask features consumed too much GPU memory
+        """
+        # clip_feature, (t, c, h, w)
+        # mask_pred_results,  t, q, h, w
+        iters = clip_feature.size(0) // windows
+        if clip_feature.size(0) % windows != 0:
+            iters += 1
+        maskpool_embeddings = []
+        pixel_nums = []
+        for i in range(iters):
+            start_idx = i * windows
+            end_idx = (i + 1) * windows
+            clip_feature_ = clip_feature[start_idx: end_idx].to(self.device)
+            mask_pred_results_ = mask_pred_results[start_idx: end_idx].to(self.device)
+            mask_for_pooling_ = F.interpolate(mask_pred_results_, size=clip_feature.shape[-2:],
+                                              mode='bilinear', align_corners=False)
+            pooled_clip_feature, pixel_num = self.mask_pooling(clip_feature_, mask_for_pooling_, return_num=True)
+            maskpool_embeddings.append(pooled_clip_feature) # (windows q c)
+            pixel_nums.append(pixel_num) # (windows q 1)
+
+        maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
+        pixel_nums = torch.cat(pixel_nums, dim=0)[:, :, :, 0]
+        pixel_nums = pixel_nums / torch.sum(pixel_nums, dim=0, keepdim=True)
+        maskpool_embeddings = maskpool_embeddings * pixel_nums
+        maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
+        pooled_clip_feature = self.backbone.visual_prediction_forward(maskpool_embeddings)  # (1 q c)
+        return pooled_clip_feature
 
     def segmentor_windows_inference(self, images_tensor, window_size=5,
                                     text_classifier=None, num_templates=None):
