@@ -261,8 +261,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         # self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
         # fuse denosing result and propagation
-        # self.fuse_mode = 'lw'
-        self.fuse_mode = 'lf'
+        self.fuse_mode = 'lw'
+        # self.fuse_mode = 'lf'
         # self.fuse_mode = 'la'
         assert self.fuse_mode in ['lw', 'lf', 'la']
         if self.fuse_mode == 'lw':
