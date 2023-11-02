@@ -263,7 +263,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         # fuse denosing result and propagation
         # self.fuse_mode = 'lw'
         # self.fuse_mode = 'lf'
-        self.fuse_mode = 'la'
+        # self.fuse_mode = 'la' # best 37.0 4wIter
+        self.fuse_mode = 'laf'
         assert self.fuse_mode in ['lw', 'lf', 'la']
         if self.fuse_mode == 'lw':
             self.average_weight = nn.Embedding(1, 1)
@@ -272,6 +273,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
             self.fuse = MLP(2 * hidden_channel, hidden_channel, hidden_channel, 3)
         elif self.fuse_mode == 'la':
             self.activation = MLP(hidden_channel, hidden_channel, 1, 3)
+        elif self.fuse_mode == 'laf':
+            self.activation = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
 
     def _clear_memory(self):
         del self.last_outputs
@@ -338,6 +341,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
             output = torch.cat([output_1, output_2], dim=-1)
             output = self.fuse(output)
         elif self.fuse_mode == 'la':
+            activation1 = self.activation(output_1).sigmoid()
+            activation2 = self.activation(output_2).sigmoid()
+            activation = activation1 + activation2
+            output = (output_1 * activation1 + output_2 * activation2) / activation
+        elif self.fuse_mode == 'laf':
             activation1 = self.activation(output_1).sigmoid()
             activation2 = self.activation(output_2).sigmoid()
             activation = activation1 + activation2
