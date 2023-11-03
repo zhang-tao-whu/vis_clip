@@ -122,8 +122,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         mask_dim=256,
         class_num=25,
         noise_mode='hard',
-        # splits=[3, 3]
-        splits=[3, 6]
+        splits=[3, 3]
     ):
         super(ClReferringTracker_noiser, self).__init__()
         self.splits = splits
