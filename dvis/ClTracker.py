@@ -15,7 +15,7 @@ from detectron2.modeling.backbone import Backbone
 from detectron2.structures import Boxes, ImageList, Instances, BitMasks
 
 from mask2former_video.modeling.criterion import VideoSetCriterion
-from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent
+from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent, VideoHungarianMatcher_Overall
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from .meta_architecture import MinVIS
 import fvcore.nn.weight_init as weight_init
@@ -464,6 +464,7 @@ class ClDVIS_online(MinVIS):
         *,
         backbone: Backbone,
         sem_seg_head: nn.Module,
+        matcher_overall,
         criterion: nn.Module,
         num_queries: int,
         object_mask_threshold: float,
@@ -551,6 +552,8 @@ class ClDVIS_online(MinVIS):
 
         self.classes_references_memory = Classes_References_Memory(max_len=20)
 
+        self.matcher_overall = matcher_overall
+
     @classmethod
     def from_config(cls, cfg):
         backbone = build_backbone(cfg)
@@ -567,6 +570,14 @@ class ClDVIS_online(MinVIS):
 
         # building criterion
         matcher = VideoHungarianMatcher_Consistent(
+            cost_class=class_weight,
+            cost_mask=mask_weight,
+            cost_dice=dice_weight,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            frames=cfg.INPUT.SAMPLING_FRAME_NUM
+        )
+
+        matcher_overall =VideoHungarianMatcher_Overall(
             cost_class=class_weight,
             cost_mask=mask_weight,
             cost_dice=dice_weight,
@@ -614,6 +625,7 @@ class ClDVIS_online(MinVIS):
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
+            "matcher_overall": matcher_overall,
             "criterion": criterion,
             "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
             "object_mask_threshold": cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD,
@@ -712,6 +724,7 @@ class ClDVIS_online(MinVIS):
             if self.iter < self.max_iter_num // 2:
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=image_outputs, ret_match_result=True)
             else:
+                self.criterion.matcher = self.matcher_overall
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=None, ret_match_result=True)
             losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
             # losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)

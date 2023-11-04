@@ -301,3 +301,80 @@ class VideoHungarianMatcher_Consistent(VideoHungarianMatcher):
             (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
             for i, j in indices
         ]
+
+class VideoHungarianMatcher_Overall(VideoHungarianMatcher):
+    """
+    Only match in the first frame where the object appears in the GT.
+    """
+    def __init__(self, cost_class: float = 1, cost_mask: float = 1,
+                 cost_dice: float = 1, num_points: int = 0,
+                 frames: int = 5):
+        super().__init__(
+            cost_class=cost_class, cost_mask=cost_mask,
+            cost_dice=cost_dice, num_points=num_points,
+        )
+        self.frames = frames
+
+    @torch.no_grad()
+    def memory_efficient_forward(self, outputs, targets):
+        """More memory-friendly matching"""
+        bs, num_queries = outputs["pred_logits"].shape[:2]
+
+        indices = []
+        # Iterate through batch size
+        for b in range(bs // self.frames):
+            _C = 0
+            for f in range(self.frames):
+                overall_bs = b * self.frames + f
+                out_prob = outputs["pred_logits"][overall_bs].softmax(-1)  # [num_queries, num_classes]
+                tgt_ids = targets[overall_bs]["labels"]
+
+                # Compute the classification cost. Contrary to the loss, we don't use the NLL,
+                # but approximate it in 1 - proba[target class].
+                # The 1 is a constant that doesn't change the matching, it can be ommitted.
+                cost_class = -out_prob[:, tgt_ids]
+
+                out_mask = outputs["pred_masks"][overall_bs]  # [num_queries, T, H_pred, W_pred]
+                # gt masks are already padded when preparing target
+                tgt_mask = targets[overall_bs]["masks"].to(out_mask)  # [num_gts, T, H_pred, W_pred]
+
+                # all masks share the same set of points for efficient matching!
+                point_coords = torch.rand(1, self.num_points, 2, device=out_mask.device)
+                # get gt labels
+                tgt_mask = point_sample(
+                    tgt_mask,
+                    point_coords.repeat(tgt_mask.shape[0], 1, 1).to(tgt_mask),
+                    align_corners=False,
+                ).flatten(1)
+
+                out_mask = point_sample(
+                    out_mask,
+                    point_coords.repeat(out_mask.shape[0], 1, 1).to(out_mask),
+                    align_corners=False,
+                ).flatten(1)
+
+                with autocast(enabled=False):
+                    out_mask = out_mask.float()
+                    tgt_mask = tgt_mask.float()
+                    # Compute the focal loss between masks
+                    cost_mask = batch_sigmoid_ce_loss_jit(out_mask, tgt_mask)
+
+                    # Compute the dice loss betwen masks
+                    cost_dice = batch_dice_loss_jit(out_mask, tgt_mask)
+
+                # Final cost matrix
+                C = (
+                        self.cost_mask * cost_mask
+                        + self.cost_class * cost_class
+                        + self.cost_dice * cost_dice
+                )
+                C = C.reshape(num_queries, -1).cpu()
+                _C = _C + C
+
+            indice1, indice2 = linear_sum_assignment(_C)
+            matched_indices = [list(indice1), list(indice2)]
+            indices += [matched_indices] * self.frames
+        return [
+            (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
+            for i, j in indices
+        ]
