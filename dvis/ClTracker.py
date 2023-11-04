@@ -262,8 +262,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # fuse denosing result and propagation
         # self.fuse_mode = 'lw'
-        # self.fuse_mode = 'lf'
-        self.fuse_mode = 'la' # best 37.0 4wIter
+        self.fuse_mode = 'lf'
+        # self.fuse_mode = 'la' # best 37.0 4wIter
         # self.fuse_mode = 'laf'
         assert self.fuse_mode in ['lw', 'lf', 'la', 'laf']
         if self.fuse_mode == 'lw':
@@ -724,7 +724,7 @@ class ClDVIS_online(MinVIS):
             if self.iter < self.max_iter_num // 2:
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=image_outputs, ret_match_result=True)
             else:
-                self.criterion.matcher = self.matcher_overall
+                # self.criterion.matcher = self.matcher_overall
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=None, ret_match_result=True)
             losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
             # losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)
