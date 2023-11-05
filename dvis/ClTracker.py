@@ -278,10 +278,12 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # try use memories
         self.memories = []
-        self.use_memories = True
+        self.use_memories = False
         if self.use_memories:
             self.memories_max_length = 3
             self.memory_activation = MLP(hidden_channel, hidden_channel, 1, 3)
+
+        self.filer_bg = True
 
     def _clear_memory(self):
         del self.last_outputs
@@ -290,11 +292,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.memories = []
         return
 
-    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn):
+    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None):
         output = cross_attn(
             id, query,
             key, value,
-            memory_mask=None,
+            memory_mask=attn_mask,
             memory_key_padding_mask=None,
             pos=None, query_pos=None
         )
@@ -319,9 +321,16 @@ class ClReferringTracker_noiser(torch.nn.Module):
         output = (torch.sum(memories * activation, dim=0)) / activation_sum
         return output
 
-    def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True):
+    def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
             reference = self._use_memories(reference)
+
+        if self.filer_bg and single_frame_classes is not None:
+            attn_mask = single_frame_classes == -1
+            attn_mask = attn_mask.unsqueeze(0).repeat(frame_embeds_no_norm.shape[0])  # (q, q)
+            attn_mask = attn_mask.to(frame_embeds_no_norm.device)
+        else:
+            attn_mask = None
 
         ms_output = []
 
@@ -341,13 +350,15 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                           value=frame_embeds_no_norm,
                                           cross_attn=self.transformer_cross_attention_layers_pathDenosing[i],
                                           self_attn=self.transformer_self_attention_layers_pathDenosing[i],
-                                          ffn=self.transformer_ffn_layers_pathDenosing[i])
+                                          ffn=self.transformer_ffn_layers_pathDenosing[i],
+                                          attn_mask=attn_mask, )
             output_2 = self.layer_forward(id=output_2, query=reference,
                                           key=frame_embeds_no_norm,
                                           value=frame_embeds_no_norm,
                                           cross_attn=self.transformer_cross_attention_layers_pathPropogation[i],
                                           self_attn=self.transformer_self_attention_layers_pathPropogation[i],
-                                          ffn=self.transformer_ffn_layers_pathPropogation[i])
+                                          ffn=self.transformer_ffn_layers_pathPropogation[i],
+                                          attn_mask=attn_mask, )
             ms_output.append(output_1)
             ms_output.append(output_2)
 
@@ -378,7 +389,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         value=frame_embeds_no_norm,
                                         cross_attn=self.transformer_cross_attention_layers_pathMerge[i],
                                         self_attn=self.transformer_self_attention_layers_pathMerge[i],
-                                        ffn=self.transformer_ffn_layers_pathMerge[i])
+                                        ffn=self.transformer_ffn_layers_pathMerge[i],
+                                        attn_mask=attn_mask, )
             ms_output.append(output)
 
         self.last_frame_embeds = frame_embeds[indices]
@@ -417,14 +429,22 @@ class ClReferringTracker_noiser(torch.nn.Module):
             else:
                 single_frame_embeds_no_norm = single_frame_embeds
 
+            if self.filer_bg:
+                assert frame_classes is not None
+                single_frame_classes = frame_classes[i] # (q, )
+            else:
+                single_frame_classes = None
+
             if i == 0 and resume is False:
                 self._clear_memory()
                 self.last_frame_embeds = single_frame_embeds
                 ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
-                                                         single_frame_embeds_no_norm, activate=False)
+                                                         single_frame_embeds_no_norm, activate=False,
+                                                         single_frame_classes=None, )
             else:
                 ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
-                                                         self.last_outputs[-1], activate=self.training)
+                                                         self.last_outputs[-1], activate=self.training,
+                                                         single_frame_classes=None, )
             all_frames_references.append(self.last_reference)
             outputs.append(ms_outputs)
             ret_indices.append(indices)
@@ -781,12 +801,20 @@ class ClDVIS_online(MinVIS):
                 mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size, pred_id
             )
 
-    def _get_instance_labels(self, pred_logits):
+    # def _get_instance_labels(self, pred_logits):
+    #     # b, t, q, c
+    #     pred_logits = pred_logits[0]  # (t, q, c)
+    #     scores = F.softmax(pred_logits, dim=-1)
+    #     labels = torch.argmax(scores, dim=2)  # (t, q)
+    #     labels[labels == pred_logits.size(2) - 1] = -1
+    #     return labels
+
+    def _get_instance_labels(self, pred_logits, threthold=0.1):
         # b, t, q, c
         pred_logits = pred_logits[0]  # (t, q, c)
-        scores = F.softmax(pred_logits, dim=-1)
-        labels = torch.argmax(scores, dim=2)  # (t, q)
-        labels[labels == pred_logits.size(2) - 1] = -1
+        scores = F.softmax(pred_logits, dim=-1)[..., :-1]
+        fg_scores, labels = torch.max(scores, dim=2)
+        labels[fg_scores < threthold] = -1
         return labels
 
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
@@ -866,11 +894,16 @@ class ClDVIS_online(MinVIS):
             frame_embds = out['pred_embds']  # (b, c, t, q)
             frame_embds_no_norm = out['pred_embds_without_norm']
             mask_features = out['mask_features'].unsqueeze(0)
+
+            object_labels = self._get_instance_labels(out['pred_logits'])
+
             if i != 0 or self.keep:
                 track_out = self.tracker(frame_embds, mask_features,
-                                         resume=True, frame_embeds_no_norm=frame_embds_no_norm)
+                                         resume=True, frame_embeds_no_norm=frame_embds_no_norm,
+                                         frame_classes=object_labels)
             else:
-                track_out = self.tracker(frame_embds, mask_features, frame_embeds_no_norm=frame_embds_no_norm)
+                track_out = self.tracker(frame_embds, mask_features, frame_embeds_no_norm=frame_embds_no_norm,
+                                         frame_classes=object_labels)
             # remove unnecessary variables to save GPU memory
             del mask_features
             for j in range(len(track_out['aux_outputs'])):
