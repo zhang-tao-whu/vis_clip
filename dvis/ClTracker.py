@@ -315,8 +315,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
             self.memories = self.memories[-self.memories_max_length:]
         memories = torch.stack(self.memories, dim=0)
         activation = self.memory_activation(memories).sigmoid()
-        activation_sum = torch.sum(activation, dim=0, keepdim=True)
-        output = (memories * activation) / activation_sum
+        activation_sum = torch.sum(activation, dim=0)
+        output = (torch.sum(memories * activation, dim=0)) / activation_sum
         return output
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True):
