@@ -177,7 +177,8 @@ class MinVIS_OV(nn.Module):
                                                     'class_names': test_class_names}})
 
         self.test2train = test2train
-        self.test_use_all_vocabulary = True
+        self.test_use_all_vocabulary = False
+        self.void_embedding_merge_mode = 'mean'  # ['mean', 'max']
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         def split_labels(x):
@@ -202,17 +203,21 @@ class MinVIS_OV(nn.Module):
             else:
                 if self.additional_void_embedding is None:
                     void_embed = self.void_embedding.weight
+                    void_embed = F.normalize(void_embed, dim=-1)
                 else:
                     void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
-                # mean void embedding
-                void_embed = F.normalize(void_embed, dim=-1).detach()
-                void_embed = torch.mean(void_embed, dim=0, keepdim=True)
-
+                    void_embed = F.normalize(void_embed, dim=-1).detach()
+                    if self.void_embedding_merge_mode == 'mean':
+                        void_embed = torch.mean(void_embed, dim=0, keepdim=True)
+                    elif self.void_embedding_merge_mode == 'max':
+                        pass
+                    else:
+                        raise NotImplementedError
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
-            num_templates = num_templates + [1]
+            num_templates = num_templates + [void_embed.shape[0]]
             return text_classifier, num_templates
         else:
-            print("using additional vocabulary !!!")
+            # print("using additional vocabulary !!!")
             class_names = split_labels(self.test_metadata[name].classes_ov)  # it includes both thing and stuff
             if isinstance(self.all_train_metadatas, list):
                 train_classes = []
@@ -252,13 +257,18 @@ class MinVIS_OV(nn.Module):
                 if self.additional_void_embedding is not None:
                     void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
                     void_embed = F.normalize(void_embed, dim=-1).detach()
-                    void_embed = torch.mean(void_embed, dim=0, keepdim=True)
+                    if self.void_embedding_merge_mode == 'mean':
+                        void_embed = torch.mean(void_embed, dim=0, keepdim=True)
+                    elif self.void_embedding_merge_mode == 'max':
+                        pass
+                    else:
+                        raise NotImplementedError
                 else:
                     void_embed = self.void_embedding.weight
                     void_embed = F.normalize(void_embed, dim=-1)
             # void_embed = F.normalize(void_embed, dim=-1)
             text_classifier = torch.cat([text_classifier, void_embed, train_classifiers], dim=0)
-            num_templates = num_templates + [1 + len(train_classifiers)]
+            num_templates = num_templates + [len(void_embed) + len(train_classifiers)]
             return text_classifier, num_templates
 
     def _set_class_information(self, name, train=True):
