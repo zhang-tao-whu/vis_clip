@@ -2001,6 +2001,8 @@ class DVIS_offline_OV(DVIS_online_OV):
 
 
             outputs, aux_pred_logits = self.post_processing(outputs, aux_logits=online_pred_logits)
+            aux_pred_logits = None
+
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
             pred_ids = outputs["ids"]
