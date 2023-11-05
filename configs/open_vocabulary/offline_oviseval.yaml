@@ -1,6 +1,9 @@
 _BASE_: DVIS_Online_FC-CLIP_480p_strongAgu.yaml
 MODEL:
   META_ARCHITECTURE: "DVIS_offline_OV"
+  MASK_FORMER:
+    TEST:
+      MAX_NUM: 20
 
 SOLVER:
   IMS_PER_BATCH: 8
