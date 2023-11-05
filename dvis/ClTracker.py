@@ -262,8 +262,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # fuse denosing result and propagation
         # self.fuse_mode = 'lw'
-        self.fuse_mode = 'lf'
-        # self.fuse_mode = 'la' # best 37.0 4wIter
+        # self.fuse_mode = 'lf'
+        self.fuse_mode = 'la' # best 37.0 4wIter
         # self.fuse_mode = 'laf'
         assert self.fuse_mode in ['lw', 'lf', 'la', 'laf']
         if self.fuse_mode == 'lw':
@@ -276,10 +276,16 @@ class ClReferringTracker_noiser(torch.nn.Module):
         elif self.fuse_mode == 'laf':
             self.activation = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
 
+        # try use memories
+        self.memories = []
+        self.memories_max_length = 3
+        self.memory_activation = MLP(hidden_channel, hidden_channel, 1, 3)
+
     def _clear_memory(self):
         del self.last_outputs
         self.last_outputs = None
         self.last_reference = None
+        self.memories = []
         return
 
     def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn):
@@ -301,7 +307,20 @@ class ClReferringTracker_noiser(torch.nn.Module):
         output = ffn(output)
         return output
 
+    def _use_memories(self, references):
+        self.memories.append(references)
+        if len(self.memories) > self.memories_max_length:
+            self.memories = self.memories[-self.memories_max_length:]
+        memories = torch.stack(self.memoriesm, dim=0)
+        activation = self.memory_activation(memories).sigmoid()
+        activation_sum = torch.sum(activation, dim=0, keepdim=True)
+        output = (memories * activation) / activation_sum
+        return output
+
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True):
+
+        reference = self._use_memories(reference)
+
         ms_output = []
 
         indices, noised_init = self.noiser(
@@ -464,7 +483,7 @@ class ClDVIS_online(MinVIS):
         *,
         backbone: Backbone,
         sem_seg_head: nn.Module,
-        matcher_overall,
+        # matcher_overall,
         criterion: nn.Module,
         num_queries: int,
         object_mask_threshold: float,
@@ -552,7 +571,7 @@ class ClDVIS_online(MinVIS):
 
         self.classes_references_memory = Classes_References_Memory(max_len=20)
 
-        self.matcher_overall = matcher_overall
+        # self.matcher_overall = matcher_overall
 
     @classmethod
     def from_config(cls, cfg):
@@ -577,13 +596,13 @@ class ClDVIS_online(MinVIS):
             frames=cfg.INPUT.SAMPLING_FRAME_NUM
         )
 
-        matcher_overall =VideoHungarianMatcher_Overall(
-            cost_class=class_weight,
-            cost_mask=mask_weight,
-            cost_dice=dice_weight,
-            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
-            frames=cfg.INPUT.SAMPLING_FRAME_NUM
-        )
+        # matcher_overall =VideoHungarianMatcher_Overall(
+        #     cost_class=class_weight,
+        #     cost_mask=mask_weight,
+        #     cost_dice=dice_weight,
+        #     num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+        #     frames=cfg.INPUT.SAMPLING_FRAME_NUM
+        # )
 
         weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight}
 
@@ -625,7 +644,7 @@ class ClDVIS_online(MinVIS):
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
-            "matcher_overall": matcher_overall,
+            # "matcher_overall": matcher_overall,
             "criterion": criterion,
             "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
             "object_mask_threshold": cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD,
