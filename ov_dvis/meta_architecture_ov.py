@@ -177,7 +177,7 @@ class MinVIS_OV(nn.Module):
                                                     'class_names': test_class_names}})
 
         self.test2train = test2train
-        self.test_use_all_vocabulary = False
+        self.test_use_all_vocabulary = True
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         def split_labels(x):
@@ -204,6 +204,7 @@ class MinVIS_OV(nn.Module):
                     void_embed = self.void_embedding.weight
                 else:
                     void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
+                # mean void embedding
                 void_embed = F.normalize(void_embed, dim=-1).detach()
                 void_embed = torch.mean(void_embed, dim=0, keepdim=True)
 
