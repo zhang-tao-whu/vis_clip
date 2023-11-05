@@ -622,8 +622,6 @@ class MinVIS_OV(nn.Module):
         return outputs, targets
 
     def frame_decoder_loss_reshape(self, outputs, targets):
-        if self.segmenter_clip_enable and outputs['clip_size'] != 1:
-            return self.frame_decoder_loss_reshape_clip(outputs, targets)
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
         if 'aux_outputs' in outputs:
@@ -704,10 +702,7 @@ class MinVIS_OV(nn.Module):
             features = self.backbone(images_tensor[start_idx:end_idx])
             features['text_classifier'] = text_classifier
             features['num_templates'] = num_templates
-            if self.segmenter_clip_enable:
-                out = self.sem_seg_head(features, clip_size=window_size)
-            else:
-                out = self.sem_seg_head(features)
+            out = self.sem_seg_head(features)
             del features['res2'], features['res3'], features['res4'], features['res5']
             for j in range(len(out['aux_outputs'])):
                 del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
