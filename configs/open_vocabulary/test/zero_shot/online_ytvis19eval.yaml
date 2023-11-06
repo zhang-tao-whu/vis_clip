@@ -1,10 +1,8 @@
-_BASE_: FC-CLIP_onlyCOCO_480p_strongAgu.yaml
+_BASE_: ../../FC-CLIP_onlyCOCO_480p_strongAgu.yaml
 MODEL:
   META_ARCHITECTURE: "DVIS_online_OV"
   MASK_FORMER:
     TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_dvis_OV"
-    TEST:
-      MAX_NUM: 20
   TRACKER:
     NOISE_MODE: "wa"
 
@@ -19,6 +17,6 @@ INPUT:
 
 DATASETS:
   DATASET_TYPE_TEST: ['video_instance',]
-  TEST: ("ovis_val_ov",)
+  TEST: ("ytvis_2019_val_ov",)
 
-OUTPUT_DIR: './output_Online_ovis'
+OUTPUT_DIR: './output_Online_ytvis19'
