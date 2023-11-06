@@ -278,12 +278,12 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # try use memories
         self.memories = []
-        self.use_memories = False
+        self.use_memories = True
         if self.use_memories:
             self.memories_max_length = 3
             self.memory_activation = MLP(hidden_channel, hidden_channel, 1, 3)
 
-        self.filer_bg = True
+        self.filer_bg = False
 
     def _clear_memory(self):
         del self.last_outputs
@@ -319,6 +319,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
         activation = self.memory_activation(memories).sigmoid() + 1e-4
         activation_sum = torch.sum(activation, dim=0)
         output = (torch.sum(memories * activation, dim=0)) / activation_sum
+        if self.training and random.random() < 0.5:
+            return references + output * 0.0
         return output
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
