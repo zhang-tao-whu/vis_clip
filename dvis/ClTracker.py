@@ -278,7 +278,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # try use memories
         self.memories = []
-        self.use_memories = True
+        self.use_memories = False
         if self.use_memories:
             self.memories_max_length = 3
             self.memory_activation = MLP(hidden_channel, hidden_channel, 1, 3)
@@ -379,6 +379,13 @@ class ClReferringTracker_noiser(torch.nn.Module):
             activation2 = self.activation(output_2).sigmoid()
             activation = activation1 + activation2
             output = (output_1 * activation1 + output_2 * activation2) / activation
+
+            if self.training and random.random() < 0.5:
+                if random.random() < 0.5:
+                    output = output * 0.0 + output_1
+                else:
+                    output = output * 0.0 + output_2
+                    
         elif self.fuse_mode == 'laf':
             activation1 = self.activation(output_1).sigmoid()
             activation2 = self.activation(output_2).sigmoid()
