@@ -60,6 +60,7 @@ from ov_dvis import (
     OpenVocabularyCocoClipDatasetMapper,
     OpenVocabularyCocoPanoClipDatasetMapper,
     OpenVocabularyPanopticDatasetVideoMapper,
+    OpenVocabularySemanticDatasetVideoMapper,
     add_ov_dvis_config,
 )
 
@@ -92,7 +93,7 @@ class Trainer(DefaultTrainer):
         mapper_dict = {
             'video_instance': OpenVocabularyYTVISDatasetMapper,
             'video_panoptic': OpenVocabularyPanopticDatasetVideoMapper,
-            #'video_semantic': SemanticDatasetVideoMapper,
+            'video_semantic': OpenVocabularySemanticDatasetVideoMapper,
             'image_instance': OpenVocabularyCocoClipDatasetMapper,
             'image_panoptic': OpenVocabularyCocoPanoClipDatasetMapper,
         }
@@ -122,7 +123,7 @@ class Trainer(DefaultTrainer):
         mapper_dict = {
             'video_instance': OpenVocabularyYTVISDatasetMapper,
             'video_panoptic': OpenVocabularyPanopticDatasetVideoMapper,
-            # 'video_semantic': SemanticDatasetVideoMapper,
+            'video_semantic': OpenVocabularySemanticDatasetVideoMapper,
         }
         if dataset_type not in mapper_dict.keys():
             raise NotImplementedError

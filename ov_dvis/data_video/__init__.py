@@ -3,5 +3,6 @@
 
 from .dataset_mapper import OpenVocabularyYTVISDatasetMapper, OpenVocabularyCocoClipDatasetMapper, OpenVocabularyCocoPanoClipDatasetMapper
 from .dataset_mapper_vps import OpenVocabularyPanopticDatasetVideoMapper
+from .dataset_mapper_vss import OpenVocabularySemanticDatasetVideoMapper
 
 from .datasets import *

@@ -14,4 +14,4 @@ from detectron2.data.datasets.coco import register_coco_instances
 if __name__.endswith(".builtin"):
     # Assume pre-defined datasets live in `./datasets`.
     _root = os.getenv("DETECTRON2_DATASETS", "datasets")
-    from .ov_datasets import ytvis_ov, vps_ov, coco_panoptic_video_ov
+    from .ov_datasets import ytvis_ov, vps_ov, coco_panoptic_video_ov, vss_ov
