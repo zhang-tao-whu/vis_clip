@@ -188,7 +188,7 @@ class MinVIS_OV(nn.Module):
             'vss': self.inference_video_vss,
             'vps': self.inference_video_vps,
         }
-        self.inference_video_task = inference_dict[self.task]
+        self.inference_video = inference_dict[self.task]
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         def split_labels(x):
