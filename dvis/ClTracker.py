@@ -380,11 +380,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
             activation = activation1 + activation2
             output = (output_1 * activation1 + output_2 * activation2) / activation
 
-            # if self.training and random.random() < 0.5:
-            #     if random.random() < 0.5:
-            #         output = output * 0.0 + output_1
-            #     else:
-            #         output = output * 0.0 + output_2
+            if self.training and random.random() < 0.5:
+                if random.random() < 0.5:
+                    output = output * 0.0 + output_1
+                else:
+                    output = output * 0.0 + output_2
 
         elif self.fuse_mode == 'laf':
             activation1 = self.activation(output_1).sigmoid()
