@@ -21,4 +21,5 @@ from .data_video import (
     OpenVocabularyCocoClipDatasetMapper,
     OpenVocabularyCocoPanoClipDatasetMapper,
     OpenVocabularyPanopticDatasetVideoMapper,
+    OpenVocabularySemanticDatasetVideoMapper,
 )
