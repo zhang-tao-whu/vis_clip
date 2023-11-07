@@ -86,7 +86,6 @@ class MinVIS_OV(nn.Module):
         geometric_ensemble_beta: float,
         # multi datasets
         test2train={},
-        task='vis',
     ):
         """
         Args:
@@ -180,15 +179,6 @@ class MinVIS_OV(nn.Module):
         self.test2train = test2train
         self.test_use_all_vocabulary = False
         self.void_embedding_merge_mode = 'mean'  # ['mean', 'max']
-
-        self.task = task
-        assert self.task in ['vis', 'vss', 'vps'], "Only support vis, vss and vps !"
-        inference_dict = {
-            'vis': self.inference_video_vis,
-            'vss': self.inference_video_vss,
-            'vps': self.inference_video_vps,
-        }
-        self.inference_video_task = inference_dict[self.task]
 
     def get_text_classifier_with_void(self, text_classifier, num_templates, name):
         def split_labels(x):
@@ -480,7 +470,6 @@ class MinVIS_OV(nn.Module):
             # video
             "num_frames": cfg.INPUT.SAMPLING_FRAME_NUM,
             "window_inference": cfg.MODEL.MASK_FORMER.TEST.WINDOW_INFERENCE,
-            "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
             # fc clip
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
@@ -771,72 +760,29 @@ class MinVIS_OV(nn.Module):
 
         return gt_instances
 
-    # def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):
-    #     if len(pred_cls) > 0:
-    #         scores = F.softmax(pred_cls, dim=-1)[:, :-1]
-    #         labels = torch.arange(
-    #             pred_cls.shape[-1] - 1,
-    #             device=self.device
-    #         ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
-    #         # keep top-10 predictions
-    #         scores_per_image, topk_indices = scores.flatten(0, 1).topk(10, sorted=False)
-    #         labels_per_image = labels[topk_indices]
-    #         topk_indices = topk_indices // (pred_cls.shape[-1] - 1)
-    #         pred_masks = pred_masks[topk_indices]
-    #
-    #         pred_masks = F.interpolate(
-    #             pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
-    #         )
-    #
-    #         pred_masks = pred_masks[:, :, : img_size[0], : img_size[1]]
-    #         pred_masks = F.interpolate(
-    #             pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-    #         )
-    #
-    #         masks = pred_masks > 0.
-    #
-    #         out_scores = scores_per_image.tolist()
-    #         out_labels = labels_per_image.tolist()
-    #         out_masks = [m for m in masks.cpu()]
-    #     else:
-    #         out_scores = []
-    #         out_labels = []
-    #         out_masks = []
-    #
-    #     video_output = {
-    #         "image_size": (output_height, output_width),
-    #         "pred_scores": out_scores,
-    #         "pred_labels": out_labels,
-    #         "pred_masks": out_masks,
-    #     }
-    #
-    #     return video_output
-
-    def inference_video_vis(
-        self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size,
-    ):
+    def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):
         if len(pred_cls) > 0:
             scores = F.softmax(pred_cls, dim=-1)[:, :-1]
             labels = torch.arange(
-                # self.sem_seg_head.num_classes, device=self.device
-                pred_cls.shape[-1] - 1, device=self.device
+                pred_cls.shape[-1] - 1,
+                device=self.device
             ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
-            # keep top-K predictions
-            scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
+            # keep top-10 predictions
+            scores_per_image, topk_indices = scores.flatten(0, 1).topk(10, sorted=False)
             labels_per_image = labels[topk_indices]
             topk_indices = topk_indices // (pred_cls.shape[-1] - 1)
             pred_masks = pred_masks[topk_indices]
 
-            # interpolation to original image size
             pred_masks = F.interpolate(
                 pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
             )
+
             pred_masks = pred_masks[:, :, : img_size[0], : img_size[1]]
             pred_masks = F.interpolate(
                 pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
             )
+
             masks = pred_masks > 0.
-            del pred_masks
 
             out_scores = scores_per_image.tolist()
             out_labels = labels_per_image.tolist()
@@ -851,108 +797,9 @@ class MinVIS_OV(nn.Module):
             "pred_scores": out_scores,
             "pred_labels": out_labels,
             "pred_masks": out_masks,
-            "task": "vis",
         }
 
         return video_output
-
-    def inference_video_vps(
-        self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size,
-    ):
-        pred_cls = F.softmax(pred_cls, dim=-1)
-        mask_pred = pred_masks
-        scores, labels = pred_cls.max(-1)
-
-        # filter out the background prediction
-        keep = labels.ne(pred_cls.shape[-1] - 1) & (scores > self.object_mask_threshold)
-        cur_scores = scores[keep]
-        cur_classes = labels[keep]
-        cur_masks = mask_pred[keep]
-
-        # interpolation to original image size
-        cur_masks = F.interpolate(
-            cur_masks, size=first_resize_size, mode="bilinear", align_corners=False
-        )
-        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]].sigmoid()
-        cur_masks = F.interpolate(
-            cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-        )
-        cur_prob_masks = cur_scores.view(-1, 1, 1, 1).to(cur_masks.device) * cur_masks
-
-        # initial panoptic_seg and segments infos
-        h, w = cur_masks.shape[-2:]
-        panoptic_seg = torch.zeros((cur_masks.size(1), h, w), dtype=torch.int32, device=cur_masks.device)
-        segments_infos = []
-        current_segment_id = 0
-
-        if cur_masks.shape[0] == 0:
-            # We didn't detect any mask
-            return {
-                "image_size": (output_height, output_width),
-                "pred_masks": panoptic_seg.cpu(),
-                "segments_infos": segments_infos,
-                "task": "vps",
-            }
-        else:
-            # take argmax
-            cur_mask_ids = cur_prob_masks.argmax(0)  # (t, h, w)
-            stuff_memory_list = {}
-            for k in range(cur_classes.shape[0]):
-                pred_class = cur_classes[k].item()
-                isthing = pred_class < len(self.test_metadata[self.name].thing_dataset_id_to_contiguous_id)
-                # filter out the unstable segmentation results
-                mask_area = (cur_mask_ids == k).sum().item()
-                original_area = (cur_masks[k] >= 0.5).sum().item()
-                mask = (cur_mask_ids == k) & (cur_masks[k] >= 0.5)
-                if mask_area > 0 and original_area > 0 and mask.sum().item() > 0:
-                    if mask_area / original_area < self.overlap_threshold:
-                        continue
-                    # merge stuff regions
-                    if not isthing:
-                        if int(pred_class) in stuff_memory_list.keys():
-                            panoptic_seg[mask] = stuff_memory_list[int(pred_class)]
-                            continue
-                        else:
-                            stuff_memory_list[int(pred_class)] = current_segment_id + 1
-                    current_segment_id += 1
-                    panoptic_seg[mask] = current_segment_id
-
-                    segments_infos.append(
-                        {
-                            "id": current_segment_id,
-                            "isthing": bool(isthing),
-                            "category_id": int(pred_class),
-                        }
-                    )
-            return {
-                "image_size": (output_height, output_width),
-                "pred_masks": panoptic_seg.cpu(),
-                "segments_infos": segments_infos,
-                "task": "vps",
-            }
-
-    def inference_video_vss(
-        self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size,
-    ):
-        mask_cls = F.softmax(pred_cls, dim=-1)[..., :-1]
-        mask_pred = pred_masks
-        # interpolation to original image size
-        cur_masks = F.interpolate(
-            mask_pred, size=first_resize_size, mode="bilinear", align_corners=False
-        )
-        cur_masks = cur_masks[:, :, :img_size[0], :img_size[1]].sigmoid()
-        cur_masks = F.interpolate(
-            cur_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-        )
-
-        semseg = torch.einsum("qc,qthw->cthw", mask_cls, cur_masks)
-        sem_score, sem_mask = semseg.max(0)
-        sem_mask = sem_mask
-        return {
-                "image_size": (output_height, output_width),
-                "pred_masks": sem_mask.cpu(),
-                "task": "vss",
-            }
 
 
 @META_ARCH_REGISTRY.register()
