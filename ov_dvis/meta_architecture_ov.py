@@ -1054,7 +1054,7 @@ class DVIS_online_OV(MinVIS_OV):
 
         self.tracker = tracker
         self.max_num = max_num
-        self.iter = 0
+        self.iter = 29999
         self.max_iter_num = max_iter_num
 
         self.window_size = window_size
