@@ -84,6 +84,7 @@ class MinVIS_OV(nn.Module):
         # fc-clip
         geometric_ensemble_alpha: float,
         geometric_ensemble_beta: float,
+        ensemble_on_valid_mask: bool,
         # multi datasets
         test2train={},
         task='vis',
@@ -138,6 +139,7 @@ class MinVIS_OV(nn.Module):
         self.mask_pooling = MaskPooling()
         self.geometric_ensemble_alpha = geometric_ensemble_alpha
         self.geometric_ensemble_beta = geometric_ensemble_beta
+        self.ensemble_on_valid_mask = ensemble_on_valid_mask
 
         self.train_text_classifier = None
         self.test_text_classifier = None
@@ -484,6 +486,7 @@ class MinVIS_OV(nn.Module):
             # fc clip
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
+            "ensemble_on_valid_mask": cfg.MODEL.FC_CLIP.ENSEMBLE_ON_VALID_MASK,
             # multi datasets
             "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)},
         }
@@ -571,8 +574,31 @@ class MinVIS_OV(nn.Module):
                 clip_feature = features["clip_vis_dense"]
             mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
                                              mode='bilinear', align_corners=False)
-            pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
-            pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
+
+            if "convnext" in self.backbone.model_name.lower():
+                pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
+                pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
+            elif "rn" in self.backbone.model_name.lower():
+                try:
+                    pooled_clip_feature = self.backbone.visual_prediction_forward(clip_feature,
+                                                                                  mask_for_pooling)  # (t, q, c)
+                except:
+                    pooled_clip_feature = []
+                    _windows_size = 16
+                    iters = len(mask_for_pooling) // _windows_size
+                    if len(mask_for_pooling) % _windows_size != 0:
+                        iters += 1
+                    for i in range(iters):
+                        start_idx = i * _windows_size
+                        end_idx = (i + 1) * _windows_size
+                        pooled_clip_feature.append(self.backbone.visual_prediction_forward(
+                            clip_feature[start_idx:end_idx].to(self.device),
+                            mask_for_pooling[start_idx:end_idx].to(self.device)))
+                    pooled_clip_feature = torch.cat(pooled_clip_feature, dim=0)
+
+            else:
+                raise NotImplementedError
+
             out_vocab_cls_results = get_classification_logits(pooled_clip_feature, text_classifier,
                                                               self.backbone.clip_model.logit_scale, num_templates)
             in_vocab_cls_results = mask_cls_results[..., :-1]  # remove void
@@ -582,8 +608,20 @@ class MinVIS_OV(nn.Module):
             out_vocab_cls_probs = out_vocab_cls_results.softmax(-1)
             in_vocab_cls_results = in_vocab_cls_results.softmax(-1)
             category_overlapping_mask = self.category_overlapping_mask.to(self.device)
-            alpha = self.geometric_ensemble_alpha
-            beta = self.geometric_ensemble_beta
+
+            if self.ensemble_on_valid_mask:
+                # Only include out_vocab cls results on masks with valid pixels
+                # We empirically find that this is important to obtain reasonable AP/mIOU score with ResNet CLIP models
+                valid_masking = (mask_for_pooling > 0).to(mask_for_pooling).sum(-1).sum(-1) > 0
+                valid_masking = valid_masking.to(in_vocab_cls_results.dtype).unsqueeze(-1)
+                alpha = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_alpha
+                beta = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_beta
+                alpha = alpha * valid_masking
+                beta = beta * valid_masking
+            else:
+                alpha = self.geometric_ensemble_alpha
+                beta = self.geometric_ensemble_beta
+
             cls_logits_seen = (
                     (in_vocab_cls_results ** (1 - alpha) * out_vocab_cls_probs ** alpha).log()
                     * category_overlapping_mask
@@ -988,6 +1026,7 @@ class DVIS_online_OV(MinVIS_OV):
         # fc-clip
         geometric_ensemble_alpha: float,
         geometric_ensemble_beta: float,
+        ensemble_on_valid_mask: bool,
         # multi datasets
         test2train={},
     ):
@@ -1040,6 +1079,7 @@ class DVIS_online_OV(MinVIS_OV):
             # dc clip
             geometric_ensemble_alpha=geometric_ensemble_alpha,
             geometric_ensemble_beta=geometric_ensemble_beta,
+            ensemble_on_valid_mask=ensemble_on_valid_mask,
             # multi datasets
             test2train=test2train,
         )
@@ -1168,6 +1208,7 @@ class DVIS_online_OV(MinVIS_OV):
             # fc clip
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
+            "ensemble_on_valid_mask": cfg.MODEL.FC_CLIP.ENSEMBLE_ON_VALID_MASK,
             # multi datasets
             "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)},
         }
@@ -1314,8 +1355,22 @@ class DVIS_online_OV(MinVIS_OV):
             out_vocab_cls_probs = out_vocab_cls_results.softmax(-1)
             in_vocab_cls_results = in_vocab_cls_results.softmax(-1)
             category_overlapping_mask = self.category_overlapping_mask.to(self.device)
-            alpha = self.geometric_ensemble_alpha
-            beta = self.geometric_ensemble_beta
+
+            if self.ensemble_on_valid_mask:
+                # Only include out_vocab cls results on masks with valid pixels
+                # We empirically find that this is important to obtain reasonable AP/mIOU score with ResNet CLIP models
+                mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
+
+                valid_masking = (mask_pred_results > 0).to(mask_pred_results).sum(-1).sum(-1) > 0
+                valid_masking = valid_masking.to(in_vocab_cls_results).unsqueeze(-1)
+                alpha = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_alpha
+                beta = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_beta
+                alpha = alpha * valid_masking
+                beta = beta * valid_masking
+            else:
+                alpha = self.geometric_ensemble_alpha
+                beta = self.geometric_ensemble_beta
+
             cls_logits_seen = (
                     (in_vocab_cls_results ** (1 - alpha) * out_vocab_cls_probs ** alpha).log()
                     * category_overlapping_mask
@@ -1579,10 +1634,18 @@ class DVIS_online_OV(MinVIS_OV):
             mask_for_pooling_ = F.interpolate(track_out['pred_masks'][0].transpose(0, 1),
                                               size=features['clip_vis_dense'].shape[-2:],
                                               mode='bilinear', align_corners=False)
-            pooled_clip_feature, pixel_num = self.mask_pooling(features['clip_vis_dense'], mask_for_pooling_,
-                                                               return_num=True)
-            maskpool_embeddings.append(pooled_clip_feature)  # (windows q c)
-            pixel_nums.append(pixel_num)  # (windows q 1)
+
+            if "convnext" in self.backbone.model_name.lower():
+                pooled_clip_feature, pixel_num = self.mask_pooling(features['clip_vis_dense'], mask_for_pooling_,
+                                                                   return_num=True)
+                maskpool_embeddings.append(pooled_clip_feature)  # (windows q c)
+                pixel_nums.append(pixel_num)  # (windows q 1)
+            elif "rn" in self.backbone.model_name.lower():
+                pooled_clip_feature = self.backbone.visual_prediction_forward(features['clip_vis_dense'],
+                                                                              mask_for_pooling_)  # (t, q, c)
+                maskpool_embeddings.append(pooled_clip_feature)
+            else:
+                raise NotImplementedError
 
             # remove unnecessary variables to save GPU memory
             del mask_features
@@ -1602,12 +1665,15 @@ class DVIS_online_OV(MinVIS_OV):
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
         # outputs['clip_vis_dense'] = torch.cat([x['clip_vis_dense'] for x in out_list], dim=0)
 
-        maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
-        pixel_nums = torch.cat(pixel_nums, dim=0)[:, :, :, 0]
-        pixel_nums = pixel_nums / torch.sum(pixel_nums, dim=0, keepdim=True)
-        maskpool_embeddings = maskpool_embeddings * pixel_nums
-        maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
-        pooled_clip_feature = self.backbone.visual_prediction_forward(maskpool_embeddings)  # (1 q c)
+        if len(pixel_nums) == 0:
+            pooled_clip_feature = torch.cat(maskpool_embeddings, dim=0)  # (t, q, c)
+        else:
+            maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
+            pixel_nums = torch.cat(pixel_nums, dim=0)[:, :, :, 0]
+            pixel_nums = pixel_nums / torch.sum(pixel_nums, dim=0, keepdim=True)
+            maskpool_embeddings = maskpool_embeddings * pixel_nums
+            maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
+            pooled_clip_feature = self.backbone.visual_prediction_forward(maskpool_embeddings)  # (1 q c)
         outputs['pooled_clip_feature'] = pooled_clip_feature
 
         return outputs
@@ -1810,6 +1876,7 @@ class DVIS_offline_OV(DVIS_online_OV):
         # fc-clip
         geometric_ensemble_alpha: float,
         geometric_ensemble_beta: float,
+        ensemble_on_valid_mask: bool,
         # multi datasets
         test2train={},
     ):
@@ -1868,6 +1935,7 @@ class DVIS_offline_OV(DVIS_online_OV):
             # fc-clip
             geometric_ensemble_alpha=geometric_ensemble_alpha,
             geometric_ensemble_beta=geometric_ensemble_beta,
+            ensemble_on_valid_mask=ensemble_on_valid_mask,
             # multi datasets
             test2train=test2train,
         )
@@ -1992,6 +2060,7 @@ class DVIS_offline_OV(DVIS_online_OV):
             # fc-clip
             "geometric_ensemble_alpha": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_ALPHA,
             "geometric_ensemble_beta": cfg.MODEL.FC_CLIP.GEOMETRIC_ENSEMBLE_BETA,
+            "ensemble_on_valid_mask": cfg.MODEL.FC_CLIP.ENSEMBLE_ON_VALID_MASK,
             # multi datasets
             "test2train": {x: y for x, y in zip(cfg.DATASETS.TEST, cfg.DATASETS.TEST2TRAIN)},
         }
@@ -2146,6 +2215,20 @@ class DVIS_offline_OV(DVIS_online_OV):
             category_overlapping_mask = self.category_overlapping_mask.to(self.device)
             alpha = self.geometric_ensemble_alpha
             beta = self.geometric_ensemble_beta
+
+            if self.ensemble_on_valid_mask:
+                # Only include out_vocab cls results on masks with valid pixels
+                # We empirically find that this is important to obtain reasonable AP/mIOU score with ResNet CLIP models
+                valid_masking = (mask_pred_results > 0).to(mask_pred_results).sum(-1).sum(-1) > 0
+                valid_masking = valid_masking.to(in_vocab_cls_results).unsqueeze(-1)
+                alpha = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_alpha
+                beta = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_beta
+                alpha = alpha * valid_masking
+                beta = beta * valid_masking
+            else:
+                alpha = self.geometric_ensemble_alpha
+                beta = self.geometric_ensemble_beta
+
             cls_logits_seen = (
                     (in_vocab_cls_results ** (1 - alpha) * out_vocab_cls_probs ** alpha).log()
                     * category_overlapping_mask
@@ -2205,16 +2288,27 @@ class DVIS_offline_OV(DVIS_online_OV):
             mask_pred_results_ = mask_pred_results[start_idx: end_idx].to(self.device)
             mask_for_pooling_ = F.interpolate(mask_pred_results_, size=clip_feature.shape[-2:],
                                               mode='bilinear', align_corners=False)
-            pooled_clip_feature, pixel_num = self.mask_pooling(clip_feature_, mask_for_pooling_, return_num=True)
-            maskpool_embeddings.append(pooled_clip_feature) # (windows q c)
-            pixel_nums.append(pixel_num) # (windows q 1)
 
-        maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
-        pixel_nums = torch.cat(pixel_nums, dim=0)[:, :, :, 0]
-        pixel_nums = pixel_nums / torch.sum(pixel_nums, dim=0, keepdim=True)
-        maskpool_embeddings = maskpool_embeddings * pixel_nums
-        maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
-        pooled_clip_feature = self.backbone.visual_prediction_forward(maskpool_embeddings)  # (1 q c)
+            if "convnext" in self.backbone.model_name.lower():
+                pooled_clip_feature, pixel_num = self.mask_pooling(clip_feature_, mask_for_pooling_, return_num=True)
+                maskpool_embeddings.append(pooled_clip_feature)  # (windows q c)
+                pixel_nums.append(pixel_num)  # (windows q 1)
+            elif "rn" in self.backbone.model_name.lower():
+                pooled_clip_feature = self.backbone.visual_prediction_forward(clip_feature_,
+                                                                              mask_for_pooling_)  # (t, q, c)
+                maskpool_embeddings.append(pooled_clip_feature)
+            else:
+                raise NotImplementedError
+
+        if len(pixel_nums) == 0:
+            pooled_clip_feature = torch.cat(maskpool_embeddings, dim=0)  # (t, q, c)
+        else:
+            maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
+            pixel_nums = torch.cat(pixel_nums, dim=0)[:, :, :, 0]
+            pixel_nums = pixel_nums / torch.sum(pixel_nums, dim=0, keepdim=True)
+            maskpool_embeddings = maskpool_embeddings * pixel_nums
+            maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
+            pooled_clip_feature = self.backbone.visual_prediction_forward(maskpool_embeddings)  # (1 q c)
         return pooled_clip_feature
 
     def segmentor_windows_inference(self, images_tensor, window_size=5,
