@@ -860,7 +860,7 @@ class MinVIS_OV(nn.Module):
                 pred_cls.shape[-1] - 1, device=self.device
             ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
             # keep top-K predictions
-            scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
+            scores_per_image, topk_indices = scores.flatten(0, 1).topk(10, sorted=False)
             labels_per_image = labels[topk_indices]
             topk_indices = topk_indices // (pred_cls.shape[-1] - 1)
             pred_masks = pred_masks[topk_indices]
