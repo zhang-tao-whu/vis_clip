@@ -6,6 +6,7 @@ MODEL:
   TRACKER:
     NOISE_MODE: "wa"
     NOISE_RATIO: 0.5
+    USE_CL: False
 
 SOLVER:
   IMS_PER_BATCH: 8
