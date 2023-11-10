@@ -2213,8 +2213,6 @@ class DVIS_offline_OV(DVIS_online_OV):
             out_vocab_cls_probs = out_vocab_cls_results.softmax(-1)
             in_vocab_cls_results = in_vocab_cls_results.softmax(-1)
             category_overlapping_mask = self.category_overlapping_mask.to(self.device)
-            alpha = self.geometric_ensemble_alpha
-            beta = self.geometric_ensemble_beta
 
             if self.ensemble_on_valid_mask:
                 # Only include out_vocab cls results on masks with valid pixels
