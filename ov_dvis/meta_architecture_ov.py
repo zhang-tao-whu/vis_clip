@@ -220,6 +220,7 @@ class MinVIS_OV(nn.Module):
                     void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
                     void_embed = F.normalize(void_embed, dim=-1).detach()
                     if self.void_embedding_merge_mode == 'mean':
+                        print("this !!!!!!!!!!!!!!!!!!!!!!!!")
                         void_embed = torch.mean(void_embed, dim=0, keepdim=True)
                     elif self.void_embedding_merge_mode == 'max':
                         pass
