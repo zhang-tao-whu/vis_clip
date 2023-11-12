@@ -201,12 +201,12 @@ class MinVIS_OV(nn.Module):
                 res.append(x_)
             return res
         if self.training or not self.test_use_all_vocabulary:
-            print('this !!!!!!!!!!!!!!!!!!!!!!!!!!')
             if self.additional_void_embedding is None:
                 _zero = self.void_embedding.weight.sum() * 0.0
             else:
                 _zero = self.void_embedding.weight.sum() * 0.0 + self.additional_void_embedding.weight.sum() * 0.0
             if name in self.train_names2id.keys():
+                print('this !!!!!!!!!!!!!!!!!!!!!!!!!!')
                 i = self.train_names2id[name]
                 if i == 0:
                     void_embed = self.void_embedding.weight
