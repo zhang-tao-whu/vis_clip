@@ -12,4 +12,8 @@ INPUT:
   SAMPLING_FRAME_RANGE: 5
   REVERSE_AGU: True
 
+DATASETS:
+  TEST: ("ytvis_2019_val_ov",)
+  TEST2TRAIN: [ ]
+
 OUTPUT_DIR: './output_DVIS_Offline_combine_480p_strongAgu'

@@ -206,7 +206,6 @@ class MinVIS_OV(nn.Module):
             else:
                 _zero = self.void_embedding.weight.sum() * 0.0 + self.additional_void_embedding.weight.sum() * 0.0
             if name in self.train_names2id.keys():
-                print(name)
                 i = self.train_names2id[name]
                 if i == 0:
                     void_embed = self.void_embedding.weight
