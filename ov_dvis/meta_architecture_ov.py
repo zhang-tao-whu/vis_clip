@@ -220,6 +220,7 @@ class MinVIS_OV(nn.Module):
                     void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
                     void_embed = F.normalize(void_embed, dim=-1).detach()
                     if self.void_embedding_merge_mode == 'mean':
+                        print('mean the void embedding !!!!')
                         void_embed = torch.mean(void_embed, dim=0, keepdim=True)
                     elif self.void_embedding_merge_mode == 'max':
                         pass
@@ -313,7 +314,7 @@ class MinVIS_OV(nn.Module):
             return self.test_text_classifier, self.test_num_templates
 
     def set_metadata(self, name, metadata):
-        print(metadata)
+        print(metadata.classes_ov)
         self.category_overlapping_mask, self.test_num_templates, self.test_class_names = \
             self.prepare_class_names_from_metadata(metadata, self.all_train_metadatas)
         self.test_class_prepares.update({name: {'overlapping': self.category_overlapping_mask,
