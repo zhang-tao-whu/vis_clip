@@ -12,4 +12,7 @@ INPUT:
   SAMPLING_FRAME_RANGE: 5
   REVERSE_AGU: True
 
+DATASETS:
+  TEST2TRAIN: [ ]
+
 OUTPUT_DIR: './output_DVIS_Offline_combine_480p_strongAgu'
