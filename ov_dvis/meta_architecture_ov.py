@@ -1346,8 +1346,6 @@ class DVIS_online_OV(MinVIS_OV):
 
             #pooled_clip_feature = self.windows_get_maskpool_embeds(clip_feature, mask_pred_results, windows=36)
             pooled_clip_feature = outputs['pooled_clip_feature']
-            print(pooled_clip_feature)
-            print(pooled_clip_feature.sum())
             out_vocab_cls_results = get_classification_logits(pooled_clip_feature, text_classifier,
                                                               self.backbone.clip_model.logit_scale, num_templates)
 
@@ -1362,9 +1360,10 @@ class DVIS_online_OV(MinVIS_OV):
             if self.ensemble_on_valid_mask:
                 # Only include out_vocab cls results on masks with valid pixels
                 # We empirically find that this is important to obtain reasonable AP/mIOU score with ResNet CLIP models
-                mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
-
-                valid_masking = (mask_pred_results > 0).to(mask_pred_results).sum(-1).sum(-1) > 0
+                # mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
+                #
+                # valid_masking = (mask_pred_results > 0).to(mask_pred_results).sum(-1).sum(-1) > 0
+                valid_masking = outputs['valid_masking']
                 valid_masking = valid_masking.to(in_vocab_cls_results).unsqueeze(-1)
                 alpha = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_alpha
                 beta = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_beta
@@ -1603,6 +1602,7 @@ class DVIS_online_OV(MinVIS_OV):
         out_list = []
         maskpool_embeddings = []  # (windows q c)
         pixel_nums = []
+        valid_masks = []
         for i in range(iters):
             start_idx = i * window_size
             end_idx = (i+1) * window_size
@@ -1647,6 +1647,10 @@ class DVIS_online_OV(MinVIS_OV):
                 pooled_clip_feature = self.backbone.visual_prediction_forward(features['clip_vis_dense'],
                                                                               mask_for_pooling_)  # (t, q, c)
                 maskpool_embeddings.append(pooled_clip_feature)
+
+                valid_masking = (mask_for_pooling_ > 0).to(mask_for_pooling_).sum(-1).sum(-1) > 0  # (t, q)
+                valid_masks.append(valid_masking)
+
             else:
                 raise NotImplementedError
 
@@ -1670,6 +1674,8 @@ class DVIS_online_OV(MinVIS_OV):
 
         if len(pixel_nums) == 0:
             pooled_clip_feature = torch.cat(maskpool_embeddings, dim=0)  # (t, q, c)
+            valid_masks = torch.cat(valid_masks, dim=0)  # (t, q)
+            outputs['valid_masking'] = valid_masks
         else:
             maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
             pixel_nums = torch.cat(pixel_nums, dim=0)[:, :, :, 0]
