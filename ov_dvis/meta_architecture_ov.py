@@ -181,7 +181,7 @@ class MinVIS_OV(nn.Module):
 
         self.test2train = test2train
         self.test_use_all_vocabulary = False
-        self.void_embedding_merge_mode = 'mean'  # ['mean', 'max']
+        self.void_embedding_merge_mode = 'coco'  # ['mean', 'max', 'coco']
 
         self.task = task
         assert self.task in ['vis', 'vss', 'vps'], "Only support vis, vss and vps !"
@@ -220,10 +220,11 @@ class MinVIS_OV(nn.Module):
                     void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
                     void_embed = F.normalize(void_embed, dim=-1).detach()
                     if self.void_embedding_merge_mode == 'mean':
-                        print("this !!!!!!!!!!!!!!!!!!!!!!!!")
                         void_embed = torch.mean(void_embed, dim=0, keepdim=True)
                     elif self.void_embedding_merge_mode == 'max':
                         pass
+                    elif self.void_embedding_merge_mode == 'coco':
+                        void_embed = void_embed[:1]
                     else:
                         raise NotImplementedError
             text_classifier = torch.cat([text_classifier, void_embed], dim=0)
@@ -274,6 +275,8 @@ class MinVIS_OV(nn.Module):
                         void_embed = torch.mean(void_embed, dim=0, keepdim=True)
                     elif self.void_embedding_merge_mode == 'max':
                         pass
+                    elif self.void_embedding_merge_mode == 'coco':
+                        void_embed = void_embed[:1]
                     else:
                         raise NotImplementedError
                 else:
