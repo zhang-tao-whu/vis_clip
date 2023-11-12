@@ -1367,6 +1367,8 @@ class DVIS_online_OV(MinVIS_OV):
                 beta = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_beta
                 alpha = alpha * valid_masking
                 beta = beta * valid_masking
+                alpha = self.geometric_ensemble_alpha
+                beta = self.geometric_ensemble_beta
             else:
                 alpha = self.geometric_ensemble_alpha
                 beta = self.geometric_ensemble_beta
@@ -1387,7 +1389,7 @@ class DVIS_online_OV(MinVIS_OV):
                 cls_results.softmax(-1) * (1.0 - is_void_prob),
                 is_void_prob], dim=-1)
             mask_cls_results = torch.log(mask_cls_probs + 1e-8)
-            #outputs["pred_logits"][0] = mask_cls_results  # t q c
+            outputs["pred_logits"][0] = mask_cls_results  # t q c
 
             outputs = self.post_processing(outputs)
             mask_cls_results = outputs["pred_logits"]
