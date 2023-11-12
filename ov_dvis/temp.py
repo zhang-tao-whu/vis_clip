@@ -1387,7 +1387,7 @@ class DVIS_online_OV(MinVIS_OV):
                 cls_results.softmax(-1) * (1.0 - is_void_prob),
                 is_void_prob], dim=-1)
             mask_cls_results = torch.log(mask_cls_probs + 1e-8)
-            #outputs["pred_logits"][0] = mask_cls_results  # t q c
+            outputs["pred_logits"][0] = mask_cls_results  # t q c
 
             outputs = self.post_processing(outputs)
             mask_cls_results = outputs["pred_logits"]
@@ -1633,7 +1633,7 @@ class DVIS_online_OV(MinVIS_OV):
             # get clip embeddings
             mask_for_pooling_ = F.interpolate(track_out['pred_masks'][0].transpose(0, 1),
                                               size=features['clip_vis_dense'].shape[-2:],
-                                              mode='bilinear', align_corners=False)  # (t, q, h, w)
+                                              mode='bilinear', align_corners=False)
 
             if "convnext" in self.backbone.model_name.lower():
                 pooled_clip_feature, pixel_num = self.mask_pooling(features['clip_vis_dense'], mask_for_pooling_,
