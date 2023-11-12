@@ -206,7 +206,7 @@ class MinVIS_OV(nn.Module):
             else:
                 _zero = self.void_embedding.weight.sum() * 0.0 + self.additional_void_embedding.weight.sum() * 0.0
             if name in self.train_names2id.keys():
-                print('this !!!!!!!!!!!!!!!!!!!!!!!!!!')
+                print(name)
                 i = self.train_names2id[name]
                 if i == 0:
                     void_embed = self.void_embedding.weight
@@ -221,7 +221,6 @@ class MinVIS_OV(nn.Module):
                     void_embed = torch.cat([self.void_embedding.weight, self.additional_void_embedding.weight], dim=0)
                     void_embed = F.normalize(void_embed, dim=-1).detach()
                     if self.void_embedding_merge_mode == 'mean':
-                        print('mean the void embedding !!!!')
                         void_embed = torch.mean(void_embed, dim=0, keepdim=True)
                     elif self.void_embedding_merge_mode == 'max':
                         pass
@@ -273,7 +272,6 @@ class MinVIS_OV(nn.Module):
                     void_embed = F.normalize(void_embed, dim=-1).detach()
                     if self.void_embedding_merge_mode == 'mean':
                         void_embed = torch.mean(void_embed, dim=0, keepdim=True)
-                        print('mean the void embedding !!!!')
                     elif self.void_embedding_merge_mode == 'max':
                         pass
                     else:
