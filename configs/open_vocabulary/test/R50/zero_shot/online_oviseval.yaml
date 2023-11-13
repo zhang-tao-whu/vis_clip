@@ -8,4 +8,4 @@ DATASETS:
   DATASET_TYPE_TEST: ['video_instance',]
   TEST: ("ovis_val_ov",)
 
-OUTPUT_DIR: './output/R50/online_supervised_ovis_R50'
+OUTPUT_DIR: './output/R50/online_zero_shot_ovis_R50'
