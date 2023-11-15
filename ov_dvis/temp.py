@@ -2218,7 +2218,7 @@ class DVIS_offline_OV(DVIS_online_OV):
             #                                  mode='bilinear', align_corners=False)
             # pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
             # pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
-            pooled_clip_feature, valid_masking = self.windows_get_maskpool_embeds(clip_feature, mask_pred_results)
+            pooled_clip_feature = self.windows_get_maskpool_embeds(clip_feature, mask_pred_results)
             out_vocab_cls_results = get_classification_logits(pooled_clip_feature, text_classifier,
                                                               self.backbone.clip_model.logit_scale, num_templates)
             in_vocab_cls_results = mask_cls_results[..., :-1]  # remove void
@@ -2231,7 +2231,7 @@ class DVIS_offline_OV(DVIS_online_OV):
             if self.ensemble_on_valid_mask:
                 # Only include out_vocab cls results on masks with valid pixels
                 # We empirically find that this is important to obtain reasonable AP/mIOU score with ResNet CLIP models
-                #valid_masking = (mask_pred_results > 0).to(mask_pred_results).sum(-1).sum(-1) > 0
+                valid_masking = (mask_pred_results > 0).to(mask_pred_results).sum(-1).sum(-1) > 0
                 valid_masking = valid_masking.to(in_vocab_cls_results).unsqueeze(-1)
                 alpha = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_alpha
                 beta = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_beta
@@ -2293,7 +2293,6 @@ class DVIS_offline_OV(DVIS_online_OV):
             iters += 1
         maskpool_embeddings = []
         pixel_nums = []
-        valid_masking = []
         for i in range(iters):
             start_idx = i * windows
             end_idx = (i + 1) * windows
@@ -2310,15 +2309,11 @@ class DVIS_offline_OV(DVIS_online_OV):
                 pooled_clip_feature = self.backbone.visual_prediction_forward(clip_feature_,
                                                                               mask_for_pooling_)  # (t, q, c)
                 maskpool_embeddings.append(pooled_clip_feature)
-                valid_masking_ = (mask_for_pooling_ > 0).to(mask_for_pooling_).sum(-1).sum(-1) > 0
-                valid_masking.append(valid_masking_)
             else:
                 raise NotImplementedError
 
         if len(pixel_nums) == 0:
             pooled_clip_feature = torch.cat(maskpool_embeddings, dim=0)  # (t, q, c)
-            valid_masks = torch.cat(valid_masking, dim=0)  # (t, q)
-            return pooled_clip_feature, valid_masks
         else:
             maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
             pixel_nums = torch.cat(pixel_nums, dim=0)[:, :, :, 0]
@@ -2326,7 +2321,7 @@ class DVIS_offline_OV(DVIS_online_OV):
             maskpool_embeddings = maskpool_embeddings * pixel_nums
             maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
             pooled_clip_feature = self.backbone.visual_prediction_forward(maskpool_embeddings)  # (1 q c)
-            return pooled_clip_feature, None
+        return pooled_clip_feature
 
     def segmentor_windows_inference(self, images_tensor, window_size=5,
                                     text_classifier=None, num_templates=None):
