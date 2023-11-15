@@ -519,7 +519,7 @@ class TemporalRefiner_OV(torch.nn.Module):
             outputs_classes.append(decoder_output)
             outputs_masks.append(outputs_mask.cpu().to(torch.float32))
         outputs_classes = torch.cat(outputs_classes, dim=2)
-        T = decoder_output.size(2)
+        T = outputs.size(0)
         outputs_classes = self._temoral_weighting(outputs_classes)  # (l, b, 1, q, c)
 
         maskpool_embeddings = torch.cat(maskpool_embeddings, dim=2)
