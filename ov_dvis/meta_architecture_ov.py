@@ -2235,6 +2235,7 @@ class DVIS_offline_OV(DVIS_online_OV):
                 valid_masking = valid_masking.to(in_vocab_cls_results).unsqueeze(-1)
                 alpha = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_alpha
                 beta = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_beta
+                print(in_vocab_cls_results.shape, valid_masking.shape)
                 alpha = alpha * valid_masking
                 beta = beta * valid_masking
             else:
