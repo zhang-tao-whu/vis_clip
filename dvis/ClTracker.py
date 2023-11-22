@@ -278,7 +278,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # try use memories
         self.memories = []
-        self.use_memories = False
+        self.use_memories = True
         if self.use_memories:
             self.memories_max_length = 3
             self.memory_activation = MLP(hidden_channel * self.memories_max_length, hidden_channel, hidden_channel, 3)
