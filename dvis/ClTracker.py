@@ -318,6 +318,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
         memories = torch.cat(self.memories, dim=-1)
+        print(memories.shape)
         return references + self.memory_activation(memories)
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
