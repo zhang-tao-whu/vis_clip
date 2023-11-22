@@ -449,11 +449,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 self.last_frame_embeds = single_frame_embeds
                 ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
                                                          single_frame_embeds_no_norm, activate=False,
-                                                         single_frame_classes=None, )
+                                                         single_frame_classes=single_frame_classes, )
             else:
                 ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
                                                          self.last_outputs[-1], activate=self.training,
-                                                         single_frame_classes=None, )
+                                                         single_frame_classes=single_frame_classes, )
             all_frames_references.append(self.last_reference)
             outputs.append(ms_outputs)
             ret_indices.append(indices)
