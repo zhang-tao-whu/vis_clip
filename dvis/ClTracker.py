@@ -880,13 +880,25 @@ class ClDVIS_online(MinVIS):
         output['pred_logits'][0] = output['pred_logits'][0][frame_indices, indices]
         return output
 
+    def _get_video_logits(self, logits, mode='mean'):
+        # (t q c)
+        if mode == 'mean':
+            out_logits = torch.mean(logits, dim=0).unsqueeze(0)
+        elif mode == 'max':
+            out_logits = torch.max(logits, dim=0)[0].unsqueeze(0)
+        elif mode == 'topk_mean':
+            top_k, indices = torch.topk(logits, k=5, dim=0)
+            out_logits = torch.mean(top_k, dim=0).unsqueeze(0)
+        return out_logits
+
     def post_processing(self, outputs, aux_logits=None):
         """
         average the class logits and append query ids
         """
         pred_logits = outputs['pred_logits']
         pred_logits = pred_logits[0]  # (t, q, c)
-        out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
+        # out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
+        out_logits = self._get_video_logits(pred_logits, mode='topk_mean')
         if aux_logits is not None:
             aux_logits = aux_logits[0]
             aux_logits = torch.mean(aux_logits, dim=0)  # (q, c)
