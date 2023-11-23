@@ -235,6 +235,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
         # for cl learning
+        self.prop_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         self.ref_proj_2 = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
 
@@ -313,13 +314,16 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
     def _use_memories(self, references):
         if len(self.memories) == 0:
-            self.memories += [references] * self.memories_max_length
+            self.memories += [references.detach()] * self.memories_max_length
         else:
-            self.memories.append(references)
+            self.memories.append(references.detach())
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
         memories = torch.cat(self.memories, dim=-1)
-        return references + self.memory_activation(memories)
+        if random.random() < 0.5:
+            return references + self.memory_activation(memories)
+        else:
+            return references + self.memory_activation(memories) * 0.0
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
@@ -341,7 +345,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             activate=activate,
         )
         output_1 = noised_init
-        output_2 = reference
+        output_2 = self.prop_proj(reference)
         reference = self.ref_proj(reference)
 
         for i in range(self.splits[0]):
@@ -904,7 +908,7 @@ class ClDVIS_online(MinVIS):
         pred_logits = outputs['pred_logits']
         pred_logits = pred_logits[0]  # (t, q, c)
         # out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
-        out_logits = self._get_video_logits(pred_logits, mode='topk_mean')
+        out_logits = self._get_video_logits(pred_logits, mode='mean')
         if aux_logits is not None:
             aux_logits = aux_logits[0]
             aux_logits = torch.mean(aux_logits, dim=0)  # (q, c)

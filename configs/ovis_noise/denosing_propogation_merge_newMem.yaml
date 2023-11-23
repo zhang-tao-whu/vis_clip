@@ -5,6 +5,7 @@ MODEL:
     TRANSFORMER_DECODER_NAME: "VideoMultiScaleMaskedTransformerDecoder_ctdvis"
   TRACKER:
     NOISE_MODE: "wa"
+    USE_CL: False
 
 SOLVER:
   IMS_PER_BATCH: 8
