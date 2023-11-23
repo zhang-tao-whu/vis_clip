@@ -887,8 +887,14 @@ class ClDVIS_online(MinVIS):
         elif mode == 'max':
             out_logits = torch.max(logits, dim=0)[0].unsqueeze(0)
         elif mode == 'topk_mean':
-            top_k, indices = torch.topk(logits, k=5, dim=0)
-            out_logits = torch.mean(top_k, dim=0).unsqueeze(0)
+            # top_k, indices = torch.topk(logits, k=5, dim=0)
+            # out_logits = torch.mean(top_k, dim=0).unsqueeze(0)
+            fg_logits = logits[:, :, :-1]
+            max_fg_logits = torch.max(logits, dim=-1)[0]
+            k = 5
+            top_k, indices = torch.topk(max_fg_logits, k=k, dim=0)  # (k, q)
+            selected_logits = logits[indices, torch.arange(0, indices.shape[1], dtype=torch.int64).unsqueeze(0).repeat(k, 1), :] # (k q c)
+            out_logits = torch.mean(selected_logits, dim=0).unsqueeze(0)
         return out_logits
 
     def post_processing(self, outputs, aux_logits=None):
