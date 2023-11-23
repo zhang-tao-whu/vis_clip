@@ -320,14 +320,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
         memories = torch.cat(self.memories, dim=-1)
-        if random.random() < 0.5:
-            return references + self.memory_activation(memories)
-        else:
-            return references + self.memory_activation(memories) * 0.0
+        return references + self.memory_activation(memories)
+
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
-            reference = self._use_memories(reference)
+            reference_mem = self._use_memories(reference)
+            if random.random() < 0.5:
+                reference = reference_mem
 
         if self.filer_bg and single_frame_classes is not None:
             attn_mask = single_frame_classes == -1
@@ -405,7 +405,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             ms_output.append(output)
 
         if self.use_memories:
-            gap = torch.abs(reference - output.detach())
+            gap = torch.abs(reference_mem - output.detach())
         else:
             gap = None
         self.last_frame_embeds = frame_embeds[indices]
