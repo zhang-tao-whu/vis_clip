@@ -37,7 +37,7 @@ Yuan Zhang, Pengfei Wan, Zhongyuan Wang and
 ### VPS
 <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/9c4419eb12.gif" width="365"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/37b4ec2e1a.gif" width="365"/>
 ### Open-vocabulary demos
-
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/f7255a57d0.gif" width="365"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/ffd7c15f47.gif" width="365"/>
 ## Installation
 
 See [Installation Instructions](INSTALL.md).
