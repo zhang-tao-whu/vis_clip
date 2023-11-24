@@ -27,10 +27,14 @@ Yuan Zhang, Pengfei Wan, Zhongyuan Wang and
 - DVIS++ is a universal video segmentation framework that supports VIS, VPS and VSS.
 - DVIS++ can run in both online and offline modes. 
 - DVIS++ achieved SOTA performance on YTVIS 2019&2021&2022, OVIS, VIPSeg and VSPW datasets.
-- OV-DVIS++ is the first open-vocabulary video universal segmentation framework with powerful zero-shot segmentation capability.. 
+- OV-DVIS++ is the first open-vocabulary video universal segmentation framework with powerful zero-shot segmentation capability. 
 
 ## Demos
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="370"/>
+### VIS
+### VSS
+### VPS
+### Open-vocabulary demos
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/34df9b7e.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/52ee3d90.gif" width="370"/>
 <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="215"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_4.gif" width="290"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_5.gif" width="290"/>
 <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_6.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_7.gif" width="400"/>
 
