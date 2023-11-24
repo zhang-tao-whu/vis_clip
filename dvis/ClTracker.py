@@ -407,7 +407,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             ms_output.append(output)
 
         if self.use_memories:
-            gap = torch.abs(reference_mem - output.detach())
+            gap = F.smooth_l1_loss(reference_mem, output, reduction='none')
         else:
             gap = None
         self.last_frame_embeds = frame_embeds[indices]
