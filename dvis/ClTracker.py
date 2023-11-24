@@ -332,6 +332,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
             attn_mask = attn_mask.unsqueeze(0).repeat(frame_embeds_no_norm.shape[0])  # (q, q)
             attn_mask = attn_mask.to(frame_embeds_no_norm.device)
         else:
+            if self.filer_bg:
+                print("Failed to filter BG !!!!!")
             attn_mask = None
 
         ms_output = []
