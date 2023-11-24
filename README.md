@@ -31,12 +31,10 @@ Yuan Zhang, Pengfei Wan, Zhongyuan Wang and
 
 ## Demos
 ### VIS
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/34df9b7e.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/52ee3d90.gif" width="370"/>
 ### VSS
 ### VPS
 ### Open-vocabulary demos
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/34df9b7e.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/52ee3d90.gif" width="370"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_2.gif" width="215"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_4.gif" width="290"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_5.gif" width="290"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_6.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_7.gif" width="400"/>
 
 ## Installation
 
