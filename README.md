@@ -1,7 +1,10 @@
 <div align="center">
 
 # [DVIS++: Improved Decoupled Framework for Universal Video Segmentation]()
-[Tao Zhang](https://scholar.google.com/citations?user=3xu4a5oAAAAJ&hl=zh-CN), XingYe Tian, Yikang Zhou, [ShunPing Ji](https://scholar.google.com/citations?user=FjoRmF4AAAAJ&hl=zh-CN), Xuebo Wang, Xin Tao, Yuan Zhang, Pengfei Wan, Zhongyuan Wang and
+[Tao Zhang](https://scholar.google.com/citations?user=3xu4a5oAAAAJ&hl=zh-CN), XingYe Tian, Yikang Zhou, 
+[ShunPing Ji](https://scholar.google.com/citations?user=FjoRmF4AAAAJ&hl=zh-CN), Xuebo Wang, Xin Tao,
+
+Yuan Zhang, Pengfei Wan, Zhongyuan Wang and 
 [Yu Wu](https://scholar.google.com/citations?hl=zh-CN&user=23SZHUwAAAAJ)
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/dvis-decoupled-video-instance-segmentation/video-instance-segmentation-on-ovis-1)](https://paperswithcode.com/sota/video-instance-segmentation-on-ovis-1?p=dvis-decoupled-video-instance-segmentation)
