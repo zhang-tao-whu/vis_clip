@@ -238,8 +238,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         self.ref_proj_2 = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
 
-        self.mem_proj = nn.Linear(hidden_channel, hidden_channel)
-
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
         for layer in self.ref_proj_2.layers:
@@ -280,10 +278,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # try use memories
         self.memories = []
-        self.use_memories = True
+        self.use_memories = False
         if self.use_memories:
-            self.memories_max_length = 5
-            self.memory_activation = MLP(hidden_channel * self.memories_max_length, hidden_channel, hidden_channel, 3)
+            self.memories_max_length = 3
+            self.memory_activation = MLP(hidden_channel, hidden_channel, 1, 3)
 
         self.filer_bg = False
 
@@ -314,22 +312,20 @@ class ClReferringTracker_noiser(torch.nn.Module):
         return output
 
     def _use_memories(self, references):
-        if len(self.memories) == 0:
-            self.memories += [references.detach()] * self.memories_max_length
-        else:
-            self.memories.append(references.detach())
+        self.memories.append(references)
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
-        memories = torch.cat(self.memories, dim=-1)
-        return references + self.memory_activation(memories)
-
+        memories = torch.stack(self.memories, dim=0)
+        activation = self.memory_activation(memories).sigmoid() + 1e-4
+        activation_sum = torch.sum(activation, dim=0)
+        output = (torch.sum(memories * activation, dim=0)) / activation_sum
+        if self.training and random.random() < 0.5:
+            return references + output * 0.0
+        return output
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
-            reference_mem = self._use_memories(reference)
-            if random.random() < 0.5:
-                reference = reference_mem
-        reference = self.mem_proj(reference)
+            reference = self._use_memories(reference)
 
         if self.filer_bg and single_frame_classes is not None:
             attn_mask = single_frame_classes == -1
@@ -406,15 +402,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         attn_mask=attn_mask, )
             ms_output.append(output)
 
-        if self.use_memories:
-            gap = F.smooth_l1_loss(reference_mem, output, reduction='none')
-        else:
-            gap = None
         self.last_frame_embeds = frame_embeds[indices]
         self.last_reference = reference
         ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
         self.last_outputs = ms_output
-        return ms_output, indices, gap
+        return ms_output, indices
 
     def forward(self, frame_embeds, mask_features, resume=False,
                 return_indices=False, frame_classes=None,
@@ -438,7 +430,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
         ret_indices = []
 
         all_frames_references = []
-        gaps = []
 
         for i in range(n_frame):
             single_frame_embeds = frame_embeds[i]  # q b c
@@ -456,17 +447,16 @@ class ClReferringTracker_noiser(torch.nn.Module):
             if i == 0 and resume is False:
                 self._clear_memory()
                 self.last_frame_embeds = single_frame_embeds
-                ms_outputs, indices, gap = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
-                                                              single_frame_embeds_no_norm, activate=False,
-                                                              single_frame_classes=single_frame_classes, )
+                ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
+                                                         single_frame_embeds_no_norm, activate=False,
+                                                         single_frame_classes=single_frame_classes, )
             else:
-                ms_outputs, indices, gap = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
-                                                              self.last_outputs[-1], activate=self.training,
-                                                              single_frame_classes=single_frame_classes, )
+                ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
+                                                         self.last_outputs[-1], activate=self.training,
+                                                         single_frame_classes=single_frame_classes, )
             all_frames_references.append(self.last_reference)
             outputs.append(ms_outputs)
             ret_indices.append(indices)
-            gaps.append(gap)
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
         all_frames_references = torch.stack(all_frames_references, dim=0)  # (t, q, b, c)
 
@@ -482,7 +472,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': self.ref_proj_2(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
-           'gaps': gaps,
         }
         if return_indices:
             return out, ret_indices
@@ -658,8 +647,6 @@ class ClDVIS_online(MinVIS):
         if cfg.MODEL.TRACKER.USE_CL:
             weight_dict.update({'loss_reid': 2})
 
-        weight_dict.update({'loss_gaps': 1.0})
-
         losses = ["labels", "masks"]
 
         criterion = VideoSetCriterion(
@@ -780,7 +767,6 @@ class ClDVIS_online(MinVIS):
 
         if self.training:
             targets = self.prepare_targets(batched_inputs, images)
-            gaps = outputs['gaps']
             # use the segmenter prediction results to guide the matching process during early training phase
             image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
                 outputs, targets, image_outputs=image_outputs
@@ -793,10 +779,6 @@ class ClDVIS_online(MinVIS):
             losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
             # losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)
             losses.update(losses_cl)
-
-            if gaps[0] is not None:
-                gaps = torch.cat(gaps, dim=0)
-                losses.update({'loss_gaps': torch.mean(gaps)})
 
             self.iter += 1
 
@@ -886,31 +868,13 @@ class ClDVIS_online(MinVIS):
         output['pred_logits'][0] = output['pred_logits'][0][frame_indices, indices]
         return output
 
-    def _get_video_logits(self, logits, mode='mean'):
-        # (t q c)
-        if mode == 'mean':
-            out_logits = torch.mean(logits, dim=0).unsqueeze(0)
-        elif mode == 'max':
-            out_logits = torch.max(logits, dim=0)[0].unsqueeze(0)
-        elif mode == 'topk_mean':
-            # top_k, indices = torch.topk(logits, k=5, dim=0)
-            # out_logits = torch.mean(top_k, dim=0).unsqueeze(0)
-            fg_logits = logits[:, :, :-1]
-            max_fg_logits = torch.max(logits, dim=-1)[0]
-            k = 5
-            top_k, indices = torch.topk(max_fg_logits, k=k, dim=0)  # (k, q)
-            selected_logits = logits[indices, torch.arange(0, indices.shape[1], dtype=torch.int64).unsqueeze(0).repeat(k, 1), :] # (k q c)
-            out_logits = torch.mean(selected_logits, dim=0).unsqueeze(0)
-        return out_logits
-
     def post_processing(self, outputs, aux_logits=None):
         """
         average the class logits and append query ids
         """
         pred_logits = outputs['pred_logits']
         pred_logits = pred_logits[0]  # (t, q, c)
-        # out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
-        out_logits = self._get_video_logits(pred_logits, mode='mean')
+        out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
         if aux_logits is not None:
             aux_logits = aux_logits[0]
             aux_logits = torch.mean(aux_logits, dim=0)  # (q, c)
