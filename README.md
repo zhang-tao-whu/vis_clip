@@ -20,13 +20,14 @@ Yuan Zhang, Pengfei Wan, Zhongyuan Wang and
 </div>
 
 ## News
-- DVIS achieved **1st place** in the VPS Track of the PVUW challenge at CVPR 2023. `2023.5.25`
+- DVIS and DVIS++ achieved **1st place** in the VPS Track of the PVUW challenge at CVPR 2023. `2023.5.25`
+- DVIS and DVIS++ achieved **1st place** in the VIS Track of the 5th LSVOS challenge at ICCV 2023. `2023.8.15`
 
 ## Features
-- DVIS is a universal video segmentation framework that supports VIS, VPS and VSS.
-- DVIS can run in both online and offline modes. 
-- DVIS achieved SOTA performance on YTVIS, OVIS, VIPSeg and VSPW datasets.
-- DVIS can complete training and inference on GPUs with only 11G memory. 
+- DVIS++ is a universal video segmentation framework that supports VIS, VPS and VSS.
+- DVIS++ can run in both online and offline modes. 
+- DVIS++ achieved SOTA performance on YTVIS 2019&2021&2022, OVIS, VIPSeg and VSPW datasets.
+- OV-DVIS++ is the first open-vocabulary video universal segmentation framework with powerful zero-shot segmentation capability.. 
 
 ## Demos
 <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_0.gif" width="400"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis/demo_1.gif" width="370"/>
@@ -39,15 +40,15 @@ See [Installation Instructions](INSTALL.md).
 
 ## Getting Started
 
-See [Preparing Datasets for DVIS](datasets/README.md).
+See [Preparing Datasets for DVIS++](datasets/README.md).
 
-See [Getting Started with DVIS](GETTING_STARTED.md).
+See [Getting Started with DVIS++](GETTING_STARTED.md).
 
 ## Model Zoo
 
-Trained models are available for download in the [DVIS Model Zoo](MODEL_ZOO.md).
+Trained models are available for download in the [DVIS++ Model Zoo](MODEL_ZOO.md).
 
-## <a name="CitingDVIS"></a>Citing DVIS
+## <a name="CitingDVIS"></a>Citing DVIS and DVIS++
 
 ```BibTeX
 @article{DVIS,
@@ -60,5 +61,7 @@ Trained models are available for download in the [DVIS Model Zoo](MODEL_ZOO.md).
 
 ## Acknowledgement
 
-This repo is largely based on [Mask2Former](https://github.com/facebookresearch/Mask2Former), [MinVIS](https://github.com/NVlabs/MinVIS) and [VITA](https://github.com/sukjunhwang/VITA).
+This repo is largely based on [Mask2Former](https://github.com/facebookresearch/Mask2Former), 
+[MinVIS](https://github.com/NVlabs/MinVIS), [VITA](https://github.com/sukjunhwang/VITA), 
+[FC-CLIP](https://github.com/bytedance/fc-clip) and [DVIS](https://github.com/zhang-tao-whu/DVIS).
 Thanks for their excellent works.
