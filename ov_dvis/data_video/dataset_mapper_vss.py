@@ -1,23 +1,12 @@
-import copy
 import logging
-
-import numpy as np
-import torch
-from torch.nn import functional as F
 
 from detectron2.config import configurable
 from detectron2.data import MetadataCatalog
-from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
-from detectron2.structures import BitMasks, Instances, Boxes
 
-from dvis.data_video.dataset_mapper_vss import SemanticDatasetVideoMapper
-from dvis.data_video.utils import Video_BitMasks
-
-import random
+from dvis_Plus.data_video.dataset_mapper_vss import SemanticDatasetVideoMapper
 
 __all__ = ["OpenVocabularySemanticDatasetVideoMapper"]
-
 
 class OpenVocabularySemanticDatasetVideoMapper(SemanticDatasetVideoMapper):
     @configurable

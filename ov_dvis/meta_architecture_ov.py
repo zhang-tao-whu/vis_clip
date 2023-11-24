@@ -20,7 +20,7 @@ from scipy.optimize import linear_sum_assignment
 
 from .video_dvis_modules_ov import ReferringTracker_noiser_OV, TemporalRefiner_OV
 from .video_mask2former_transformer_decoder_ov import MaskPooling
-from dvis.ClTracker import loss_reid
+from dvis_Plus.utils import loss_reid
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,6 @@ def get_classification_logits(x, text_classifier, logit_scale, num_templates=Non
 
 @META_ARCH_REGISTRY.register()
 class MinVIS_OV(nn.Module):
-    """
-    Copied from "https://github.com/NVlabs/MinVIS".
-    """
-
     @configurable
     def __init__(
         self,
@@ -112,6 +108,7 @@ class MinVIS_OV(nn.Module):
             instance_on: bool, whether to output instance segmentation prediction
             panoptic_on: bool, whether to output panoptic segmentation prediction
             test_topk_per_image: int, instance segmentation parameter, keep topk instances per image
+            test2train: dict, which void embedding to use
         """
         super().__init__()
         self.backbone = backbone
@@ -282,7 +279,6 @@ class MinVIS_OV(nn.Module):
                 else:
                     void_embed = self.void_embedding.weight
                     void_embed = F.normalize(void_embed, dim=-1)
-            # void_embed = F.normalize(void_embed, dim=-1)
             text_classifier = torch.cat([text_classifier, void_embed, train_classifiers], dim=0)
             num_templates = num_templates + [len(void_embed) + len(train_classifiers)]
             return text_classifier, num_templates
@@ -668,13 +664,6 @@ class MinVIS_OV(nn.Module):
                 width,
                 first_resize_size)
 
-    def frame_decoder_loss_reshape_clip(self, outputs, targets):
-        outputs['pred_logits'] = outputs['pred_logits'][:, 0]
-        if 'aux_outputs' in outputs:
-            for i in range(len(outputs['aux_outputs'])):
-                outputs['aux_outputs'][i]['pred_logits'] = outputs['aux_outputs'][i]['pred_logits'][:, 0]
-        return outputs, targets
-
     def frame_decoder_loss_reshape(self, outputs, targets):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
@@ -779,11 +768,6 @@ class MinVIS_OV(nn.Module):
         gt_instances = []
         for targets_per_video in targets:
             _num_instance = len(targets_per_video["instances"][0])
-            # print('*********************', _num_instance, "**********************")
-            # if _num_instance == 0:
-            #     print(targets_per_video)
-            # import time
-            # time.sleep(1)
 
             mask_shape = [_num_instance, self.num_frames, h_pad, w_pad]
             gt_masks_per_video = torch.zeros(mask_shape, dtype=torch.bool, device=self.device)
@@ -813,47 +797,6 @@ class MinVIS_OV(nn.Module):
             gt_instances[-1].update({"masks": gt_masks_per_video})
 
         return gt_instances
-
-    # def inference_video(self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size):
-    #     if len(pred_cls) > 0:
-    #         scores = F.softmax(pred_cls, dim=-1)[:, :-1]
-    #         labels = torch.arange(
-    #             pred_cls.shape[-1] - 1,
-    #             device=self.device
-    #         ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
-    #         # keep top-10 predictions
-    #         scores_per_image, topk_indices = scores.flatten(0, 1).topk(10, sorted=False)
-    #         labels_per_image = labels[topk_indices]
-    #         topk_indices = topk_indices // (pred_cls.shape[-1] - 1)
-    #         pred_masks = pred_masks[topk_indices]
-    #
-    #         pred_masks = F.interpolate(
-    #             pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
-    #         )
-    #
-    #         pred_masks = pred_masks[:, :, : img_size[0], : img_size[1]]
-    #         pred_masks = F.interpolate(
-    #             pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-    #         )
-    #
-    #         masks = pred_masks > 0.
-    #
-    #         out_scores = scores_per_image.tolist()
-    #         out_labels = labels_per_image.tolist()
-    #         out_masks = [m for m in masks.cpu()]
-    #     else:
-    #         out_scores = []
-    #         out_labels = []
-    #         out_masks = []
-    #
-    #     video_output = {
-    #         "image_size": (output_height, output_width),
-    #         "pred_scores": out_scores,
-    #         "pred_labels": out_labels,
-    #         "pred_masks": out_masks,
-    #     }
-    #
-    #     return video_output
 
     def inference_video_vis(
         self, pred_cls, pred_masks, img_size, output_height, output_width, first_resize_size,
@@ -1164,7 +1107,6 @@ class DVIS_online_OV(MinVIS_OV):
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
 
-        # tracker = ReferringTracker(
         tracker = ReferringTracker_noiser_OV(
             hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
@@ -1336,20 +1278,9 @@ class DVIS_online_OV(MinVIS_OV):
             return losses
         else:
             # when inference, bs must be 1
-            #mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
             mask_cls_results = outputs["pred_logits"][0].to(self.device)  # t q c
 
             # We ensemble the pred logits of in-vocab and out-vocab
-            # if "clip_vis_dense" in outputs.keys():
-            #     clip_feature = outputs["clip_vis_dense"]
-            # else:
-            #     clip_feature = features["clip_vis_dense"]
-            # mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
-            #                                  mode='bilinear', align_corners=False)
-            # pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
-            # pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
-
-            #pooled_clip_feature = self.windows_get_maskpool_embeds(clip_feature, mask_pred_results, windows=36)
             pooled_clip_feature = outputs['pooled_clip_feature']
             out_vocab_cls_results = get_classification_logits(pooled_clip_feature, text_classifier,
                                                               self.backbone.clip_model.logit_scale, num_templates)
@@ -1365,9 +1296,6 @@ class DVIS_online_OV(MinVIS_OV):
             if self.ensemble_on_valid_mask:
                 # Only include out_vocab cls results on masks with valid pixels
                 # We empirically find that this is important to obtain reasonable AP/mIOU score with ResNet CLIP models
-                # mask_pred_results = outputs["pred_masks"][0].transpose(0, 1)  # t q h w
-                #
-                # valid_masking = (mask_pred_results > 0).to(mask_pred_results).sum(-1).sum(-1) > 0
                 valid_masking = outputs['valid_masking']
                 valid_masking = valid_masking.to(in_vocab_cls_results).unsqueeze(-1)
                 alpha = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_alpha
@@ -1416,39 +1344,7 @@ class DVIS_online_OV(MinVIS_OV):
                 mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size, pred_id
             )
 
-    def windows_get_maskpool_embeds(self, clip_feature, mask_pred_results, windows=36):
-        """
-        for windows prediction, because mask features consumed too much GPU memory
-        """
-        # clip_feature, (t, c, h, w)
-        # mask_pred_results,  t, q, h, w
-        iters = clip_feature.size(0) // windows
-        if clip_feature.size(0) % windows != 0:
-            iters += 1
-        maskpool_embeddings = []
-        pixel_nums = []
-        for i in range(iters):
-            start_idx = i * windows
-            end_idx = (i + 1) * windows
-            clip_feature_ = clip_feature[start_idx: end_idx].to(self.device)
-            mask_pred_results_ = mask_pred_results[start_idx: end_idx].to(self.device)
-            mask_for_pooling_ = F.interpolate(mask_pred_results_, size=clip_feature.shape[-2:],
-                                              mode='bilinear', align_corners=False)
-            pooled_clip_feature, pixel_num = self.mask_pooling(clip_feature_, mask_for_pooling_, return_num=True)
-            maskpool_embeddings.append(pooled_clip_feature) # (windows q c)
-            pixel_nums.append(pixel_num) # (windows q 1)
-
-        maskpool_embeddings = torch.cat(maskpool_embeddings, dim=0)
-        pixel_nums = torch.cat(pixel_nums, dim=0)[:, :, :, 0]
-        pixel_nums = pixel_nums / torch.sum(pixel_nums, dim=0, keepdim=True)
-        maskpool_embeddings = maskpool_embeddings * pixel_nums
-        maskpool_embeddings = torch.sum(maskpool_embeddings, dim=0, keepdim=True)
-        pooled_clip_feature = self.backbone.visual_prediction_forward(maskpool_embeddings)  # (1 q c)
-        return pooled_clip_feature
-
     def get_cl_loss_ref(self, outputs, referecne_match_result):
-        # outputs['pred_keys'] = (b t) q c
-        # outputs['pred_references'] = (b t) q c
         references = outputs['pred_references']
 
         # per frame
@@ -1632,11 +1528,11 @@ class DVIS_online_OV(MinVIS_OV):
                 track_out = self.tracker(frame_embds, mask_features,
                                          resume=True, frame_embeds_no_norm=frame_embds_no_norm,
                                          cur_feature=cur_features, text_classifier=text_classifier,
-                                            num_templates=num_templates)
+                                         num_templates=num_templates)
             else:
                 track_out = self.tracker(frame_embds, mask_features, frame_embeds_no_norm=frame_embds_no_norm,
                                          cur_feature=cur_features, text_classifier=text_classifier,
-                                            num_templates=num_templates)
+                                         num_templates=num_templates)
 
             # get clip embeddings
             mask_for_pooling_ = F.interpolate(track_out['pred_masks'][0].transpose(0, 1),
@@ -1666,8 +1562,6 @@ class DVIS_online_OV(MinVIS_OV):
             track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
             track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
             track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
-            #track_out['clip_vis_dense'] = features['clip_vis_dense'].to(torch.float32).detach().cpu()
-
             out_list.append(track_out)
 
         # merge outputs
@@ -1675,7 +1569,6 @@ class DVIS_online_OV(MinVIS_OV):
         outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
         outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
         outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
-        # outputs['clip_vis_dense'] = torch.cat([x['clip_vis_dense'] for x in out_list], dim=0)
 
         if len(pixel_nums) == 0:
             pooled_clip_feature = torch.cat(maskpool_embeddings, dim=0)  # (t, q, c)
@@ -2196,9 +2089,6 @@ class DVIS_offline_OV(DVIS_online_OV):
             losses, matching_result = self.criterion(outputs, targets,
                                                      matcher_outputs=image_outputs,
                                                      ret_match_result=True)
-            # cl_loss = self.get_cl_loss(outputs, matching_result)
-            #cl_loss = self.get_cl_loss_with_memory(outputs, matching_result, targets)
-            #losses.update(cl_loss)
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
@@ -2214,10 +2104,6 @@ class DVIS_offline_OV(DVIS_online_OV):
 
             # We ensemble the pred logits of in-vocab and out-vocab
             clip_feature = outputs["clip_vis_dense"]
-            # mask_for_pooling = F.interpolate(mask_pred_results, size=clip_feature.shape[-2:],
-            #                                  mode='bilinear', align_corners=False)
-            # pooled_clip_feature = self.mask_pooling(clip_feature, mask_for_pooling)
-            # pooled_clip_feature = self.backbone.visual_prediction_forward(pooled_clip_feature)
             pooled_clip_feature, valid_masking = self.windows_get_maskpool_embeds(clip_feature, mask_pred_results)
             out_vocab_cls_results = get_classification_logits(pooled_clip_feature, text_classifier,
                                                               self.backbone.clip_model.logit_scale, num_templates)
@@ -2231,7 +2117,6 @@ class DVIS_offline_OV(DVIS_online_OV):
             if self.ensemble_on_valid_mask:
                 # Only include out_vocab cls results on masks with valid pixels
                 # We empirically find that this is important to obtain reasonable AP/mIOU score with ResNet CLIP models
-                #valid_masking = (mask_pred_results > 0).to(mask_pred_results).sum(-1).sum(-1) > 0
                 valid_masking = valid_masking.to(in_vocab_cls_results).unsqueeze(-1)
                 alpha = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_alpha
                 beta = torch.ones_like(in_vocab_cls_results) * self.geometric_ensemble_beta

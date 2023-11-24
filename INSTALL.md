@@ -34,8 +34,8 @@ python -m pip install detectron2 -f \
 # install panoptic api
 pip install git+https://github.com/cocodataset/panopticapi.git
 
-git clone git@https://github.com/zhang-tao-whu/DVIS.git
-cd DVIS
+git clone https://github.com/zhang-tao-whu/DVIS_Plus.git
+cd DVIS_Plus
 pip install -r requirements.txt
 cd mask2former/modeling/pixel_decoder/ops
 sh make.sh

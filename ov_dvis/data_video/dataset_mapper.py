@@ -6,14 +6,6 @@
 
 # Copyright (c) Facebook, Inc. and its affiliates.
 # Modified by Bowen Cheng from https://github.com/sukjunhwang/IFC
-
-import copy
-import logging
-import random
-import numpy as np
-from typing import List, Union
-import torch
-
 from detectron2.config import configurable
 from detectron2.structures import (
     BitMasks,
@@ -25,9 +17,7 @@ from detectron2.data import MetadataCatalog
 from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
 
-from dvis.data_video.augmentation import build_augmentation, build_pseudo_augmentation
-from dvis.data_video.datasets.ytvis import COCO_TO_YTVIS_2019, COCO_TO_YTVIS_2021, COCO_TO_OVIS
-from dvis.data_video.dataset_mapper import *
+from dvis_Plus.data_video.dataset_mapper import *
 
 __all__ = ["OpenVocabularyYTVISDatasetMapper", "OpenVocabularyCocoClipDatasetMapper", "OpenVocabularyCocoPanoClipDatasetMapper"]
 

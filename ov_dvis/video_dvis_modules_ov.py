@@ -1,9 +1,9 @@
 import torch
 from torch import nn
 from mask2former_video.modeling.transformer_decoder.video_mask2former_transformer_decoder import SelfAttentionLayer,\
-    CrossAttentionLayer, FFNLayer, MLP, _get_activation_fn
-from dvis.utils import Noiser
-from dvis.ClTracker import ReferringCrossAttentionLayer
+    CrossAttentionLayer, FFNLayer, MLP
+from dvis_Plus.noiser import Noiser
+from dvis_Plus.tracker import ReferringCrossAttentionLayer
 import torch.nn.functional as F
 
 def get_classification_logits(x, text_classifier, logit_scale, num_templates=None):
@@ -262,7 +262,6 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
             del mask_features
         outputs_class, outputs_masks = self.prediction(outputs, mask_features_, text_classifier,
                                                        num_templates, all_frames_references)
-        #outputs = self.decoder_norm(outputs)
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
            'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
@@ -291,7 +290,6 @@ class ReferringTracker_noiser_OV(torch.nn.Module):
         # mask_features (b, t, c, h, w)
         decoder_output = self.decoder_norm(outputs)
         decoder_output = decoder_output.permute(1, 3, 0, 2, 4)  # (l, b, t, q, c)
-        # outputs_class = self.class_embed(decoder_output).transpose(2, 3)  # (l, b, q, t, cls+1)
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("lbtqc,btchw->lbqthw", mask_embed, mask_features)
 

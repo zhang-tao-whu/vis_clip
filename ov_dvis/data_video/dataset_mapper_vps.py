@@ -1,18 +1,9 @@
-import copy
 import logging
-
-import numpy as np
-import torch
 
 from detectron2.config import configurable
 from detectron2.data import MetadataCatalog
-from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
-from detectron2.structures import BitMasks, Instances, Boxes
-from panopticapi.utils import rgb2id
-from dvis.data_video.dataset_mapper_vps import PanopticDatasetVideoMapper
-from dvis.data_video.utils import Video_BitMasks
-import random
+from dvis_Plus.data_video.dataset_mapper_vps import PanopticDatasetVideoMapper
 
 __all__ = ["OpenVocabularyPanopticDatasetVideoMapper"]
 

@@ -1,6 +1,9 @@
 _BASE_: DVIS_Online_combine_480p_strongAgu.yaml
 MODEL:
   META_ARCHITECTURE: "DVIS_offline_OV"
+  MASK_FORMER:
+    TEST:
+      TASK: 'vps'
 
 SOLVER:
   IMS_PER_BATCH: 8
