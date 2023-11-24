@@ -10,10 +10,10 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/dvis-decoupled-video-instance-segmentation/video-instance-segmentation-on-youtube-vis-1)](https://paperswithcode.com/sota/video-instance-segmentation-on-youtube-vis-1?p=dvis-decoupled-video-instance-segmentation)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/dvis-decoupled-video-instance-segmentation/video-instance-segmentation-on-youtube-vis-2)](https://paperswithcode.com/sota/video-instance-segmentation-on-youtube-vis-2?p=dvis-decoupled-video-instance-segmentation)
 
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/radar.pdf" width="200"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/radar_ov.pdf" width="200"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/bar.pdf" width="400"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/overview.pdf" width="800"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/radar.png" width="200"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/radar_ov.png" width="200"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/bar.png" width="400"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/overview.png" width="800"/>
 </div>
 
 ## News
