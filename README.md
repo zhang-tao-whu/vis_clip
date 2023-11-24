@@ -31,7 +31,7 @@ Yuan Zhang, Pengfei Wan, Zhongyuan Wang and
 
 ## Demos
 ### VIS
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/34df9b7e.gif" width="230"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/52ee3d90.gif" width="600"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/34df9b7e.gif" width="200"/> <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/52ee3d90.gif" width="520"/>
 ### VSS
 ### VPS
 ### Open-vocabulary demos
