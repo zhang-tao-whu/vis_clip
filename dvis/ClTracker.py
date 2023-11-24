@@ -235,9 +235,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.mask_embed = MLP(hidden_channel, hidden_channel, mask_dim, 3)
 
         # for cl learning
-        self.prop_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
         self.ref_proj_2 = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+
+        self.mem_proj = nn.Linear(hidden_channel, hidden_channel)
 
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
@@ -281,7 +282,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.memories = []
         self.use_memories = True
         if self.use_memories:
-            self.memories_max_length = 3
+            self.memories_max_length = 5
             self.memory_activation = MLP(hidden_channel * self.memories_max_length, hidden_channel, hidden_channel, 3)
 
         self.filer_bg = False
@@ -328,6 +329,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             reference_mem = self._use_memories(reference)
             if random.random() < 0.5:
                 reference = reference_mem
+        reference = self.mem_proj(reference)
 
         if self.filer_bg and single_frame_classes is not None:
             attn_mask = single_frame_classes == -1
@@ -345,7 +347,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             activate=activate,
         )
         output_1 = noised_init
-        output_2 = self.prop_proj(reference)
+        output_2 = reference
         reference = self.ref_proj(reference)
 
         for i in range(self.splits[0]):
