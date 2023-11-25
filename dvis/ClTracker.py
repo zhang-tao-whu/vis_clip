@@ -334,36 +334,37 @@ class ClReferringTracker_noiser(torch.nn.Module):
         return output
 
     def _use_memories(self, references):
-        if len(self.memories) == 0:
-            void_embed = self.void_embed.weight.unsqueeze(0).repeat(references.shape[0], references.shape[1], 1)
-            self.memories += [void_embed] * self.memories_max_length
         self.memories.append(references)
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
 
-        out_embed = self.out_embed.weight.unsqueeze(0).repeat(references.shape[0], references.shape[1], 1)
-        memories = torch.stack(self.memories + [out_embed], dim=0) # (mem_num + 1, q, b, c)
-        memories_shape = memories.shape
-        memories = memories.flatten(1, 2)
+        if len(self.memories) == 1:
+            return references
+        else:
+            out_embed = self.out_embed.weight.unsqueeze(0).repeat(references.shape[0], references.shape[1], 1)
+            memories = torch.stack(self.memories + [out_embed], dim=0)  # (mem_num + 1, q, b, c)
+            memories_shape = memories.shape
+            memories = memories.flatten(1, 2)
 
-        mem_pos = self.memory_pos_embed.weight.unsqueeze(1).repeat(1, memories.shape[1], 1)
-        output = memories
+            mem_pos = self.memory_pos_embed.weight[-memories.shape[0]:].unsqueeze(1).repeat(1, memories.shape[1], 1)
+            output = memories
 
-        for i in range(self.mem_layers):
-            output = self.transformer_self_attention_layers_Memory[i](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=mem_pos
-            )
+            for i in range(self.mem_layers):
+                output = self.transformer_self_attention_layers_Memory[i](
+                    output, tgt_mask=None,
+                    tgt_key_padding_mask=None,
+                    query_pos=mem_pos
+                )
 
-            # FFN
-            output = self.transformer_ffn_layers_Memory[i](output)
-
-        return output[-1].reshape(memories_shape[1:])
+                # FFN
+                output = self.transformer_ffn_layers_Memory[i](output)
+            return output[-1].reshape(memories_shape[1:])
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
             reference = self._use_memories(reference)
+
+        reference_ = reference
 
         if self.filer_bg and single_frame_classes is not None:
             attn_mask = single_frame_classes == -1
@@ -444,11 +445,12 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         attn_mask=attn_mask, )
             ms_output.append(output)
 
+        gaps = F.smooth_l1_loss(reference_, output, reduction='none')
         self.last_frame_embeds = frame_embeds[indices]
         self.last_reference = reference
         ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
         self.last_outputs = ms_output
-        return ms_output, indices
+        return ms_output, indices, gaps
 
     def forward(self, frame_embeds, mask_features, resume=False,
                 return_indices=False, frame_classes=None,
@@ -470,6 +472,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
         ret_indices = []
+        all_gaps = []
 
         all_frames_references = []
 
@@ -489,14 +492,15 @@ class ClReferringTracker_noiser(torch.nn.Module):
             if i == 0 and resume is False:
                 self._clear_memory()
                 self.last_frame_embeds = single_frame_embeds
-                ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
+                ms_outputs, indices, gaps = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
                                                          single_frame_embeds_no_norm, activate=False,
                                                          single_frame_classes=single_frame_classes, )
             else:
-                ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
+                ms_outputs, indices, gaps = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
                                                          self.last_outputs[-1], activate=self.training,
                                                          single_frame_classes=single_frame_classes, )
             all_frames_references.append(self.last_reference)
+            all_gaps.append(gaps)
             outputs.append(ms_outputs)
             ret_indices.append(indices)
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
@@ -506,6 +510,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
             outputs = outputs[:, -1:]
         outputs_class, outputs_masks = self.prediction(outputs, mask_features, all_frames_references)
 
+        all_gaps = torch.stack(all_gaps, dim=0)
+
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
            'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
@@ -514,6 +520,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': self.ref_proj_2(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
+           'gaps': all_gaps.mean(),
         }
         if return_indices:
             return out, ret_indices
@@ -689,6 +696,8 @@ class ClDVIS_online(MinVIS):
         if cfg.MODEL.TRACKER.USE_CL:
             weight_dict.update({'loss_reid': 2})
 
+        weight_dict.update({'loss_gaps': 2})
+
         losses = ["labels", "masks"]
 
         criterion = VideoSetCriterion(
@@ -808,6 +817,7 @@ class ClDVIS_online(MinVIS):
 
 
         if self.training:
+            gaps = outputs['gaps']
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
             image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
@@ -821,6 +831,7 @@ class ClDVIS_online(MinVIS):
             losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
             # losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)
             losses.update(losses_cl)
+            losses.update({'loss_gaps': gaps})
 
             self.iter += 1
 
