@@ -346,7 +346,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         memories_shape = memories.shape
         memories = memories.flatten(1, 2)
 
-        mem_pos = self.memory_pos_embed.weight.unsqueeze(1).repeat(memories.shape[1])
+        mem_pos = self.memory_pos_embed.weight.unsqueeze(1).repeat(1, memories.shape[1], 1)
         output = memories
 
         for i in range(self.mem_layers):
