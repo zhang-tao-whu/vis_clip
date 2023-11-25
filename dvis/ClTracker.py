@@ -278,7 +278,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # try use memories
         self.memories = []
-        self.use_memories = True
+        self.use_memories = False
         if self.use_memories:
             self.memories_max_length = 5
             self.mem_layers = 3
