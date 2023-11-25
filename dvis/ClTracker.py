@@ -358,6 +358,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
             # FFN
             output = self.transformer_ffn_layers_Memory[i](output)
+
         return output[-1].reshape(memories_shape[1:])
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
