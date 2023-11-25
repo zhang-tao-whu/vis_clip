@@ -280,8 +280,30 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.memories = []
         self.use_memories = False
         if self.use_memories:
-            self.memories_max_length = 3
-            self.memory_activation = MLP(hidden_channel, hidden_channel, 1, 3)
+            self.memories_max_length = 5
+            self.mem_layers = 3
+            self.memory_pos_embed = nn.Embedding(self.memories_max_length + 1, hidden_channel)
+            self.void_embed = nn.Embedding(1, hidden_channel)
+            self.out_embed = nn.Embedding(1, hidden_channel)
+            self.transformer_self_attention_layers_Memory = nn.ModuleList()
+            self.transformer_ffn_layers_Memory = nn.ModuleList()
+            for _ in range(self.mem_layers):
+                self.transformer_self_attention_layers_Memory.append(
+                    SelfAttentionLayer(
+                        d_model=hidden_channel,
+                        nhead=num_head,
+                        dropout=0.0,
+                        normalize_before=False,
+                    )
+                )
+                self.transformer_ffn_layers_Memory.append(
+                    FFNLayer(
+                        d_model=hidden_channel,
+                        dim_feedforward=feedforward_channel,
+                        dropout=0.0,
+                        normalize_before=False,
+                    )
+                )
 
         self.filer_bg = False
 
@@ -312,16 +334,31 @@ class ClReferringTracker_noiser(torch.nn.Module):
         return output
 
     def _use_memories(self, references):
+        if len(self.memories) == 0:
+            void_embed = self.void_embed.weight.unsqueeze(0).repeat(references.shape[0], references.shape[1], 1)
+            self.memories += [void_embed] * self.memories_max_length
         self.memories.append(references)
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
-        memories = torch.stack(self.memories, dim=0)
-        activation = self.memory_activation(memories).sigmoid() + 1e-4
-        activation_sum = torch.sum(activation, dim=0)
-        output = (torch.sum(memories * activation, dim=0)) / activation_sum
-        if self.training and random.random() < 0.5:
-            return references + output * 0.0
-        return output
+
+        out_embed = self.out_embed.weight.unsqueeze(0).repeat(references.shape[0], references.shape[1], 1)
+        memories = torch.stack(self.memories + [out_embed], dim=0) # (mem_num + 1, q, b, c)
+        memories_shape = memories.shape
+        memories = memories.flatten(1, 2)
+
+        mem_pos = self.memory_pos_embed.weight.unsqueeze(1).repeat(memories.shape[1])
+        output = memories
+
+        for i in range(self.mem_layers):
+            output = self.transformer_self_attention_layers_Memory[i](
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=mem_pos
+            )
+
+            # FFN
+            output = self.transformer_ffn_layers_Memory[i](output)
+        return output[-1].reshape(memories_shape[1:])
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
