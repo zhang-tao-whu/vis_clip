@@ -283,7 +283,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             self.memories_max_length = 3
             self.memory_activation = MLP(hidden_channel, hidden_channel, 1, 3)
 
-        self.filer_bg = True
+        self.filer_bg = False
 
     def _clear_memory(self):
         del self.last_outputs
