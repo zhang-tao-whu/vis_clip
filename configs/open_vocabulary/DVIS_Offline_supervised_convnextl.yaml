@@ -1,4 +1,4 @@
-_BASE_: ../../DVIS_Offline_zero_shot_convnextl.yaml
+_BASE_: DVIS_Online_supervised_convnextl.yaml
 MODEL:
   META_ARCHITECTURE: "DVIS_offline_OV"
 
@@ -12,8 +12,4 @@ INPUT:
   SAMPLING_FRAME_RANGE: 5
   REVERSE_AGU: True
 
-DATASETS:
-  DATASET_TYPE_TEST: ['video_instance',]
-  TEST: ("ytvis_2021_val_ov",)
-
-OUTPUT_DIR: './output_Offline_ytvis21'
+OUTPUT_DIR: './output_OV_DVIS_Offline_supervised_convnextl'

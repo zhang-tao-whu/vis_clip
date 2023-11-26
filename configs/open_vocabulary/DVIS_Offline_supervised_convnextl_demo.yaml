@@ -1,6 +1,9 @@
-_BASE_: ../../DVIS_Offline_zero_shot_convnextl.yaml
+_BASE_: DVIS_Online_supervised_convnextl.yaml
 MODEL:
   META_ARCHITECTURE: "DVIS_offline_OV"
+  MASK_FORMER:
+    TEST:
+      TASK: 'vps'
 
 SOLVER:
   IMS_PER_BATCH: 8
@@ -13,7 +16,7 @@ INPUT:
   REVERSE_AGU: True
 
 DATASETS:
-  DATASET_TYPE_TEST: ['video_instance',]
-  TEST: ("ytvis_2021_val_ov",)
+  TEST: ("ytvis_2019_val_ov",)
+  TEST2TRAIN: [ ]
 
-OUTPUT_DIR: './output_Offline_ytvis21'
+OUTPUT_DIR: './output_OV_DVIS_Offline_supervised_convnextl'

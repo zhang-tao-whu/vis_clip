@@ -1,4 +1,4 @@
-_BASE_: ../../FC-CLIP_combine_480p_strongAgu.yaml
+_BASE_: ../../FC-CLIP_supervised_convnextl.yaml
 MODEL:
   MASK_FORMER:
     TEST:

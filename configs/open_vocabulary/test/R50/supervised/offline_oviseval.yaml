@@ -1,4 +1,4 @@
-_BASE_: ../../../R50/DVIS_Offline_combine_r50.yaml
+_BASE_: ../../../R50/DVIS_Offline_supervised_r50.yaml
 MODEL:
   MASK_FORMER:
     TEST:

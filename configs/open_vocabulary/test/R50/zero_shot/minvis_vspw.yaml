@@ -1,4 +1,4 @@
-_BASE_: ../../../R50/FC-CLIP_onlyCOCO_480p_r50.yaml
+_BASE_: ../../../R50/FC-CLIP_zero_shot_r50.yaml
 MODEL:
   MASK_FORMER:
     TEST:

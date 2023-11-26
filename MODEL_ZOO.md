@@ -1,4 +1,4 @@
-# DVIS Model Zoo
+# DVIS++ Model Zoo
 
 ## Introduction
 
@@ -23,7 +23,7 @@ The "Config" column contains a link to the config file.
 <td align="center">VIT-L</td>
 <td align="center">-</td>
 <td align="center">-</td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: R50 Mask2Former(instance) -->
@@ -39,7 +39,7 @@ The "Config" column contains a link to the config file.
 <td align="center">VIT-L</td>
 <td align="center">COCO</td>
 <td align="center">OVIS,YTVIS19&21</td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: R50 Mask2Former(panoptic) -->
@@ -55,7 +55,7 @@ The "Config" column contains a link to the config file.
 <td align="center">VIT-L</td>
 <td align="center">COCO</td>
 <td align="center">VSPW,VIPSeg</td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: R50 FC-CLIP -->
@@ -91,7 +91,7 @@ The "Config" column contains a link to the config file.
 <td align="center">R50</td>
 <td align="center">COCO+OVIS</td>
 <td align="center"><a href="configs/ovis/CTVIS_R50.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: R50 Mask2Former -->
@@ -99,7 +99,7 @@ The "Config" column contains a link to the config file.
 <td align="center">R50</td>
 <td align="center">COCO+YTVIS19</td>
 <td align="center"><a href="configs/ytvis19/CTVIS_R50.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: R50 Mask2Former -->
@@ -107,7 +107,7 @@ The "Config" column contains a link to the config file.
 <td align="center">R50</td>
 <td align="center">COCO+YTVIS21</td>
 <td align="center"><a href="configs/ytvis21/CTVIS_R50.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: R50 Mask2Former -->
@@ -115,7 +115,7 @@ The "Config" column contains a link to the config file.
 <td align="center">R50</td>
 <td align="center">VIPSeg</td>
 <td align="center"><a href="configs/VIPSeg/CTVIS_R50.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: R50 Mask2Former -->
@@ -123,7 +123,7 @@ The "Config" column contains a link to the config file.
 <td align="center">R50</td>
 <td align="center">VSPW</td>
 <td align="center"><a href="configs/VSPW/CTVIS_R50.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: VIT-L Mask2Former -->
@@ -131,7 +131,7 @@ The "Config" column contains a link to the config file.
 <td align="center">VIT-L</td>
 <td align="center">COCO+OVIS</td>
 <td align="center"><a href="configs/ovis/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: VIT-L Mask2Former -->
@@ -139,7 +139,7 @@ The "Config" column contains a link to the config file.
 <td align="center">VIT-L</td>
 <td align="center">COCO+YTVIS19</td>
 <td align="center"><a href="configs/ytvis19/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: VIT-L Mask2Former -->
@@ -147,7 +147,7 @@ The "Config" column contains a link to the config file.
 <td align="center">VIT-L</td>
 <td align="center">COCO+YTVIS21</td>
 <td align="center"><a href="configs/ytvis21/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: VIT-L Mask2Former -->
@@ -155,7 +155,7 @@ The "Config" column contains a link to the config file.
 <td align="center">VIT-L</td>
 <td align="center">VIPSeg</td>
 <td align="center"><a href="configs/VIPSeg/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: VIT-L Mask2Former -->
@@ -163,7 +163,7 @@ The "Config" column contains a link to the config file.
 <td align="center">VIT-L</td>
 <td align="center">VSPW</td>
 <td align="center"><a href="configs/VSPW/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: R50 FC-CLIP -->
@@ -171,7 +171,7 @@ The "Config" column contains a link to the config file.
 <td align="center">R50</td>
 <td align="center">COCO+OVIS+YTVIS19&21+VIPSeg</td>
 <td align="center"><a href="configs/open_vocabulary/R50/FC-CLIP_combine_480p_r50.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: ConvNext-L FC-CLIP -->
@@ -179,7 +179,7 @@ The "Config" column contains a link to the config file.
 <td align="center">ConvNext-L</td>
 <td align="center">COCO+OVIS+YTVIS19&21+VIPSeg</td>
 <td align="center"><a href="configs/open_vocabulary/FC-CLIP_combine_480p.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 <tbody><table>
 
@@ -542,8 +542,8 @@ The "Config" column contains a link to the config file.
 <td align="center">30.9</td>
 <td align="center">27.6</td>
 <td align="center">24.4</td>
-<td align="center"><a href="configs/R50/DVIS_Online_onlyCOCO_r50.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="configs/open_vocabulary/R50/DVIS_Online_zero_shot_r50.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1YhXmlrIkEmNGAWfgOnHjDA?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: zero-shot R50 Offline -->
@@ -556,8 +556,8 @@ The "Config" column contains a link to the config file.
 <td align="center"> </td>
 <td align="center"> </td>
 <td align="center"> </td>
-<td align="center"><a href="configs/R50/DVIS_Offline_onlyCOCO_r50.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="configs/open_vocabulary/R50/DVIS_Offline_zero_shot_r50.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1YhXmlrIkEmNGAWfgOnHjDA?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: zero-shot ConvNext-L Online -->
@@ -570,8 +570,8 @@ The "Config" column contains a link to the config file.
 <td align="center">44.5</td>
 <td align="center">34.3</td>
 <td align="center">28.9</td>
-<td align="center"><a href="configs/DVIS_Online_FC-CLIP_480p_strongAgu.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="configs/open_vocabulary/DVIS_Online_zero_shot_convnextl.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1YhXmlrIkEmNGAWfgOnHjDA?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: zero-shot ConvNext-L Offline -->
@@ -584,8 +584,8 @@ The "Config" column contains a link to the config file.
 <td align="center">44.2</td>
 <td align="center">34.1</td>
 <td align="center">30.4</td>
-<td align="center"><a href="configs/DVIS_Offline_FC-CLIP_480p_strongAgu.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="configs/open_vocabulary/DVIS_Offline_zero_shot_convnextl.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1YhXmlrIkEmNGAWfgOnHjDA?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: supervised ConvNext-L Online -->
@@ -598,8 +598,8 @@ The "Config" column contains a link to the config file.
 <td align="center">56.0</td>
 <td align="center">53.3</td>
 <td align="center">49.5</td>
-<td align="center"><a href="configs/DVIS_Online_combine_480p_strongAgu.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="configs/open_vocabulary/DVIS_Online_supervised_convnextl.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1YhXmlrIkEmNGAWfgOnHjDA?pwd=dvis">baidupan</a></td>
 </tr>
 
 <!-- ROW: supervised ConvNext-L Offline -->
@@ -612,8 +612,8 @@ The "Config" column contains a link to the config file.
 <td align="center">56.7</td>
 <td align="center">56.4</td>
 <td align="center">51.7</td>
-<td align="center"><a href="configs/DVIS_Offline_combine_480p_strongAgu.yaml">yaml</a></td>
-<td align="center"><a href=" ">baidupan</a></td>
+<td align="center"><a href="configs/open_vocabulary/DVIS_Offline_supervised_convnextl.yaml">yaml</a></td>
+<td align="center"><a href="https://pan.baidu.com/s/1YhXmlrIkEmNGAWfgOnHjDA?pwd=dvis">baidupan</a></td>
 </tr>
 </tbody></table>
 

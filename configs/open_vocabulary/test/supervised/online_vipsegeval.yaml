@@ -1,4 +1,4 @@
-_BASE_: ../../DVIS_Online_combine_480p_strongAgu.yaml
+_BASE_: ../../DVIS_Online_supervised_convnextl.yaml
 MODEL:
   META_ARCHITECTURE: "DVIS_online_OV"
   MASK_FORMER:
