@@ -334,6 +334,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         return output
 
     def _use_memories(self, references):
+        
         self.memories.append(references)
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
