@@ -552,10 +552,10 @@ The "Config" column contains a link to the config file.
 <td align="center">COCO</td>
 <td align="center">480P</td>
 <td align="center">13.0</td>
-<td align="center"> </td>
-<td align="center"> </td>
-<td align="center"> </td>
-<td align="center"> </td>
+<td align="center">34.4</td>
+<td align="center">31.0</td>
+<td align="center">28.4</td>
+<td align="center">23.8</td>
 <td align="center"><a href="configs/open_vocabulary/R50/DVIS_Offline_zero_shot_r50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/1YhXmlrIkEmNGAWfgOnHjDA?pwd=dvis">baidupan</a></td>
 </tr>
