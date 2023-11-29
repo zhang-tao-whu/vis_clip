@@ -632,6 +632,7 @@ class VISeg(MinVIS):
         for i in range(n_t):
             frame_pred_logits = pred_logits[i: i + 1]
             frame_pred_masks = pred_masks[i: i + 1]
+            print(frame_pred_masks.shape)
 
             frame_matched_indices = self.criterion.matcher({'pred_logits': frame_pred_logits,
                                                             'pred_masks': frame_pred_masks},
