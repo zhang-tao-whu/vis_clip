@@ -646,7 +646,7 @@ class VISeg(MinVIS):
             frame_target_ids = targets[i]['ids'][:, 0]
             frame_gt_idx2id = {}
             frame_gt_id2idx = {}
-            for idx, id in enumerate(frame_target_ids.numpy()):
+            for idx, id in enumerate(frame_target_ids.cpu().numpy()):
                 frame_gt_id2idx[id] = idx
                 frame_gt_idx2id[idx] = id
                 gt_idx2id.append(frame_gt_idx2id)
@@ -654,7 +654,7 @@ class VISeg(MinVIS):
 
             frame_new_track_ids = []
             matched_pred_idxs, matched_gt_idxs = frame_matched_indices
-            matched_pred_idxs, matched_gt_idxs = matched_pred_idxs.numpy(), matched_gt_idxs.numpy()
+            matched_pred_idxs, matched_gt_idxs = matched_pred_idxs.cpu().numpy(), matched_gt_idxs.cpu().numpy()
             if i == 0:
                 # all new appera
                 frame_new_track_ids += list(matched_pred_idxs)
