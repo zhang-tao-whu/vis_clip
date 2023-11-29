@@ -625,7 +625,7 @@ class VISeg(MinVIS):
         matched_indexes, new_track_ids = [], []
 
         pred_logits = image_outputs['pred_logits']  # (t, q, cls)
-        pred_masks = image_outputs['pred_masks']  # (t, q, h, w)
+        pred_masks = image_outputs['pred_masks'].unsqueeze(2)  # (t, q, h, w)
         n_t, n_q = pred_masks.shape[:2]
 
         image_matched_indices = []
@@ -676,6 +676,9 @@ class VISeg(MinVIS):
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
             new_track_ids.append(frame_new_track_ids)
+
+        print('mactched_gt_idx:', mactched_gt_idx)
+        print('new_track_ids:', new_track_ids)
         return matched_indexes, new_track_ids
 
     def forward(self, batched_inputs):
@@ -769,6 +772,7 @@ class VISeg(MinVIS):
         if self.training:
             frames_losses = []
             for i, output in enumerate(outputs):
+                output['pred_masks'] = output['pred_masks'].unsqueeze(2)
                 frames_losses.append(self.criterion(output, targets[i + 1: i + 2],
                                                     match_indices=matched_indexes[i + 1: i + 2]))
             losses = {}
