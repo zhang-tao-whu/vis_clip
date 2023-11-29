@@ -881,7 +881,7 @@ class VISeg(MinVIS):
             masks = masks.cpu()
 
             keep_indexes = []
-            for i in range(max_scores.shae[0]):
+            for i in range(max_scores.shape[0]):
                 if max_scores[i] > 0.3:
                     keep_indexes.append(i)
                     out_list.append({'pred_logits': [pred_logits[i]],
