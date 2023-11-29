@@ -675,12 +675,12 @@ class VISeg(MinVIS):
                         ret_frame_macthed_indxes[0].append(n_q + off_idx)
                         ret_frame_macthed_indxes[1].append(frame_gt_id2idx[exhibit_gt_id])
 
+                print('ret_frame_macthed_indxes', ret_frame_macthed_indxes)
                 ret_frame_macthed_indxes = (torch.as_tensor(ret_frame_macthed_indxes[0], dtype=torch.int64),
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
             new_track_ids.append(frame_new_track_ids)
 
-        print('matched_indexes:', matched_indexes)
         return matched_indexes, new_track_ids
 
     def forward(self, batched_inputs):
