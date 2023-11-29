@@ -914,9 +914,11 @@ class VISeg(MinVIS):
         finished_indexes = _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list, finished_out_list,
                                                  first_resize_size, img_size, output_height, output_width)
         track_queries_1 = pred_queries[n_q:]
-        del track_queries_1[finished_indexes]
+        keep_idxs = [idx for idx in track_queries_1.shape[0] if idx not in finished_indexes]
         track_queries_pos_1 = pred_queries_pos[n_q:]
-        del track_queries_pos_1[finished_indexes]
+        track_queries_1 = track_queries_1[keep_idxs]
+        track_queries_pos_1 = track_queries_pos_1[keep_idxs]
+
         track_queries_2 = pred_queries[new_indices]
         track_queries_pos_2 = pred_queries_pos[new_indices]
 
