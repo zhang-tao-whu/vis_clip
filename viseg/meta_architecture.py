@@ -846,7 +846,7 @@ class VISeg(MinVIS):
             for i in range(len(finished_out_list)):
                 finished_out_list[i]['pred_logits'].append(None)
                 finished_out_list[i]['pred_masks'].append(torch.zeros((output_height, output_width), dtype=torch.bool,
-                                                                      device=pred_masks.device))
+                                                                      device='cpu'))
 
             if pred_logits.shape[0] == 0:
                 return
