@@ -1050,7 +1050,6 @@ class VISeg(MinVIS):
 
             _num = 0
             pred_logits = 0
-            print(output['pred_logits'])
             for frame_pred_logits in output['pred_logits']:
                 if frame_pred_logits is None:
                     pass
@@ -1058,6 +1057,7 @@ class VISeg(MinVIS):
                     _num += 1
                     pred_logits = pred_logits + frame_pred_logits
             pred_logits = pred_logits / _num
+            print(pred_logits.shape)
 
             score, label = pred_logits.softmax(dim=-1)[:-1].max()
             out_scores.append(score)
