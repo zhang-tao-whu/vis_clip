@@ -821,26 +821,27 @@ class VISeg(MinVIS):
         self.backbone.eval()
         self.sem_seg_head.eval()
         out_list = []
+        finished_out_list = []
         with torch.no_grad():
             for i in range(len(images)):
                 features = self.backbone(images[i: i+1])
                 if i == 0:
                     image_outputs = self.sem_seg_head(features)
                     n_q = image_outputs['pred_queries'].shape[0]
-                    track_infos = self.extract_track_infos(image_outputs, out_list,
+                    track_infos = self.extract_track_infos(image_outputs, out_list, finished_out_list,
                                                            n_q, first_resize_size,
                                                            image_size, height, width)
                 else:
                     image_outputs = self.sem_seg_head(features, track_infos=track_infos)
-                    track_infos = self.extract_track_infos(image_outputs, out_list,
+                    track_infos = self.extract_track_infos(image_outputs, out_list, finished_out_list,
                                                            n_q, first_resize_size,
                                                            image_size, height, width)
-        return out_list
+        return out_list + finished_out_list
 
-    def extract_track_infos(self, image_outputs, out_list, n_q, first_resize_size,
+    def extract_track_infos(self, image_outputs, out_list, finished_out_list, n_q, first_resize_size,
                             img_size, output_height, output_width):
 
-        def _process_track_embeds(pred_logits, pred_masks, out_list,
+        def _process_track_embeds(pred_logits, pred_masks, out_list, finished_out_list,
                                   first_resize_size, img_size, output_height, output_width):
             if pred_logits.shape[0] == 0:
                 return
@@ -858,12 +859,23 @@ class VISeg(MinVIS):
             del pred_masks
             masks = masks.cpu()
 
+            finished_indexes = []
             for i in range(max_scores.shape[0]):
                 if max_scores[i] < 0.1:
+                    finished_indexes.append(i)
                     out_list[i]['pred_logits'].append(None)
+                    out_list[i]['pred_masks'].append(torch.zeros_like(masks[i], dtype=torch.bool))
                 else:
                     out_list[i]['pred_logits'].append(pred_logits[i])
-                out_list[i]['pred_masks'].append(masks[i])
+                    out_list[i]['pred_masks'].append(masks[i])
+
+            for i in range(len(finished_out_list)):
+                finished_out_list[i]['pred_logits'].append(None)
+                finished_out_list[i]['pred_masks'].append(torch.zeros_like(masks[0], dtype=torch.bool))
+
+            finished_out_list += out_list[finished_indexes]
+            del out_list[finished_indexes]
+
             return
 
         def _process_new_embeds(pred_logits, pred_masks, out_list,
@@ -898,7 +910,7 @@ class VISeg(MinVIS):
 
         new_indices = _process_new_embeds(pred_logits[:n_q], pred_masks[:n_q], out_list,
                                           first_resize_size, img_size, output_height, output_width)
-        _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list,
+        _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list, finished_out_list,
                               first_resize_size, img_size, output_height, output_width)
         track_queries_1 = pred_queries[n_q:]
         track_queries_pos_1 = pred_queries_pos[n_q:]
@@ -1057,8 +1069,6 @@ class VISeg(MinVIS):
                     _num += 1
                     pred_logits = pred_logits + frame_pred_logits
             pred_logits = pred_logits / _num
-            print(pred_logits.shape)
-            print(torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0))
 
             score, label = torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0)
             out_scores.append(score)
