@@ -756,8 +756,8 @@ class VISeg(MinVIS):
             for i, frame_new_track_idx in enumerate(new_track_ids[:-1]):
                 if i == 0:
                     n_q = image_outputs['pred_queries'].shape[0]
-                    track_queries = image_outputs['pred_queries'][:, 0][frame_new_track_idx]
-                    track_queries_pos = image_outputs['pred_queries_pos'][:, 0][frame_new_track_idx]
+                    track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx]
+                    track_queries_pos = image_outputs['pred_queries_pos'][:, 0:1][frame_new_track_idx]
 
                     track_queries_pos = track_queries_pos + self.offset_project(track_queries)
                     track_queries = self.track_query_project(track_queries)
