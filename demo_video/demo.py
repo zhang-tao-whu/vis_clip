@@ -15,14 +15,7 @@ import os
 import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 # fmt: on
-
-import tempfile
 import time
-import warnings
-
-import numpy as np
-import tqdm
-
 from torch.cuda.amp import autocast
 
 from detectron2.config import get_cfg
@@ -32,7 +25,7 @@ from detectron2.utils.logger import setup_logger
 
 from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
-from dvis import add_minvis_config, add_dvis_config
+from dvis_Plus import add_minvis_config, add_dvis_config
 from predictor import VisualizationDemo
 
 import shutil

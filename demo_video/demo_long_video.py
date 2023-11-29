@@ -28,9 +28,8 @@ from detectron2.utils.logger import setup_logger
 
 from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
-from dvis import add_minvis_config, add_dvis_config
+from dvis_Plus import add_minvis_config, add_dvis_config, add_ctvis_config
 from predictor import VisualizationDemo, VisualizationDemo_windows
-from ct_dvis import add_ctdvis_config
 
 def setup_cfg(args):
 	# load config from file and command-line arguments
@@ -40,7 +39,7 @@ def setup_cfg(args):
 	add_maskformer2_video_config(cfg)
 	add_minvis_config(cfg)
 	add_dvis_config(cfg)
-	add_ctdvis_config(cfg)
+	add_ctvis_config(cfg)
 	cfg.merge_from_file(args.config_file)
 	cfg.merge_from_list(args.opts)
 	cfg.freeze()
