@@ -656,6 +656,7 @@ class VISeg(MinVIS):
 
             frame_new_track_ids = []
             frame_removed_track_ids = []
+            exhibit_removed_ids = []
             matched_pred_idxs, matched_gt_idxs = frame_matched_indices
             matched_pred_idxs, matched_gt_idxs = matched_pred_idxs.cpu().numpy(), matched_gt_idxs.cpu().numpy()
             if i == 0:
@@ -672,9 +673,11 @@ class VISeg(MinVIS):
                         ret_frame_macthed_indxes[0].append(n_q + off_idx)
                         ret_frame_macthed_indxes[1].append(frame_gt_id2idx[exhibit_gt_id])
                     else:
-                        frame_removed_track_ids.append(off_idx)
+                        exhibit_removed_ids.append(off_idx)
+                        if exhibit_gt_id in frame_gt_id2idx.keys():
+                            frame_removed_track_ids.append(off_idx)
 
-                for idx_remove in frame_removed_track_ids[::-1]:
+                for idx_remove in exhibit_removed_ids[::-1]:
                     del exhibit_gt_ids[idx_remove]
 
                 for matched_pred_idx, mactched_gt_idx in zip(matched_pred_idxs, matched_gt_idxs):
