@@ -662,18 +662,19 @@ class VISeg(MinVIS):
                 exhibit_gt_ids += [frame_gt_idx2id[idx] for idx in matched_gt_idxs]
             else:
                 ret_frame_macthed_indxes = [[], []]
-                for matched_pred_idx, mactched_gt_idx in zip(matched_pred_idxs, matched_gt_idxs):
-                    if frame_gt_idx2id[mactched_gt_idx] not in exhibit_gt_ids:
-                        frame_new_track_ids.append(matched_pred_idx)
-                        exhibit_gt_ids.append(frame_gt_idx2id[mactched_gt_idx])
-                        ret_frame_macthed_indxes[0].append(matched_pred_idx)
-                        ret_frame_macthed_indxes[1].append(mactched_gt_idx)
 
                 for off_idx, exhibit_gt_id in enumerate(exhibit_gt_ids):
                     # gt id must in current frame
                     if exhibit_gt_id in frame_gt_id2idx.keys():
                         ret_frame_macthed_indxes[0].append(n_q + off_idx)
                         ret_frame_macthed_indxes[1].append(frame_gt_id2idx[exhibit_gt_id])
+
+                for matched_pred_idx, mactched_gt_idx in zip(matched_pred_idxs, matched_gt_idxs):
+                    if frame_gt_idx2id[mactched_gt_idx] not in exhibit_gt_ids:
+                        frame_new_track_ids.append(matched_pred_idx)
+                        exhibit_gt_ids.append(frame_gt_idx2id[mactched_gt_idx])
+                        ret_frame_macthed_indxes[0].append(matched_pred_idx)
+                        ret_frame_macthed_indxes[1].append(mactched_gt_idx)
 
                 print('ret_frame_macthed_indxes', ret_frame_macthed_indxes)
                 ret_frame_macthed_indxes = (torch.as_tensor(ret_frame_macthed_indxes[0], dtype=torch.int64),
