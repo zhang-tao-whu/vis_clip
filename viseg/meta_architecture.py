@@ -781,7 +781,9 @@ class VISeg(MinVIS):
         if self.training:
             frames_losses = []
             for i, output in enumerate(outputs):
-                output['pred_masks'] = output['pred_masks'].unsqueeze(2)
+                for key in output.keys():
+                    if 'mask' in key:
+                        output[key] = output[key].unsqueeze(2)
                 frames_losses.append(self.criterion(output, targets[i + 1: i + 2],
                                                     match_indices=matched_indexes[i + 1: i + 2]))
             losses = {}
