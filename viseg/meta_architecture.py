@@ -655,6 +655,7 @@ class VISeg(MinVIS):
             frame_new_track_ids = []
             matched_pred_idxs, matched_gt_idxs = frame_matched_indices
             matched_pred_idxs, matched_gt_idxs = matched_pred_idxs.cpu().numpy(), matched_gt_idxs.cpu().numpy()
+            print('exhibit_gt_ids:', exhibit_gt_ids)
             if i == 0:
                 # all new appera
                 frame_new_track_ids += list(matched_pred_idxs)
@@ -677,7 +678,7 @@ class VISeg(MinVIS):
                 matched_indexes.append(ret_frame_macthed_indxes)
             new_track_ids.append(frame_new_track_ids)
 
-        print('mactched_gt_idx:', mactched_gt_idx)
+        print('matched_indexes:', matched_indexes)
         print('new_track_ids:', new_track_ids)
         return matched_indexes, new_track_ids
 
