@@ -667,7 +667,7 @@ class VISeg(MinVIS):
                         frame_new_track_ids.append(matched_pred_idx)
                         exhibit_gt_ids.append(frame_gt_idx2id[mactched_gt_idx])
                         ret_frame_macthed_indxes[0].append(matched_pred_idx)
-                        ret_frame_macthed_indxes[1].append(matched_gt_idxs)
+                        ret_frame_macthed_indxes[1].append(mactched_gt_idx)
 
                 for off_idx, exhibit_gt_id in enumerate(exhibit_gt_ids):
                     # gt id must in current frame
