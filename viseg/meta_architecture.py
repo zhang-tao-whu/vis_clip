@@ -843,6 +843,11 @@ class VISeg(MinVIS):
 
         def _process_track_embeds(pred_logits, pred_masks, out_list, finished_out_list,
                                   first_resize_size, img_size, output_height, output_width):
+            for i in range(len(finished_out_list)):
+                finished_out_list[i]['pred_logits'].append(None)
+                finished_out_list[i]['pred_masks'].append(torch.zeros((1, output_height, output_width), dtype=torch.bool,
+                                                                      device=pred_masks.device))
+
             if pred_logits.shape[0] == 0:
                 return
             scores = F.softmax(pred_logits, dim=-1)[:, :-1]
@@ -869,14 +874,10 @@ class VISeg(MinVIS):
                     out_list[i]['pred_logits'].append(pred_logits[i])
                     out_list[i]['pred_masks'].append(masks[i])
 
-            for i in range(len(finished_out_list)):
-                finished_out_list[i]['pred_logits'].append(None)
-                finished_out_list[i]['pred_masks'].append(torch.zeros_like(masks[0], dtype=torch.bool))
-
             finished_out_list += out_list[finished_indexes]
             del out_list[finished_indexes]
 
-            return
+            return finished_indexes
 
         def _process_new_embeds(pred_logits, pred_masks, out_list,
                                 first_resize_size, img_size, output_height, output_width):
@@ -910,10 +911,12 @@ class VISeg(MinVIS):
 
         new_indices = _process_new_embeds(pred_logits[:n_q], pred_masks[:n_q], out_list,
                                           first_resize_size, img_size, output_height, output_width)
-        _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list, finished_out_list,
-                              first_resize_size, img_size, output_height, output_width)
+        finished_indexes = _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list, finished_out_list,
+                                                 first_resize_size, img_size, output_height, output_width)
         track_queries_1 = pred_queries[n_q:]
+        del track_queries_1[finished_indexes]
         track_queries_pos_1 = pred_queries_pos[n_q:]
+        del track_queries_pos_1[finished_indexes]
         track_queries_2 = pred_queries[new_indices]
         track_queries_pos_2 = pred_queries_pos[new_indices]
 
