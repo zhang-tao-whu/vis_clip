@@ -655,7 +655,6 @@ class VISeg(MinVIS):
             frame_new_track_ids = []
             matched_pred_idxs, matched_gt_idxs = frame_matched_indices
             matched_pred_idxs, matched_gt_idxs = matched_pred_idxs.cpu().numpy(), matched_gt_idxs.cpu().numpy()
-            print('exhibit_gt_ids:', exhibit_gt_ids)
             if i == 0:
                 # all new appera
                 frame_new_track_ids += list(matched_pred_idxs)
@@ -671,15 +670,17 @@ class VISeg(MinVIS):
                         ret_frame_macthed_indxes[1].append(matched_gt_idxs)
 
                 for off_idx, exhibit_gt_id in enumerate(exhibit_gt_ids):
-                    ret_frame_macthed_indxes[0].append(n_q + off_idx)
-                    ret_frame_macthed_indxes[1].append(frame_gt_id2idx[exhibit_gt_id])
+                    # gt id must in current frame
+                    if exhibit_gt_id in frame_gt_id2idx.keys():
+                        ret_frame_macthed_indxes[0].append(n_q + off_idx)
+                        ret_frame_macthed_indxes[1].append(frame_gt_id2idx[exhibit_gt_id])
+
                 ret_frame_macthed_indxes = (torch.as_tensor(ret_frame_macthed_indxes[0], dtype=torch.int64),
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
             new_track_ids.append(frame_new_track_ids)
 
         print('matched_indexes:', matched_indexes)
-        print('new_track_ids:', new_track_ids)
         return matched_indexes, new_track_ids
 
     def forward(self, batched_inputs):
@@ -740,7 +741,11 @@ class VISeg(MinVIS):
             with torch.no_grad():
                 # first get the image outputs
                 features = self.backbone(images.tensor)
-                image_outputs = self.sem_seg_head(features)
+                mask_features, transformer_encoder_features, multi_scale_features = \
+                    self.sem_seg_head.pixel_decoder.forward_features(features)
+                image_outputs = self.sem_seg_head(features, mask_features=mask_features,
+                                                  transformer_encoder_features=transformer_encoder_features,
+                                                  multi_scale_features=multi_scale_features)
                 del image_outputs['aux_outputs']
                 torch.cuda.empty_cache()
 
@@ -768,7 +773,10 @@ class VISeg(MinVIS):
                     'track_queries': track_queries, 'track_queries_pos': track_queries_pos,
                     'track_embed': self.track_embed.weight, 'attention_layers': self.attention_layers,
                 }
-                outputs.append(self.sem_seg_head(features[i + 1: i + 2], track_infos=track_infos))
+                outputs.append(self.sem_seg_head(None, track_infos=track_infos,
+                                                 mask_features=mask_features[i+1:i+2],
+                                                 transformer_encoder_features=transformer_encoder_features[i+1:i+2],
+                                                 multi_scale_features=[x[i+1:i+2] for x in multi_scale_features]))
 
         if self.training:
             frames_losses = []
