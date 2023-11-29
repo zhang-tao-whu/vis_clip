@@ -1058,6 +1058,7 @@ class VISeg(MinVIS):
                     pred_logits = pred_logits + frame_pred_logits
             pred_logits = pred_logits / _num
             print(pred_logits.shape)
+            print(torch.softmax(pred_logits, dim=0))
 
             score, label = pred_logits.softmax(dim=-1)[:-1].max()
             out_scores.append(score)
