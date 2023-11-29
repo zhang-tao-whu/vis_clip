@@ -208,21 +208,23 @@ class VideoSetCriterion(nn.Module):
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices, num_masks)
 
-    def forward(self, outputs, targets, matcher_outputs=None, ret_match_result=False):
+    def forward(self, outputs, targets, matcher_outputs=None, ret_match_result=False, match_indices=None):
         """This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
              targets: list of dicts, such that len(targets) == batch_size.
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
-        if matcher_outputs is None:
-            outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
+        if match_indices is None:
+            if matcher_outputs is None:
+                outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
+            else:
+                outputs_without_aux = {k: v for k, v in matcher_outputs.items() if k != "aux_outputs"}
+            # Retrieve the matching between the outputs of the last layer and the targets
+            indices = self.matcher(outputs_without_aux, targets)
+            # [per image indicates], per image indicates -> (pred inds, gt inds)
         else:
-            outputs_without_aux = {k: v for k, v in matcher_outputs.items() if k != "aux_outputs"}
-
-        # Retrieve the matching between the outputs of the last layer and the targets
-        indices = self.matcher(outputs_without_aux, targets)
-        # [per image indicates], per image indicates -> (pred inds, gt inds)
+            indices = match_indices
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_masks = sum(len(t["labels"]) for t in targets)

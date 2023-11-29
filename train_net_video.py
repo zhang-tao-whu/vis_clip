@@ -45,6 +45,7 @@ from detectron2.utils.logger import setup_logger
 # Models
 from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
+from viseg import *
 from dvis_Plus import (
     YTVISDatasetMapper,
     CocoClipDatasetMapper,
