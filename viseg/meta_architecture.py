@@ -1,6 +1,7 @@
 from typing import Tuple
 import einops
 import copy
+import random
 
 import torch
 from torch import nn
@@ -621,8 +622,9 @@ class VISeg(MinVIS):
                 gt_instances.append({"labels": labels[valid], "ids": ids[valid], "masks": masks[valid]})
         return gt_instances
 
-    def pre_match(self, image_outputs, targets):
+    def pre_match(self, image_outputs, targets, random_delete=True, delete_ratio=0.1):
         matched_indexes, new_track_ids = [], []
+        removed_track_ids = []
 
         pred_logits = image_outputs['pred_logits']  # (t, q, cls)
         pred_masks = image_outputs['pred_masks'].unsqueeze(2)  # (t, q, h, w)
@@ -653,6 +655,7 @@ class VISeg(MinVIS):
                 gt_id2idx.append(frame_gt_id2idx)
 
             frame_new_track_ids = []
+            frame_removed_track_ids = []
             matched_pred_idxs, matched_gt_idxs = frame_matched_indices
             matched_pred_idxs, matched_gt_idxs = matched_pred_idxs.cpu().numpy(), matched_gt_idxs.cpu().numpy()
             if i == 0:
@@ -665,9 +668,14 @@ class VISeg(MinVIS):
 
                 for off_idx, exhibit_gt_id in enumerate(exhibit_gt_ids):
                     # gt id must in current frame
-                    if exhibit_gt_id in frame_gt_id2idx.keys():
+                    if exhibit_gt_id in frame_gt_id2idx.keys() and not (random_delete and random.random() < delete_ratio):
                         ret_frame_macthed_indxes[0].append(n_q + off_idx)
                         ret_frame_macthed_indxes[1].append(frame_gt_id2idx[exhibit_gt_id])
+                    else:
+                        frame_removed_track_ids.append(off_idx)
+
+                for idx_remove in frame_removed_track_ids:
+                    del exhibit_gt_ids[idx_remove]
 
                 for matched_pred_idx, mactched_gt_idx in zip(matched_pred_idxs, matched_gt_idxs):
                     if frame_gt_idx2id[mactched_gt_idx] not in exhibit_gt_ids:
@@ -680,9 +688,10 @@ class VISeg(MinVIS):
                 ret_frame_macthed_indxes = (torch.as_tensor(ret_frame_macthed_indxes[0], dtype=torch.int64),
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
+            removed_track_ids.append(frame_removed_track_ids)
             new_track_ids.append(frame_new_track_ids)
 
-        return matched_indexes, new_track_ids
+        return matched_indexes, new_track_ids, removed_track_ids
 
     def forward(self, batched_inputs):
         """
@@ -760,9 +769,9 @@ class VISeg(MinVIS):
 
                 targets = self.prepare_targets(batched_inputs, images)
                 targets = self.targets_reshape(targets)
-                matched_indexes, new_track_ids = self.pre_match(image_outputs, targets)
+                matched_indexes, new_track_ids, removed_track_ids = self.pre_match(image_outputs, targets)
             outputs = []
-            for i, frame_new_track_idx in enumerate(new_track_ids[:-1]):
+            for i, (frame_new_track_idx, frame_removed_track_ids) in enumerate(new_track_ids[:-1], removed_track_ids[:-1]):
                 if i == 0:
                     n_q = image_outputs['pred_queries'].shape[0]
                     track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx]
@@ -774,8 +783,15 @@ class VISeg(MinVIS):
                     new_track_queries = outputs[-1]['pred_queries'][frame_new_track_idx]
                     new_track_queries_pos = outputs[-1]['pred_queries_pos'][frame_new_track_idx]
 
-                    track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:], new_track_queries])
-                    track_queries_pos = torch.cat([outputs[-1]['pred_queries_pos'][n_q:], new_track_queries_pos])
+                    old_track_queries = outputs[-1]['pred_queries'][n_q:]
+                    old_track_queries_pos = outputs[-1]['pred_queries_pos'][n_q:]
+                    keep_idx = []
+                    for keep_i in range(old_track_queries.shape[0]):
+                        if keep_i not in frame_removed_track_ids:
+                            keep_idx.append(keep_i)
+
+                    track_queries = torch.cat([old_track_queries[keep_idx], new_track_queries])
+                    track_queries_pos = torch.cat([old_track_queries_pos[keep_idx], new_track_queries_pos])
                     track_queries_pos = track_queries_pos + self.offset_project(track_queries)
                     track_queries = self.track_query_project(track_queries)
                 track_infos = {
