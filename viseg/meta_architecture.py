@@ -770,9 +770,8 @@ class VISeg(MinVIS):
                 targets = self.prepare_targets(batched_inputs, images)
                 targets = self.targets_reshape(targets)
                 matched_indexes, new_track_ids, removed_track_ids = self.pre_match(image_outputs, targets)
-                print(removed_track_ids)
             outputs = []
-            for i, (frame_new_track_idx, frame_removed_track_ids) in enumerate(new_track_ids[:-1], removed_track_ids[:-1]):
+            for i, (frame_new_track_idx, frame_removed_track_ids) in enumerate(zip(new_track_ids[:-1], removed_track_ids[:-1])):
                 if i == 0:
                     n_q = image_outputs['pred_queries'].shape[0]
                     track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx]
