@@ -843,7 +843,7 @@ class VISeg(MinVIS):
         def _process_track_embeds(pred_logits, pred_masks, out_list,
                                   first_resize_size, img_size, output_height, output_width):
             if pred_logits.shape[0] == 0:
-                return 
+                return
             scores = F.softmax(pred_logits, dim=-1)[:, :-1]
             max_scores = scores.max(dim=-1)[0]
 
@@ -858,7 +858,7 @@ class VISeg(MinVIS):
             del pred_masks
             masks = masks.cpu()
 
-            for i in range(max_scores.shae[0]):
+            for i in range(max_scores.shape[0]):
                 if max_scores[i] < 0.1:
                     out_list[i]['pred_logits'].append(None)
                 else:
