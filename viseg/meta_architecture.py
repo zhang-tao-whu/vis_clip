@@ -1060,7 +1060,7 @@ class VISeg(MinVIS):
             print(pred_logits.shape)
             print(torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0))
 
-            score, label = pred_logits.softmax(dim=-1)[:-1].max()
+            score, label = torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0)
             out_scores.append(score)
             out_labels.append(label)
 
