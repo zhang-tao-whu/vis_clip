@@ -842,6 +842,8 @@ class VISeg(MinVIS):
 
         def _process_track_embeds(pred_logits, pred_masks, out_list,
                                   first_resize_size, img_size, output_height, output_width):
+            if pred_logits.shape[0] == 0:
+                return 
             scores = F.softmax(pred_logits, dim=-1)[:, :-1]
             max_scores = scores.max(dim=-1)[0]
 
