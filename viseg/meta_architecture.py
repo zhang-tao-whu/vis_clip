@@ -735,7 +735,15 @@ class VISeg(MinVIS):
         images = ImageList.from_tensors(images, self.size_divisibility)
 
         if not self.training:
-            outputs = self.run_window_inference(images.tensor, window_size=self.window_size)
+            first_resize_size = (images.tensor.shape[-2], images.tensor.shape[-1])
+
+            input_per_image = batched_inputs[0]
+            image_size = images.image_sizes[0]  # image size without padding after data augmentation
+
+            height = input_per_image.get("height", image_size[0])  # raw image size before data augmentation
+            width = input_per_image.get("width", image_size[1])
+            outputs = self.frame_by_frame_inference(images.tensor, first_resize_size,
+                                                    image_size, height, width)
         else:
             self.backbone.eval()
             self.sem_seg_head.eval()
@@ -803,25 +811,110 @@ class VISeg(MinVIS):
                     losses.pop(k)
             return losses
         else:
-            outputs = self.post_processing(outputs)
-            mask_cls_results = outputs["pred_logits"]
-            mask_pred_results = outputs["pred_masks"]
-            pred_ids = outputs["ids"]
-
-            mask_cls_result = mask_cls_results[0]
-            mask_pred_result = mask_pred_results[0]
-            pred_id = pred_ids[0]
-            first_resize_size = (images.tensor.shape[-2], images.tensor.shape[-1])
-
-            input_per_image = batched_inputs[0]
-            image_size = images.image_sizes[0]  # image size without padding after data augmentation
-
-            height = input_per_image.get("height", image_size[0])  # raw image size before data augmentation
-            width = input_per_image.get("width", image_size[1])
 
             return retry_if_cuda_oom(self.inference_video_task)(
-                mask_cls_result, mask_pred_result, image_size, height, width, first_resize_size, pred_id
+                outputs, images.tensor.shape[0], height, width
             )
+
+    def frame_by_frame_inference(self, images, first_resize_size,
+                                 image_size, height, width):
+        self.backbone.eval()
+        self.sem_seg_head.eval()
+        out_list = []
+        with torch.no_grad():
+            for i in range(len(images)):
+                features = self.backbone(images[i: i+1])
+                if i == 0:
+                    image_outputs = self.sem_seg_head(features)
+                    n_q = image_outputs['pred_queries'].shape[0]
+                    track_infos = self.extract_track_infos(image_outputs, out_list,
+                                                           n_q, first_resize_size,
+                                                           image_size, height, width)
+                else:
+                    image_outputs = self.sem_seg_head(features, track_infos=track_infos)
+                    track_infos = self.extract_track_infos(image_outputs, out_list,
+                                                           n_q, first_resize_size,
+                                                           image_size, height, width)
+        return out_list
+
+    def extract_track_infos(self, image_outputs, out_list, n_q, first_resize_size,
+                            img_size, output_height, output_width):
+
+        def _process_track_embeds(pred_logits, pred_masks, out_list,
+                                  first_resize_size, img_size, output_height, output_width):
+            scores = F.softmax(pred_logits, dim=-1)[:, :-1]
+            max_scores = scores.max(dim=-1)[0]
+
+            pred_masks = F.interpolate(
+                pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
+            )
+            pred_masks = pred_masks[:, : img_size[0], : img_size[1]]
+            pred_masks = F.interpolate(
+                pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
+            )
+            masks = pred_masks > 0.
+            del pred_masks
+            masks = masks.cpu()
+
+            for i in range(max_scores.shae[0]):
+                if max_scores[i] < 0.1:
+                    out_list[i]['pred_logits'].append(None)
+                else:
+                    out_list[i]['pred_logits'].append(pred_logits[i])
+                out_list[i]['pred_masks'].append(masks[i])
+            return
+
+        def _process_new_embeds(pred_logits, pred_masks, out_list,
+                                first_resize_size, img_size, output_height, output_width):
+            scores = F.softmax(pred_logits, dim=-1)[:, :-1]
+            max_scores = scores.max(dim=-1)[0]
+
+            pred_masks = F.interpolate(
+                pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
+            )
+            pred_masks = pred_masks[:, : img_size[0], : img_size[1]]
+            pred_masks = F.interpolate(
+                pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
+            )
+            masks = pred_masks > 0.
+            del pred_masks
+            masks = masks.cpu()
+
+            keep_indexes = []
+            for i in range(max_scores.shae[0]):
+                if max_scores[i] > 0.3:
+                    keep_indexes.append(i)
+                    out_list.append({'pred_logits': [pred_logits[i]],
+                                     'pred_masks': [masks[i]]})
+            return keep_indexes
+
+        del image_outputs['aux_outputs']
+        pred_logits = image_outputs['pred_logits'][0]  # (q, c)
+        pred_masks = image_outputs['pred_masks'][0]  # (q, h, w)
+        pred_queries = image_outputs['pred_queries']  # (q, b, c)
+        pred_queries_pos = image_outputs['pred_queries_pos']  # (q, b, c)
+
+        new_indices = _process_new_embeds(pred_logits[:n_q], pred_masks[:n_q], out_list,
+                                          first_resize_size, img_size, output_height, output_width)
+        _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list,
+                              first_resize_size, img_size, output_height, output_width)
+        track_queries_1 = pred_queries[n_q:]
+        track_queries_pos_1 = pred_queries_pos[n_q:]
+        track_queries_2 = pred_queries[new_indices]
+        track_queries_pos_2 = pred_queries_pos[new_indices]
+
+        track_queries = torch.cat([track_queries_1, track_queries_2], dim=0)
+        track_queries_pos = torch.cat([track_queries_pos_1, track_queries_pos_2], dim=0)
+
+        track_queries_pos = track_queries_pos + self.offset_project(track_queries)
+        track_queries = self.track_query_project(track_queries)
+
+        track_infos = {
+            'track_queries': track_queries, 'track_queries_pos': track_queries_pos,
+            'track_embed': self.track_embed.weight, 'attention_layers': self.attention_layers,
+        }
+        return track_infos
+
 
     def _get_instance_labels(self, pred_logits):
         # b, t, q, c
@@ -934,44 +1027,38 @@ class VISeg(MinVIS):
         return outputs
 
     def inference_video_vis(
-        self, pred_cls, pred_masks, img_size, output_height, output_width,
-        first_resize_size, pred_id, aux_pred_cls=None,
+        self, outputs, n_frames, output_height, output_width
     ):
-        if len(pred_cls) > 0:
-            scores = F.softmax(pred_cls, dim=-1)[:, :-1]
-            if aux_pred_cls is not None:
-                aux_pred_cls = F.softmax(aux_pred_cls, dim=-1)[:, :-1]
-                scores = torch.maximum(scores, aux_pred_cls.to(scores))
-            labels = torch.arange(
-                self.sem_seg_head.num_classes, device=self.device
-            ).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
-            # keep top-K predictions
-            scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.max_num, sorted=False)
-            labels_per_image = labels[topk_indices]
-            topk_indices = topk_indices // self.sem_seg_head.num_classes
-            pred_masks = pred_masks[topk_indices]
-            pred_ids = pred_id[topk_indices]
+        out_scores = []
+        out_labels = []
+        out_masks = []
+        out_ids = []
 
-            # interpolation to original image size
-            pred_masks = F.interpolate(
-                pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
-            )
-            pred_masks = pred_masks[:, :, : img_size[0], : img_size[1]]
-            pred_masks = F.interpolate(
-                pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-            )
-            masks = pred_masks > 0.
-            del pred_masks
+        for i, output in enumerate(outputs):
+            out_ids.append(i)
 
-            out_scores = scores_per_image.tolist()
-            out_labels = labels_per_image.tolist()
-            out_ids = pred_ids.tolist()
-            out_masks = [m for m in masks.cpu()]
-        else:
-            out_scores = []
-            out_labels = []
-            out_masks = []
-            out_ids = []
+            pred_masks = output['pred_masks']
+            pred_masks = torch.stack(pred_masks, dim=0)
+
+            pre_masks = torch.zeros((n_frames - pred_masks.shape[0], pred_masks.shape[1], pred_masks.shape[2]),
+                                    dtype=pred_masks.dtype, device=pred_masks.device)
+            pred_masks = torch.cat([pre_masks, pred_masks], dim=0)
+
+            out_masks.append(pred_masks)
+
+            _num = 0
+            pred_logits = 0
+            for frame_pred_logits in output['pred_logits']:
+                if frame_pred_logits is None:
+                    pass
+                else:
+                    _num += 1
+                    pred_logits = pred_logits + frame_pred_logits
+            pred_logits = pred_logits / _num
+
+            score, label = pred_logits.softmax(dim=-1)[:-1].max()
+            out_scores.append(score)
+            out_labels.append(label)
 
         video_output = {
             "image_size": (output_height, output_width),
@@ -983,6 +1070,7 @@ class VISeg(MinVIS):
         }
 
         return video_output
+
 
     def inference_video_vps(
         self, pred_cls, pred_masks, img_size, output_height, output_width,
