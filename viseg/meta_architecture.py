@@ -885,7 +885,7 @@ class VISeg(MinVIS):
 
             finished_indexes = []
             for i in range(max_scores.shape[0]):
-                if max_scores[i] < 0.1:
+                if max_scores[i] < 0.3:
                     finished_indexes.append(i)
                     out_list[i]['pred_logits'].append(None)
                     out_list[i]['pred_masks'].append(torch.zeros_like(masks[i], dtype=torch.bool))
