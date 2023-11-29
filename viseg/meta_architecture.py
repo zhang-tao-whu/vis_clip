@@ -676,7 +676,7 @@ class VISeg(MinVIS):
                         ret_frame_macthed_indxes[0].append(matched_pred_idx)
                         ret_frame_macthed_indxes[1].append(mactched_gt_idx)
 
-                print('ret_frame_macthed_indxes', ret_frame_macthed_indxes)
+                print('ret_frame_macthed_indxes', ret_frame_macthed_indxes[0], [frame_gt_idx2id[idx] for idx in ret_frame_macthed_indxes[1]])
                 ret_frame_macthed_indxes = (torch.as_tensor(ret_frame_macthed_indxes[0], dtype=torch.int64),
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
