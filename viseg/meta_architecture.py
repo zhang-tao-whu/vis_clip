@@ -846,12 +846,12 @@ class VISeg(MinVIS):
             max_scores = scores.max(dim=-1)[0]
 
             pred_masks = F.interpolate(
-                pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
-            )
+                pred_masks.unsqueeze(0), size=first_resize_size, mode="bilinear", align_corners=False
+            )[0]
             pred_masks = pred_masks[:, : img_size[0], : img_size[1]]
             pred_masks = F.interpolate(
-                pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-            )
+                pred_masks.unsqueeze(0), size=(output_height, output_width), mode="bilinear", align_corners=False
+            )[0]
             masks = pred_masks > 0.
             del pred_masks
             masks = masks.cpu()
@@ -870,12 +870,12 @@ class VISeg(MinVIS):
             max_scores = scores.max(dim=-1)[0]
 
             pred_masks = F.interpolate(
-                pred_masks, size=first_resize_size, mode="bilinear", align_corners=False
-            )
-            pred_masks = pred_masks[:, : img_size[0], : img_size[1]]
+                pred_masks.unsqueeze(0), size=first_resize_size, mode="bilinear", align_corners=False
+            )[0]
+            pred_masks = pred_masks[:, :img_size[0], : img_size[1]]
             pred_masks = F.interpolate(
-                pred_masks, size=(output_height, output_width), mode="bilinear", align_corners=False
-            )
+                pred_masks.unsqueeze(0), size=(output_height, output_width), mode="bilinear", align_corners=False
+            )[0]
             masks = pred_masks > 0.
             del pred_masks
             masks = masks.cpu()
