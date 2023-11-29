@@ -1050,6 +1050,7 @@ class VISeg(MinVIS):
 
             _num = 0
             pred_logits = 0
+            print(output['pred_logits'])
             for frame_pred_logits in output['pred_logits']:
                 if frame_pred_logits is None:
                     pass
