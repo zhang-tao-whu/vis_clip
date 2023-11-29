@@ -874,7 +874,9 @@ class VISeg(MinVIS):
                     out_list[i]['pred_logits'].append(pred_logits[i])
                     out_list[i]['pred_masks'].append(masks[i])
 
-            finished_out_list += out_list[finished_indexes]
+            
+            for idx in finished_indexes:
+                finished_out_list.append(out_list[idx])
             del out_list[finished_indexes]
 
             return finished_indexes
