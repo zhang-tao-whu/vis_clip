@@ -652,6 +652,9 @@ class VISeg(MinVIS):
                 ids_history = targets_per_video['ids'][:, :f+1]
                 max_ids_history = torch.max(ids_history, dim=-1)[0]
                 valid = max_ids_history != -1
+                is_bg = ids[:, 0] == -1
+                labels[is_bg] = self.sem_seg_head.num_classes
+                
                 # valid = ids[:, 0] != -1
                 masks = targets_per_video['masks'][:, [f], :, :]
                 # gt_instances.append({"labels": labels[valid], "ids": ids[valid], "masks": masks[valid]})
@@ -716,7 +719,7 @@ class VISeg(MinVIS):
                         ret_frame_macthed_indxes[0].append(matched_pred_idx)
                         ret_frame_macthed_indxes[1].append(mactched_gt_idx)
 
-                print('ret_frame_macthed_indxes', ret_frame_macthed_indxes[0], [frame_gt_idx2id[idx] for idx in ret_frame_macthed_indxes[1]])
+                # print('ret_frame_macthed_indxes', ret_frame_macthed_indxes[0], [frame_gt_idx2id[idx] for idx in ret_frame_macthed_indxes[1]])
                 ret_frame_macthed_indxes = (torch.as_tensor(ret_frame_macthed_indxes[0], dtype=torch.int64),
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
