@@ -654,7 +654,7 @@ class VISeg(MinVIS):
                 valid = max_ids_history != -1
                 is_bg = ids[:, 0] == -1
                 labels[is_bg] = self.sem_seg_head.num_classes
-                
+
                 # valid = ids[:, 0] != -1
                 masks = targets_per_video['masks'][:, [f], :, :]
                 # gt_instances.append({"labels": labels[valid], "ids": ids[valid], "masks": masks[valid]})
