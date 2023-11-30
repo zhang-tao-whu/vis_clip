@@ -639,6 +639,7 @@ class VISeg(MinVIS):
                 gt_instances[i]['masks'] = torch.cat([gt_instances[i]['masks'], additional_annos['masks']], dim=0)
         else:
             raise NotImplementedError
+        print([item['ids'] for item in gt_instances])
         return gt_instances
 
     def targets_reshape(self, targets, mix_videos=True, n_batches=None):
