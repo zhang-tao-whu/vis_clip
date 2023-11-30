@@ -626,7 +626,7 @@ class VISeg(MinVIS):
                 for j in range(clip_length):
                     gt_instances[clip_length * (i + 1) - 1 - j]["ids"] =\
                         gt_instances[clip_length * (i + 1) - 1 - j]["ids"] + id_base
-            id_base = id_base + max_ids
+            id_base = id_base + max_ids + 1
 
         if mode == 'clip':
             for i in range(clip_length, len(gt_instances)):
@@ -634,12 +634,11 @@ class VISeg(MinVIS):
                     additional_annos = {'ids': gt_instances[i - 1]['ids'], 'labels': gt_instances[i - 1]['labels']}
                     additional_annos.update({"masks": torch.zeros_like(gt_instances[i - 1]['masks'])})
 
-                gt_instances[i]['ids'] = torch.cat([gt_instances[i]['ids'], additional_annos['ids']], dim=0)
-                gt_instances[i]['labels'] = torch.cat([gt_instances[i]['labels'], additional_annos['labels']], dim=0)
-                gt_instances[i]['masks'] = torch.cat([gt_instances[i]['masks'], additional_annos['masks']], dim=0)
+                gt_instances[i]['ids'] = torch.cat([additional_annos['ids'], gt_instances[i]['ids'], ], dim=0)
+                gt_instances[i]['labels'] = torch.cat([additional_annos['labels'], gt_instances[i]['labels'], ], dim=0)
+                gt_instances[i]['masks'] = torch.cat([additional_annos['masks'], gt_instances[i]['masks'], ], dim=0)
         else:
             raise NotImplementedError
-        print([item['ids'] for item in gt_instances])
         return gt_instances
 
     def targets_reshape(self, targets, mix_videos=True, n_batches=None):
@@ -717,7 +716,7 @@ class VISeg(MinVIS):
                         ret_frame_macthed_indxes[0].append(matched_pred_idx)
                         ret_frame_macthed_indxes[1].append(mactched_gt_idx)
 
-                # print('ret_frame_macthed_indxes', ret_frame_macthed_indxes[0], [frame_gt_idx2id[idx] for idx in ret_frame_macthed_indxes[1]])
+                print('ret_frame_macthed_indxes', ret_frame_macthed_indxes[0], [frame_gt_idx2id[idx] for idx in ret_frame_macthed_indxes[1]])
                 ret_frame_macthed_indxes = (torch.as_tensor(ret_frame_macthed_indxes[0], dtype=torch.int64),
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
