@@ -619,7 +619,6 @@ class VISeg(MinVIS):
         id_base = 0
         for i in range(n_batches):
             clip_ids = gt_instances[clip_length * (i + 1) - 1]["ids"]  # (q, 1)
-            print(clip_ids)
             if clip_ids.shape[0] == 0:
                 continue
             max_ids = torch.max(clip_ids[:, 0], dim=0)[0]
@@ -656,7 +655,7 @@ class VISeg(MinVIS):
                 # valid = ids[:, 0] != -1
                 masks = targets_per_video['masks'][:, [f], :, :]
                 # gt_instances.append({"labels": labels[valid], "ids": ids[valid], "masks": masks[valid]})
-                gt_instances.append({"labels": labels[valid], "ids": max_ids_history[valid], "masks": masks[valid]})
+                gt_instances.append({"labels": labels[valid], "ids": max_ids_history[valid].unsqueeze(1), "masks": masks[valid]})
 
         if mix_videos:
             return self.mix_videos(gt_instances, n_batches=n_batches)
