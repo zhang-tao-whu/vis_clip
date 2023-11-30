@@ -616,7 +616,10 @@ class VISeg(MinVIS):
             for f in range(num_labeled_frames):
                 labels = targets_per_video['labels']
                 ids = targets_per_video['ids'][:, [f]]
-                valid = ids[:, 0] != -1
+                # fileter the have not appeared objects
+                ids_history = targets_per_video['ids'][:, :f+1]
+                valid = torch.max(ids_history, dim=-1)[0] != -1
+                # valid = ids[:, 0] != -1
                 masks = targets_per_video['masks'][:, [f], :, :]
                 gt_instances.append({"labels": labels[valid], "ids": ids[valid], "masks": masks[valid]})
         return gt_instances
@@ -917,117 +920,6 @@ class VISeg(MinVIS):
         }
         return track_infos
 
-
-    def _get_instance_labels(self, pred_logits):
-        # b, t, q, c
-        pred_logits = pred_logits[0]  # (t, q, c)
-        scores = F.softmax(pred_logits, dim=-1)
-        labels = torch.argmax(scores, dim=2)  # (t, q)
-        labels[labels == pred_logits.size(2) - 1] = -1
-        return labels
-
-    def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
-        outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-        outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
-        outputs['pred_references'] = einops.rearrange(outputs['pred_references'], 'b c t q -> (b t) q c')
-
-        if image_outputs is not None:
-            image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
-            image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
-        if 'aux_outputs' in outputs:
-            for i in range(len(outputs['aux_outputs'])):
-                outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
-                )
-                outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
-                    outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
-                )
-        gt_instances = []
-        for targets_per_video in targets:
-            num_labeled_frames = targets_per_video['ids'].shape[1]
-            for f in range(num_labeled_frames):
-                labels = targets_per_video['labels']
-                ids = targets_per_video['ids'][:, [f]]
-                masks = targets_per_video['masks'][:, [f], :, :]
-                gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
-        return image_outputs, outputs, gt_instances
-
-    def reset_image_output_order(self, output, indices):
-        """
-        in order to maintain consistency between the initial query and the guided results (segmenter prediction)
-        :param output: segmenter prediction results (image-level segmentation results)
-        :param indices: matched indicates
-        :return: reordered outputs
-        """
-        # pred_keys, (b, c, t, q)
-        indices = torch.Tensor(indices).to(torch.int64)  # (t, q)
-        frame_indices = torch.range(0, indices.shape[0] - 1).to(indices).unsqueeze(1).repeat(1, indices.shape[1])
-        # pred_masks, shape is (b, q, t, h, w)
-        output['pred_masks'][0] = output['pred_masks'][0][indices, frame_indices].transpose(0, 1)
-        # pred logits, shape is (b, t, q, c)
-        output['pred_logits'][0] = output['pred_logits'][0][frame_indices, indices]
-        return output
-
-    def post_processing(self, outputs, aux_logits=None):
-        """
-        average the class logits and append query ids
-        """
-        pred_logits = outputs['pred_logits']
-        pred_logits = pred_logits[0]  # (t, q, c)
-        out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
-        if aux_logits is not None:
-            aux_logits = aux_logits[0]
-            aux_logits = torch.mean(aux_logits, dim=0)  # (q, c)
-        outputs['pred_logits'] = out_logits
-        outputs['ids'] = [torch.arange(0, outputs['pred_masks'].size(1))]
-        if aux_logits is not None:
-            return outputs, aux_logits
-        return outputs
-
-    def run_window_inference(self, images_tensor, window_size=30):
-        iters = len(images_tensor) // window_size
-        if len(images_tensor) % window_size != 0:
-            iters += 1
-        out_list = []
-        for i in range(iters):
-            start_idx = i * window_size
-            end_idx = (i+1) * window_size
-            # segmeter inference
-            features = self.backbone(images_tensor[start_idx:end_idx])
-            out = self.sem_seg_head(features)
-            # remove unnecessary variables to save GPU memory
-            del features['res2'], features['res3'], features['res4'], features['res5']
-            for j in range(len(out['aux_outputs'])):
-                del out['aux_outputs'][j]['pred_masks'], out['aux_outputs'][j]['pred_logits']
-            # referring tracker inference
-            frame_embds = out['pred_embds']  # (b, c, t, q)
-            frame_embds_no_norm = out['pred_embds_without_norm']
-            mask_features = out['mask_features'].unsqueeze(0)
-            if i != 0 or self.keep:
-                track_out = self.tracker(frame_embds, mask_features,
-                                         resume=True, frame_embeds_no_norm=frame_embds_no_norm)
-            else:
-                track_out = self.tracker(frame_embds, mask_features, frame_embeds_no_norm=frame_embds_no_norm)
-            # remove unnecessary variables to save GPU memory
-            del mask_features
-            for j in range(len(track_out['aux_outputs'])):
-                del track_out['aux_outputs'][j]['pred_masks'], track_out['aux_outputs'][j]['pred_logits']
-            track_out['pred_logits'] = track_out['pred_logits'].to(torch.float32).detach().cpu()
-            track_out['pred_masks'] = track_out['pred_masks'].to(torch.float32).detach().cpu()
-            track_out['pred_embds'] = track_out['pred_embds'].to(torch.float32).detach().cpu()
-            # track_out['pred_logits'] = track_out['pred_logits'].detach()
-            # track_out['pred_masks'] = track_out['pred_masks'].detach()
-            # track_out['pred_embds'] = track_out['pred_embds'].detach()
-            out_list.append(track_out)
-
-        # merge outputs
-        outputs = {}
-        outputs['pred_logits'] = torch.cat([x['pred_logits'] for x in out_list], dim=1)
-        outputs['pred_masks'] = torch.cat([x['pred_masks'] for x in out_list], dim=2)
-        outputs['pred_embds'] = torch.cat([x['pred_embds'] for x in out_list], dim=2)
-
-        return outputs
-
     def inference_video_vis(
         self, outputs, n_frames, output_height, output_width
     ):
@@ -1057,8 +949,6 @@ class VISeg(MinVIS):
                     _num += 1
                     pred_logits = pred_logits + frame_pred_logits
             pred_logits = pred_logits / _num
-            print(pred_logits.shape)
-            print(torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0))
 
             score, label = torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0)
             out_scores.append(score)
@@ -1187,89 +1077,3 @@ class VISeg(MinVIS):
                 "pred_masks": sem_mask.cpu(),
                 "task": "vss",
             }
-
-    def get_cl_loss_ref(self, outputs, referecne_match_result):
-        references = outputs['pred_references']  # t q c
-
-        # per frame
-        contrastive_items = []
-        for i in range(references.size(0)):
-            if i == 0:
-                continue
-            frame_reference = references[i]  # (q, c)
-            frame_reference_ = references[i - 1]  # (q, c)
-
-            if i != references.size(0) - 1:
-                frame_reference_next = references[i + 1]
-            else:
-                frame_reference_next = None
-
-            frame_ref_gt_indices = referecne_match_result[i]
-
-            gt2ref = {}
-            for i_ref, i_gt in zip(frame_ref_gt_indices[0], frame_ref_gt_indices[1]):
-                gt2ref[i_gt.item()] = i_ref.item()
-            # per instance
-            for i_gt in gt2ref.keys():
-                i_ref = gt2ref[i_gt]
-
-                anchor_embeds = frame_reference[[i_ref]]
-                pos_embeds = frame_reference_[[i_ref]]
-                neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
-                neg_embeds = frame_reference_[neg_range]
-
-                num_positive = pos_embeds.shape[0]
-                # concate pos and neg to get whole constractive samples
-                pos_neg_embedding = torch.cat(
-                    [pos_embeds, neg_embeds], dim=0)
-                # generate label, pos is 1, neg is 0
-                pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
-                                                            dtype=torch.int64)  # noqa
-                pos_neg_label[:num_positive] = 1.
-
-                # dot product
-                dot_product = torch.einsum(
-                    'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
-                aux_normalize_pos_neg_embedding = nn.functional.normalize(
-                    pos_neg_embedding, dim=1)
-                aux_normalize_anchor_embedding = nn.functional.normalize(
-                    anchor_embeds, dim=1)
-
-                aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
-                                                                   aux_normalize_anchor_embedding])
-                contrastive_items.append({
-                    'dot_product': dot_product,
-                    'cosine_similarity': aux_cosine_similarity,
-                    'label': pos_neg_label})
-
-                if frame_reference_next is not None:
-                    pos_embeds = frame_reference_next[[i_ref]]
-                    neg_range = list(range(0, i_ref)) + list(range(i_ref + 1, frame_reference.size(0)))
-                    neg_embeds = frame_reference_next[neg_range]
-
-                    num_positive = pos_embeds.shape[0]
-                    # concate pos and neg to get whole constractive samples
-                    pos_neg_embedding = torch.cat(
-                        [pos_embeds, neg_embeds], dim=0)
-                    # generate label, pos is 1, neg is 0
-                    pos_neg_label = pos_neg_embedding.new_zeros((pos_neg_embedding.shape[0],),
-                                                                dtype=torch.int64)  # noqa
-                    pos_neg_label[:num_positive] = 1.
-
-                    # dot product
-                    dot_product = torch.einsum(
-                        'ac,kc->ak', [pos_neg_embedding, anchor_embeds])
-                    aux_normalize_pos_neg_embedding = nn.functional.normalize(
-                        pos_neg_embedding, dim=1)
-                    aux_normalize_anchor_embedding = nn.functional.normalize(
-                        anchor_embeds, dim=1)
-
-                    aux_cosine_similarity = torch.einsum('ac,kc->ak', [aux_normalize_pos_neg_embedding,
-                                                                       aux_normalize_anchor_embedding])
-                    contrastive_items.append({
-                        'dot_product': dot_product,
-                        'cosine_similarity': aux_cosine_similarity,
-                        'label': pos_neg_label})
-
-        losses = loss_reid(contrastive_items, outputs)
-        return losses
