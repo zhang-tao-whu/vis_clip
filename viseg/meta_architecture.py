@@ -1,7 +1,6 @@
 from typing import Tuple
 import einops
 import copy
-import random
 
 import torch
 from torch import nn
@@ -622,9 +621,8 @@ class VISeg(MinVIS):
                 gt_instances.append({"labels": labels[valid], "ids": ids[valid], "masks": masks[valid]})
         return gt_instances
 
-    def pre_match(self, image_outputs, targets, random_delete=True, delete_ratio=0.1):
+    def pre_match(self, image_outputs, targets):
         matched_indexes, new_track_ids = [], []
-        removed_track_ids = []
 
         pred_logits = image_outputs['pred_logits']  # (t, q, cls)
         pred_masks = image_outputs['pred_masks'].unsqueeze(2)  # (t, q, h, w)
@@ -655,8 +653,6 @@ class VISeg(MinVIS):
                 gt_id2idx.append(frame_gt_id2idx)
 
             frame_new_track_ids = []
-            frame_removed_track_ids = []
-            exhibit_removed_ids = []
             matched_pred_idxs, matched_gt_idxs = frame_matched_indices
             matched_pred_idxs, matched_gt_idxs = matched_pred_idxs.cpu().numpy(), matched_gt_idxs.cpu().numpy()
             if i == 0:
@@ -669,16 +665,9 @@ class VISeg(MinVIS):
 
                 for off_idx, exhibit_gt_id in enumerate(exhibit_gt_ids):
                     # gt id must in current frame
-                    if exhibit_gt_id in frame_gt_id2idx.keys() and not (random_delete and random.random() < delete_ratio):
+                    if exhibit_gt_id in frame_gt_id2idx.keys():
                         ret_frame_macthed_indxes[0].append(n_q + off_idx)
                         ret_frame_macthed_indxes[1].append(frame_gt_id2idx[exhibit_gt_id])
-                    else:
-                        exhibit_removed_ids.append(off_idx)
-                        if exhibit_gt_id in frame_gt_id2idx.keys():
-                            frame_removed_track_ids.append(off_idx)
-
-                for idx_remove in exhibit_removed_ids[::-1]:
-                    del exhibit_gt_ids[idx_remove]
 
                 for matched_pred_idx, mactched_gt_idx in zip(matched_pred_idxs, matched_gt_idxs):
                     if frame_gt_idx2id[mactched_gt_idx] not in exhibit_gt_ids:
@@ -691,10 +680,9 @@ class VISeg(MinVIS):
                 ret_frame_macthed_indxes = (torch.as_tensor(ret_frame_macthed_indxes[0], dtype=torch.int64),
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
-            removed_track_ids.append(frame_removed_track_ids)
             new_track_ids.append(frame_new_track_ids)
 
-        return matched_indexes, new_track_ids, removed_track_ids
+        return matched_indexes, new_track_ids
 
     def forward(self, batched_inputs):
         """
@@ -772,9 +760,9 @@ class VISeg(MinVIS):
 
                 targets = self.prepare_targets(batched_inputs, images)
                 targets = self.targets_reshape(targets)
-                matched_indexes, new_track_ids, removed_track_ids = self.pre_match(image_outputs, targets)
+                matched_indexes, new_track_ids = self.pre_match(image_outputs, targets)
             outputs = []
-            for i, (frame_new_track_idx, frame_removed_track_ids) in enumerate(zip(new_track_ids[:-1], removed_track_ids[:-1])):
+            for i, frame_new_track_idx in enumerate(new_track_ids[:-1]):
                 if i == 0:
                     n_q = image_outputs['pred_queries'].shape[0]
                     track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx]
@@ -786,15 +774,8 @@ class VISeg(MinVIS):
                     new_track_queries = outputs[-1]['pred_queries'][frame_new_track_idx]
                     new_track_queries_pos = outputs[-1]['pred_queries_pos'][frame_new_track_idx]
 
-                    old_track_queries = outputs[-1]['pred_queries'][n_q:]
-                    old_track_queries_pos = outputs[-1]['pred_queries_pos'][n_q:]
-                    keep_idx = []
-                    for keep_i in range(old_track_queries.shape[0]):
-                        if keep_i not in frame_removed_track_ids:
-                            keep_idx.append(keep_i)
-
-                    track_queries = torch.cat([old_track_queries[keep_idx], new_track_queries])
-                    track_queries_pos = torch.cat([old_track_queries_pos[keep_idx], new_track_queries_pos])
+                    track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:], new_track_queries])
+                    track_queries_pos = torch.cat([outputs[-1]['pred_queries_pos'][n_q:], new_track_queries_pos])
                     track_queries_pos = track_queries_pos + self.offset_project(track_queries)
                     track_queries = self.track_query_project(track_queries)
                 track_infos = {
@@ -840,33 +821,27 @@ class VISeg(MinVIS):
         self.backbone.eval()
         self.sem_seg_head.eval()
         out_list = []
-        finished_out_list = []
         with torch.no_grad():
             for i in range(len(images)):
                 features = self.backbone(images[i: i+1])
                 if i == 0:
                     image_outputs = self.sem_seg_head(features)
                     n_q = image_outputs['pred_queries'].shape[0]
-                    track_infos = self.extract_track_infos(image_outputs, out_list, finished_out_list,
+                    track_infos = self.extract_track_infos(image_outputs, out_list,
                                                            n_q, first_resize_size,
                                                            image_size, height, width)
                 else:
                     image_outputs = self.sem_seg_head(features, track_infos=track_infos)
-                    track_infos = self.extract_track_infos(image_outputs, out_list, finished_out_list,
+                    track_infos = self.extract_track_infos(image_outputs, out_list,
                                                            n_q, first_resize_size,
                                                            image_size, height, width)
-        return out_list + finished_out_list
+        return out_list
 
-    def extract_track_infos(self, image_outputs, out_list, finished_out_list, n_q, first_resize_size,
+    def extract_track_infos(self, image_outputs, out_list, n_q, first_resize_size,
                             img_size, output_height, output_width):
 
-        def _process_track_embeds(pred_logits, pred_masks, out_list, finished_out_list,
+        def _process_track_embeds(pred_logits, pred_masks, out_list,
                                   first_resize_size, img_size, output_height, output_width):
-            for i in range(len(finished_out_list)):
-                finished_out_list[i]['pred_logits'].append(None)
-                finished_out_list[i]['pred_masks'].append(torch.zeros((output_height, output_width), dtype=torch.bool,
-                                                                      device='cpu'))
-
             if pred_logits.shape[0] == 0:
                 return
             scores = F.softmax(pred_logits, dim=-1)[:, :-1]
@@ -883,22 +858,13 @@ class VISeg(MinVIS):
             del pred_masks
             masks = masks.cpu()
 
-            finished_indexes = []
             for i in range(max_scores.shape[0]):
-                if max_scores[i] < 0.3:
-                    finished_indexes.append(i)
+                if max_scores[i] < 0.1:
                     out_list[i]['pred_logits'].append(None)
-                    out_list[i]['pred_masks'].append(torch.zeros_like(masks[i], dtype=torch.bool))
                 else:
                     out_list[i]['pred_logits'].append(pred_logits[i])
-                    out_list[i]['pred_masks'].append(masks[i])
-
-
-            for idx in finished_indexes[::-1]:
-                finished_out_list.append(out_list[idx])
-                del out_list[idx]
-
-            return finished_indexes
+                out_list[i]['pred_masks'].append(masks[i])
+            return
 
         def _process_new_embeds(pred_logits, pred_masks, out_list,
                                 first_resize_size, img_size, output_height, output_width):
@@ -932,14 +898,10 @@ class VISeg(MinVIS):
 
         new_indices = _process_new_embeds(pred_logits[:n_q], pred_masks[:n_q], out_list,
                                           first_resize_size, img_size, output_height, output_width)
-        finished_indexes = _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list, finished_out_list,
-                                                 first_resize_size, img_size, output_height, output_width)
+        _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list,
+                              first_resize_size, img_size, output_height, output_width)
         track_queries_1 = pred_queries[n_q:]
-        keep_idxs = [idx for idx in range(track_queries_1.shape[0]) if idx not in finished_indexes]
         track_queries_pos_1 = pred_queries_pos[n_q:]
-        track_queries_1 = track_queries_1[keep_idxs]
-        track_queries_pos_1 = track_queries_pos_1[keep_idxs]
-
         track_queries_2 = pred_queries[new_indices]
         track_queries_pos_2 = pred_queries_pos[new_indices]
 
@@ -1095,6 +1057,8 @@ class VISeg(MinVIS):
                     _num += 1
                     pred_logits = pred_logits + frame_pred_logits
             pred_logits = pred_logits / _num
+            print(pred_logits.shape)
+            print(torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0))
 
             score, label = torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0)
             out_scores.append(score)
