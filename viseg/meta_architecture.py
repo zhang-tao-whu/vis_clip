@@ -619,7 +619,10 @@ class VISeg(MinVIS):
         id_base = 0
         for i in range(n_batches):
             clip_ids = gt_instances[clip_length * (i + 1) - 1]["ids"]  # (q, 1)
-            max_ids = torch.max(clip_ids)
+            print(clip_ids)
+            if clip_ids.shape[0] == 0:
+                continue
+            max_ids = torch.max(clip_ids[:, 0], dim=0)
             if i != 0:
                 for j in range(clip_length):
                     gt_instances[clip_length * (i + 1) - 1 - j]["ids"] =\
