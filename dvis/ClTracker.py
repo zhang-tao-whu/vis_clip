@@ -445,7 +445,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         attn_mask=attn_mask, )
             ms_output.append(output)
 
-        gaps = F.smooth_l1_loss(reference_, output, reduction='none')
+        gaps = F.l1_loss(reference_, output, reduction='none')
         self.last_frame_embeds = frame_embeds[indices]
         self.last_reference = reference
         ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
