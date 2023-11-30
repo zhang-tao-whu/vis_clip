@@ -903,7 +903,7 @@ class VISeg(MinVIS):
                 if max_scores[i] < 0.1:
                     out_list[i]['pred_logits'].append(None)
                 else:
-                    out_list[i]['pred_logits'].append(pred_logits[i].cpu())
+                    out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
                 out_list[i]['pred_masks'].append(masks[i])
             return
 
