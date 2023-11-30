@@ -609,7 +609,37 @@ class VISeg(MinVIS):
             "track_query_project": track_query_project
         }
 
-    def targets_reshape(self, targets):
+    def mix_videos(self, gt_instances, n_batches=None, mode='clip'):
+        assert n_batches is not None
+        if n_batches == 1:
+            return gt_instances
+
+        clip_length = len(gt_instances) // n_batches
+
+        id_base = 0
+        for i in range(n_batches):
+            clip_ids = gt_instances[clip_length * (i + 1) - 1]["ids"]  # (q, 1)
+            max_ids = torch.max(clip_ids)
+            if i != 0:
+                for j in range(clip_length):
+                    gt_instances[clip_length * (i + 1) - 1 - j]["ids"] =\
+                        gt_instances[clip_length * (i + 1) - 1 - j]["ids"] + id_base
+            id_base = id_base + max_ids
+
+        if mode == 'clip':
+            for i in range(clip_length, len(gt_instances)):
+                if i % clip_length == 0:
+                    additional_annos = {'ids': gt_instances[i - 1]['ids'], 'labels': gt_instances[i - 1]['labels']}
+                    additional_annos.update({"masks": torch.zeros_like(gt_instances[i - 1]['masks'])})
+
+                gt_instances[i]['ids'] = torch.cat([gt_instances[i]['ids'], additional_annos['ids']], dim=0)
+                gt_instances[i]['labels'] = torch.cat([gt_instances[i]['labels'], additional_annos['labels']], dim=0)
+                gt_instances[i]['masks'] = torch.cat([gt_instances[i]['masks'], additional_annos['masks']], dim=0)
+        else:
+            raise NotImplementedError
+        return gt_instances
+
+    def targets_reshape(self, targets, mix_videos=True, n_batches=None):
         gt_instances = []
         for targets_per_video in targets:
             num_labeled_frames = targets_per_video['ids'].shape[1]
@@ -622,6 +652,9 @@ class VISeg(MinVIS):
                 # valid = ids[:, 0] != -1
                 masks = targets_per_video['masks'][:, [f], :, :]
                 gt_instances.append({"labels": labels[valid], "ids": ids[valid], "masks": masks[valid]})
+
+        if mix_videos:
+            return self.mix_videos(gt_instances, n_batches=n_batches)
         return gt_instances
 
     def pre_match(self, image_outputs, targets):
@@ -731,6 +764,7 @@ class VISeg(MinVIS):
             self.keep = False
 
         images = []
+        n_batches = len(batched_inputs)
         for video in batched_inputs:
             for frame in video["image"]:
                 images.append(frame.to(self.device))
@@ -762,7 +796,7 @@ class VISeg(MinVIS):
                 torch.cuda.empty_cache()
 
                 targets = self.prepare_targets(batched_inputs, images)
-                targets = self.targets_reshape(targets)
+                targets = self.targets_reshape(targets, mix_videos=True, n_batches=n_batches)
                 matched_indexes, new_track_ids = self.pre_match(image_outputs, targets)
             outputs = []
             for i, frame_new_track_idx in enumerate(new_track_ids[:-1]):
@@ -865,7 +899,7 @@ class VISeg(MinVIS):
                 if max_scores[i] < 0.1:
                     out_list[i]['pred_logits'].append(None)
                 else:
-                    out_list[i]['pred_logits'].append(pred_logits[i])
+                    out_list[i]['pred_logits'].append(pred_logits[i].cpu())
                 out_list[i]['pred_masks'].append(masks[i])
             return
 
@@ -889,7 +923,7 @@ class VISeg(MinVIS):
             for i in range(max_scores.shape[0]):
                 if max_scores[i] > 0.3:
                     keep_indexes.append(i)
-                    out_list.append({'pred_logits': [pred_logits[i]],
+                    out_list.append({'pred_logits': [pred_logits[i].cpu()],
                                      'pred_masks': [masks[i]]})
             return keep_indexes
 
