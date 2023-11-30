@@ -631,7 +631,8 @@ class VISeg(MinVIS):
         if mode == 'clip':
             for i in range(clip_length, len(gt_instances)):
                 if i % clip_length == 0:
-                    additional_annos = {'ids': gt_instances[i - 1]['ids'], 'labels': gt_instances[i - 1]['labels']}
+                    additional_annos = {'ids': gt_instances[i - 1]['ids'],
+                                        'labels': torch.zeros_like(gt_instances[i - 1]['labels']) + self.sem_seg_head.num_classes}
                     additional_annos.update({"masks": torch.zeros_like(gt_instances[i - 1]['masks'])})
 
                 gt_instances[i]['ids'] = torch.cat([additional_annos['ids'], gt_instances[i]['ids'], ], dim=0)
