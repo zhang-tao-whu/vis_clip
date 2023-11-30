@@ -414,6 +414,7 @@ class MultiScaleMaskedTransformerDecoder_Prompt(nn.Module):
                                                                                attn_mask_target_size=size_list[0])
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
+        attn_mask[:, 100:] = False
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
