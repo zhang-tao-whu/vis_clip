@@ -956,6 +956,7 @@ class VISeg(MinVIS):
 
     def frame_by_frame_inference(self, images, first_resize_size,
                                  image_size, height, width):
+        print(len(images))
         self.backbone.eval()
         self.sem_seg_head.eval()
         out_list = []
