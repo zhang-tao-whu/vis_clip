@@ -806,6 +806,7 @@ class VISeg(MinVIS):
                         random_delete_ids.append(off_idx)
                     else:
                         frame_keep_track_ids.append(off_idx)
+                print(exhibit_gt_ids, frame_keep_track_ids)
                 exhibit_gt_ids = [exhibit_gt_ids[_idx] for _idx in frame_keep_track_ids]
                 keep_track_ids.append(frame_keep_track_ids)
 
