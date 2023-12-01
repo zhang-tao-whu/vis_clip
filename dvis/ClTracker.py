@@ -283,7 +283,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             self.memories_max_length = 5
             self.mem_layers = 3
             self.memory_pos_embed = nn.Embedding(self.memories_max_length + 1, hidden_channel)
-            self.void_embed = nn.Embedding(1, hidden_channel)
+            #self.void_embed = nn.Embedding(1, hidden_channel)
             self.out_embed = nn.Embedding(1, hidden_channel)
             self.transformer_self_attention_layers_Memory = nn.ModuleList()
             self.transformer_ffn_layers_Memory = nn.ModuleList()
@@ -363,8 +363,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
             reference_pos = self._use_memories(reference)
+        else:
+            reference_pos = None
 
-        #reference_ = reference
+            #reference_ = reference
 
         if self.filer_bg and single_frame_classes is not None:
             attn_mask = single_frame_classes == -1
