@@ -567,12 +567,13 @@ class VISeg(MinVIS):
         # for track
         attention_layers = nn.ModuleList()
         hidden_dim = cfg.MODEL.MASK_FORMER.HIDDEN_DIM
+        n_heads = cfg.MODEL.MASK_FORMER.NHEADS
         pre_norm = cfg.MODEL.MASK_FORMER.PRE_NORM
         for _ in range(cfg.MODEL.MASK_FORMER.DEC_LAYERS):
             attention_layers.append(
                 SelfAttentionLayer(
                     d_model=hidden_dim,
-                    nhead=hidden_dim,
+                    nhead=n_heads,
                     dropout=0.0,
                     normalize_before=pre_norm,
                 )
