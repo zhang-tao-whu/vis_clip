@@ -829,7 +829,7 @@ class VISeg(MinVIS):
                 matched_indexes.append(ret_frame_macthed_indxes)
             new_track_ids.append(frame_new_track_ids)
 
-        # print(matched_indexes, '*****', keep_track_ids, '*****', new_track_ids)
+        print(matched_indexes, '*****', keep_track_ids, '*****', new_track_ids)
 
         return matched_indexes, new_track_ids, keep_track_ids
 
