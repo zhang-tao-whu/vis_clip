@@ -800,10 +800,12 @@ class VISeg(MinVIS):
                 ret_frame_macthed_indxes = [[], []]
 
                 random_delete_ids = []
+                frame_keep_track_ids = []
                 for off_idx in range(len(exhibit_gt_ids)):
-                    if random.random() < -0.1:
+                    if random.random() < 0.2:
                         random_delete_ids.append(off_idx)
-                frame_keep_track_ids = [idx for idx in range(len(exhibit_gt_ids)) if idx not in random_delete_ids]
+                    else:
+                        frame_keep_track_ids.append(off_idx)
                 for off_idx in random_delete_ids[::-1]:
                     del exhibit_gt_ids[off_idx]
                 keep_track_ids.append(frame_keep_track_ids)
