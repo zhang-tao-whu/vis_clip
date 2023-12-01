@@ -994,6 +994,7 @@ class VISeg(MinVIS):
             del pred_masks
             masks = masks.cpu()
 
+            print(max_scores)
             for i in range(max_scores.shape[0]):
                 if max_scores[i] < 0.1:
                     out_list[i]['pred_logits'].append(None)
