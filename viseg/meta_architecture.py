@@ -996,7 +996,7 @@ class VISeg(MinVIS):
 
             print(max_scores)
             for i in range(max_scores.shape[0]):
-                if max_scores[i] < 0.1:
+                if max_scores[i] < 0.8:
                     out_list[i]['pred_logits'].append(None)
                     out_list[i]['pred_masks'].append(torch.zeros_like(masks[i]))
                 else:
