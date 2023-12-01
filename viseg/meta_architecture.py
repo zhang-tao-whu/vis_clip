@@ -915,11 +915,11 @@ class VISeg(MinVIS):
             for i, frame_new_track_idx in enumerate(new_track_ids[:-1]):
                 if i == 0:
                     n_q = image_outputs['pred_queries'].shape[0]
-                    print(image_outputs['pred_queries'][:, 0:1][frame_new_track_idx].shape, keep_track_ids[i])
+                    print(i, image_outputs['pred_queries'][:, 0:1][frame_new_track_idx].shape, keep_track_ids[i])
                     track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx][keep_track_ids[i]]
                 else:
                     new_track_queries = outputs[-1]['pred_queries'][frame_new_track_idx]
-                    print(outputs[-1]['pred_queries'][n_q:].shape, keep_track_ids[i])
+                    print(i, outputs[-1]['pred_queries'][n_q:].shape, keep_track_ids[i])
                     track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:][keep_track_ids[i]],
                                                new_track_queries]).detach()
 
