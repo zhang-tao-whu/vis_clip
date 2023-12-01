@@ -314,19 +314,19 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.memories = []
         return
 
-    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None):
+    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None, query_pos=None):
         output = cross_attn(
             id, query,
             key, value,
             memory_mask=attn_mask,
             memory_key_padding_mask=None,
-            pos=None, query_pos=None
+            pos=None, query_pos=query_pos
         )
 
         output = self_attn(
             output, tgt_mask=None,
             tgt_key_padding_mask=None,
-            query_pos=None
+            query_pos=query_pos
         )
 
         # FFN
@@ -362,9 +362,9 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
-            reference = self._use_memories(reference)
+            reference_pos = self._use_memories(reference)
 
-        reference_ = reference
+        #reference_ = reference
 
         if self.filer_bg and single_frame_classes is not None:
             attn_mask = single_frame_classes == -1
@@ -396,14 +396,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                           cross_attn=self.transformer_cross_attention_layers_pathDenosing[i],
                                           self_attn=self.transformer_self_attention_layers_pathDenosing[i],
                                           ffn=self.transformer_ffn_layers_pathDenosing[i],
-                                          attn_mask=attn_mask, )
+                                          attn_mask=attn_mask, query_pos=reference_pos)
             output_2 = self.layer_forward(id=output_2, query=reference,
                                           key=frame_embeds_no_norm,
                                           value=frame_embeds_no_norm,
                                           cross_attn=self.transformer_cross_attention_layers_pathPropogation[i],
                                           self_attn=self.transformer_self_attention_layers_pathPropogation[i],
                                           ffn=self.transformer_ffn_layers_pathPropogation[i],
-                                          attn_mask=attn_mask, )
+                                          attn_mask=attn_mask, query_pos=reference_pos)
             ms_output.append(output_1)
             ms_output.append(output_2)
 
@@ -442,15 +442,16 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         cross_attn=self.transformer_cross_attention_layers_pathMerge[i],
                                         self_attn=self.transformer_self_attention_layers_pathMerge[i],
                                         ffn=self.transformer_ffn_layers_pathMerge[i],
-                                        attn_mask=attn_mask, )
+                                        attn_mask=attn_mask, query_pos=reference_pos)
             ms_output.append(output)
 
-        gaps = F.l1_loss(reference_, output.detach(), reduction='none')
+        #gaps = F.l1_loss(reference_, output.detach(), reduction='none')
         self.last_frame_embeds = frame_embeds[indices]
         self.last_reference = reference
         ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
         self.last_outputs = ms_output
-        return ms_output, indices, gaps
+        # return ms_output, indices, gaps
+        return ms_output, indices, None
 
     def forward(self, frame_embeds, mask_features, resume=False,
                 return_indices=False, frame_classes=None,
@@ -472,7 +473,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
         ret_indices = []
-        all_gaps = []
+        #all_gaps = []
 
         all_frames_references = []
 
@@ -500,7 +501,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                                          self.last_outputs[-1], activate=self.training,
                                                          single_frame_classes=single_frame_classes, )
             all_frames_references.append(self.last_reference)
-            all_gaps.append(gaps)
+            #all_gaps.append(gaps)
             outputs.append(ms_outputs)
             ret_indices.append(indices)
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
@@ -510,7 +511,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             outputs = outputs[:, -1:]
         outputs_class, outputs_masks = self.prediction(outputs, mask_features, all_frames_references)
 
-        all_gaps = torch.stack(all_gaps, dim=0)
+        #all_gaps = torch.stack(all_gaps, dim=0)
 
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
@@ -520,7 +521,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': self.ref_proj_2(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
-           'gaps': all_gaps.mean(),
+           #'gaps': all_gaps.mean(),
         }
         if return_indices:
             return out, ret_indices
@@ -696,7 +697,7 @@ class ClDVIS_online(MinVIS):
         if cfg.MODEL.TRACKER.USE_CL:
             weight_dict.update({'loss_reid': 2})
 
-        weight_dict.update({'loss_gaps': 1})
+        #weight_dict.update({'loss_gaps': 1})
 
         losses = ["labels", "masks"]
 
@@ -817,7 +818,7 @@ class ClDVIS_online(MinVIS):
 
 
         if self.training:
-            gaps = outputs['gaps']
+            # gaps = outputs['gaps']
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
             image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
@@ -831,7 +832,7 @@ class ClDVIS_online(MinVIS):
             losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
             # losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)
             losses.update(losses_cl)
-            losses.update({'loss_gaps': gaps})
+            # losses.update({'loss_gaps': gaps})
 
             self.iter += 1
 
