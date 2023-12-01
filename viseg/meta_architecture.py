@@ -1092,8 +1092,8 @@ class VISeg(MinVIS):
             pred_logits = pred_logits / _num
 
             score, label = torch.max(torch.softmax(pred_logits, dim=0)[:-1], dim=0)
-            out_scores.append(score)
-            out_labels.append(label)
+            out_scores.append(score.item())
+            out_labels.append(label.item())
 
         video_output = {
             "image_size": (output_height, output_width),
