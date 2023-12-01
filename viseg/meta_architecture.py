@@ -802,11 +802,10 @@ class VISeg(MinVIS):
                 random_delete_ids = []
                 frame_keep_track_ids = []
                 for off_idx in range(len(exhibit_gt_ids)):
-                    if random.random() < 0.2:
+                    if random.random() < 0.1:
                         random_delete_ids.append(off_idx)
                     else:
                         frame_keep_track_ids.append(off_idx)
-                print(exhibit_gt_ids, frame_keep_track_ids)
                 exhibit_gt_ids = [exhibit_gt_ids[_idx] for _idx in frame_keep_track_ids]
                 keep_track_ids.append(frame_keep_track_ids)
 
@@ -828,8 +827,6 @@ class VISeg(MinVIS):
                                             torch.as_tensor(ret_frame_macthed_indxes[1], dtype=torch.int64))
                 matched_indexes.append(ret_frame_macthed_indxes)
             new_track_ids.append(frame_new_track_ids)
-
-        print(matched_indexes, '*****', keep_track_ids, '*****', new_track_ids)
 
         return matched_indexes, new_track_ids, keep_track_ids
 
@@ -915,13 +912,11 @@ class VISeg(MinVIS):
             for i, frame_new_track_idx in enumerate(new_track_ids[:-1]):
                 if i == 0:
                     n_q = image_outputs['pred_queries'].shape[0]
-                    print(i, image_outputs['pred_queries'][:, 0:1][frame_new_track_idx].shape, keep_track_ids[i])
                     track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx][keep_track_ids[i]]
                 else:
                     new_track_queries = outputs[-1]['pred_queries'][frame_new_track_idx]
-                    print(i, outputs[-1]['pred_queries'][n_q:].shape, keep_track_ids[i])
-                    track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:][keep_track_ids[i]],
-                                               new_track_queries]).detach()
+                    track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:],
+                                               new_track_queries])[keep_track_ids[i]].detach()
 
                 track_infos = {
                     'track_queries': track_queries, 'track_queries_pos': self.track_pos_embed.weight,
