@@ -904,7 +904,7 @@ class VISeg(MinVIS):
                     track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx]
                 else:
                     new_track_queries = outputs[-1]['pred_queries'][frame_new_track_idx]
-                    track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:], new_track_queries])
+                    track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:], new_track_queries]).detach()
 
                 track_infos = {
                     'track_queries': track_queries, 'track_queries_pos': self.track_pos_embed.weight,
@@ -1046,7 +1046,6 @@ class VISeg(MinVIS):
         track_queries_2 = pred_queries[new_indices]
 
         track_queries = torch.cat([track_queries_1, track_queries_2], dim=0)
-        track_queries = track_queries_1
 
         track_infos = {
             'track_queries': track_queries, 'track_queries_pos': self.track_pos_embed.weight,
