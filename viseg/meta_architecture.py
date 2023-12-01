@@ -16,7 +16,7 @@ from mask2former_video.modeling.criterion import VideoSetCriterion
 from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from scipy.optimize import linear_sum_assignment
-
+import random
 from .mask2former_transformer_decoder import SelfAttentionLayer, CrossAttentionLayer, FFNLayer
 
 class MinVIS(nn.Module):
@@ -758,6 +758,7 @@ class VISeg(MinVIS):
 
     def pre_match(self, image_outputs, targets):
         matched_indexes, new_track_ids = [], []
+        keep_track_ids = []
 
         pred_logits = image_outputs['pred_logits']  # (t, q, cls)
         pred_masks = image_outputs['pred_masks'].unsqueeze(2)  # (t, q, h, w)
@@ -798,6 +799,15 @@ class VISeg(MinVIS):
             else:
                 ret_frame_macthed_indxes = [[], []]
 
+                random_delete_ids = []
+                for off_idx in range(len(exhibit_gt_ids)):
+                    if random.random() < 0.2:
+                        random_delete_ids.append(off_idx)
+                frame_keep_track_ids = [idx for idx in range(len(exhibit_gt_ids)) if idx not in random_delete_ids]
+                for off_idx in random_delete_ids[::-1]:
+                    del exhibit_gt_ids[off_idx]
+                keep_track_ids.append(frame_keep_track_ids)
+
                 for off_idx, exhibit_gt_id in enumerate(exhibit_gt_ids):
                     # gt id must in current frame
                     if exhibit_gt_id in frame_gt_id2idx.keys():
@@ -817,7 +827,7 @@ class VISeg(MinVIS):
                 matched_indexes.append(ret_frame_macthed_indxes)
             new_track_ids.append(frame_new_track_ids)
 
-        return matched_indexes, new_track_ids
+        return matched_indexes, new_track_ids, keep_track_ids
 
     def forward(self, batched_inputs):
         """
@@ -896,15 +906,16 @@ class VISeg(MinVIS):
 
                 targets = self.prepare_targets(batched_inputs, images)
                 targets = self.targets_reshape(targets, mix_videos=True, n_batches=n_batches)
-                matched_indexes, new_track_ids = self.pre_match(image_outputs, targets)
+                matched_indexes, new_track_ids, keep_track_ids = self.pre_match(image_outputs, targets)
             outputs = []
             for i, frame_new_track_idx in enumerate(new_track_ids[:-1]):
                 if i == 0:
                     n_q = image_outputs['pred_queries'].shape[0]
-                    track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx]
+                    track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx][keep_track_ids[i]]
                 else:
                     new_track_queries = outputs[-1]['pred_queries'][frame_new_track_idx]
-                    track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:], new_track_queries])
+                    track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:][keep_track_ids][i],
+                                               new_track_queries]).detach()
 
                 track_infos = {
                     'track_queries': track_queries, 'track_queries_pos': self.track_pos_embed.weight,
