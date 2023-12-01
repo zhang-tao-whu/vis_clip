@@ -434,7 +434,7 @@ class MultiScaleMaskedTransformerDecoder_Prompt(nn.Module):
                     track_queries = track_ffn_layer(track_queries)
 
                 for track_pos_cross_attention_layer, track_pos_self_attention_layer, track_pos_ffn_layer in\
-                    zip(track_pos_cross_attention_layers, track_pos_cross_attention_layers, track_pos_ffn_layers):
+                    zip(track_pos_cross_attention_layers, track_pos_self_attention_layers, track_pos_ffn_layers):
                     track_queries_pos = track_pos_cross_attention_layer(track_queries_pos, query_embed,
                                                                         pos=output, query_pos=track_queries)
                     track_queries_pos = track_pos_self_attention_layer(track_queries_pos)
