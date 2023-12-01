@@ -727,6 +727,8 @@ class VISeg(MinVIS):
                 gt_instances[i]['ids'] = torch.cat([additional_annos['ids'], gt_instances[i]['ids'], ], dim=0)
                 gt_instances[i]['labels'] = torch.cat([additional_annos['labels'], gt_instances[i]['labels'], ], dim=0)
                 gt_instances[i]['masks'] = torch.cat([additional_annos['masks'], gt_instances[i]['masks'], ], dim=0)
+        elif mode == 'inter_clip':
+            pass
         else:
             raise NotImplementedError
         return gt_instances
@@ -1044,6 +1046,7 @@ class VISeg(MinVIS):
         track_queries_2 = pred_queries[new_indices]
 
         track_queries = torch.cat([track_queries_1, track_queries_2], dim=0)
+        track_queries = track_queries_1
 
         track_infos = {
             'track_queries': track_queries, 'track_queries_pos': self.track_pos_embed.weight,
