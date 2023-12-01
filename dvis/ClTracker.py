@@ -445,7 +445,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         attn_mask=attn_mask, )
             ms_output.append(output)
 
-        gaps = F.l1_loss(reference_, output, reduction='none')
+        gaps = F.l1_loss(reference_, output.detach(), reduction='none')
         self.last_frame_embeds = frame_embeds[indices]
         self.last_reference = reference
         ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
@@ -696,7 +696,7 @@ class ClDVIS_online(MinVIS):
         if cfg.MODEL.TRACKER.USE_CL:
             weight_dict.update({'loss_reid': 2})
 
-        weight_dict.update({'loss_gaps': 2})
+        weight_dict.update({'loss_gaps': 1})
 
         losses = ["labels", "masks"]
 
