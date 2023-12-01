@@ -994,9 +994,8 @@ class VISeg(MinVIS):
             del pred_masks
             masks = masks.cpu()
 
-            print(max_scores)
             for i in range(max_scores.shape[0]):
-                if max_scores[i] < 0.8:
+                if max_scores[i] < 0.3:
                     out_list[i]['pred_logits'].append(None)
                     out_list[i]['pred_masks'].append(torch.zeros_like(masks[i]))
                 else:
@@ -1025,7 +1024,7 @@ class VISeg(MinVIS):
 
             keep_indexes = []
             for i in range(max_scores.shape[0]):
-                if max_scores[i] > 0.6:
+                if max_scores[i] > 0.8:
                     keep_indexes.append(i)
                     out_list.append({'pred_logits': [pred_logits[i].to(torch.float32).cpu()],
                                      'pred_masks': [masks[i]]})
