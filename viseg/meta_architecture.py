@@ -17,7 +17,7 @@ from mask2former_video.modeling.matcher import VideoHungarianMatcher, VideoHunga
 from mask2former_video.utils.memory import retry_if_cuda_oom
 from scipy.optimize import linear_sum_assignment
 
-from .mask2former_transformer_decoder import SelfAttentionLayer
+from .mask2former_transformer_decoder import SelfAttentionLayer, CrossAttentionLayer, FFNLayer
 
 class MinVIS(nn.Module):
     """
@@ -429,10 +429,16 @@ class VISeg(MinVIS):
         # use_cl
         use_cl,
         # for track
-        attention_layers,
         track_embed,
-        off_project,
-        track_query_project,
+        track_pos_embed,
+        track_static_cross_attention_layers,
+        track_self_attention_layers,
+        track_static_self_attention_layers,
+        track_ffn_layers,
+        track_static_ffn_layers,
+        track_pos_cross_attention_layers,
+        track_pos_self_attention_layers,
+        track_pos_ffn_layers,
     ):
         """
         Args:
@@ -502,10 +508,16 @@ class VISeg(MinVIS):
         self.use_cl = use_cl
 
         # tracker
-        self.attention_layers = attention_layers
         self.track_embed = track_embed
-        self.offset_project = off_project
-        self.track_query_project = track_query_project
+        self.track_pos_embed = track_pos_embed
+        self.track_static_cross_attention_layers = track_static_cross_attention_layers
+        self.track_self_attention_layers = track_self_attention_layers
+        self.track_static_self_attention_layers = track_static_self_attention_layers
+        self.track_ffn_layers = track_ffn_layers
+        self.track_static_ffn_layers = track_static_ffn_layers
+        self.track_pos_cross_attention_layers = track_pos_cross_attention_layers
+        self.track_pos_self_attention_layers = track_pos_self_attention_layers
+        self.track_pos_ffn_layers = track_pos_ffn_layers
 
     @classmethod
     def from_config(cls, cfg):
@@ -565,12 +577,22 @@ class VISeg(MinVIS):
 
 
         # for track
-        attention_layers = nn.ModuleList()
+        num_track_layers = 3
+        track_static_cross_attention_layers = nn.ModuleList()
+        track_self_attention_layers = nn.ModuleList()
+        track_ffn_layers = nn.ModuleList()
+        track_static_self_attention_layers = nn.ModuleList()
+        track_static_ffn_layers = nn.ModuleList()
+
+        track_pos_cross_attention_layers = nn.ModuleList()
+        track_pos_self_attention_layers = nn.ModuleList()
+        track_pos_ffn_layers = nn.ModuleList()
+
         hidden_dim = cfg.MODEL.MASK_FORMER.HIDDEN_DIM
         n_heads = cfg.MODEL.MASK_FORMER.NHEADS
         pre_norm = cfg.MODEL.MASK_FORMER.PRE_NORM
-        for _ in range(cfg.MODEL.MASK_FORMER.DEC_LAYERS):
-            attention_layers.append(
+        for _ in range(num_track_layers):
+            track_static_self_attention_layers.append(
                 SelfAttentionLayer(
                     d_model=hidden_dim,
                     nhead=n_heads,
@@ -578,9 +600,67 @@ class VISeg(MinVIS):
                     normalize_before=pre_norm,
                 )
             )
+            track_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_dim,
+                    nhead=n_heads,
+                    dropout=0.0,
+                    normalize_before=pre_norm,
+                )
+            )
+            track_static_cross_attention_layers.append(
+                CrossAttentionLayer(
+                    d_model=hidden_dim,
+                    nhead=n_heads,
+                    dropout=0.0,
+                    normalize_before=pre_norm,
+                )
+            )
+
+            track_pos_cross_attention_layers.append(
+                CrossAttentionLayer(
+                    d_model=hidden_dim,
+                    nhead=n_heads,
+                    dropout=0.0,
+                    normalize_before=pre_norm,
+                )
+            )
+            track_pos_self_attention_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_dim,
+                    nhead=n_heads,
+                    dropout=0.0,
+                    normalize_before=pre_norm,
+                )
+            )
+
+            track_pos_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_dim,
+                    dim_feedforward=hidden_channel,
+                    dropout=0.0,
+                    normalize_before=pre_norm,
+                )
+            )
+
+            track_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_dim,
+                    dim_feedforward=hidden_channel,
+                    dropout=0.0,
+                    normalize_before=pre_norm,
+                )
+            )
+            track_static_ffn_layers.append(
+                FFNLayer(
+                    d_model=hidden_dim,
+                    dim_feedforward=hidden_channel,
+                    dropout=0.0,
+                    normalize_before=pre_norm,
+                )
+            )
         track_embed = nn.Embedding(2, hidden_dim)
-        off_project = nn.Linear(hidden_dim, hidden_dim)
-        track_query_project = nn.Linear(hidden_dim, hidden_dim)
+        track_pos_embed = nn.Embedding(1, hidden_dim)
 
         return {
             "backbone": backbone,
@@ -603,11 +683,19 @@ class VISeg(MinVIS):
             "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
             "use_cl": cfg.MODEL.REFINER.USE_CL,
+
             # for track
-            "attention_layers": attention_layers,
             "track_embed": track_embed,
-            "off_project": off_project,
-            "track_query_project": track_query_project
+            "track_pos_embed": track_pos_embed,
+            "track_static_cross_attention_layers": track_static_cross_attention_layers,
+            "track_self_attention_layers": track_self_attention_layers,
+            "track_static_self_attention_layers": track_static_self_attention_layers,
+            "track_ffn_layers": track_ffn_layers,
+            "track_static_ffn_layers": track_static_ffn_layers,
+            "track_pos_cross_attention_layers": track_pos_cross_attention_layers,
+            "track_pos_self_attention_layers": track_pos_self_attention_layers,
+            "track_pos_ffn_layers": track_pos_ffn_layers,
+
         }
 
     def mix_videos(self, gt_instances, n_batches=None, mode='clip'):
@@ -812,21 +900,23 @@ class VISeg(MinVIS):
                 if i == 0:
                     n_q = image_outputs['pred_queries'].shape[0]
                     track_queries = image_outputs['pred_queries'][:, 0:1][frame_new_track_idx]
-                    track_queries_pos = image_outputs['pred_queries_pos'][:, 0:1][frame_new_track_idx]
-
-                    track_queries_pos = track_queries_pos + self.offset_project(track_queries)
-                    track_queries = self.track_query_project(track_queries)
                 else:
                     new_track_queries = outputs[-1]['pred_queries'][frame_new_track_idx]
-                    new_track_queries_pos = outputs[-1]['pred_queries_pos'][frame_new_track_idx]
-
                     track_queries = torch.cat([outputs[-1]['pred_queries'][n_q:], new_track_queries])
-                    track_queries_pos = torch.cat([outputs[-1]['pred_queries_pos'][n_q:], new_track_queries_pos])
-                    track_queries_pos = track_queries_pos + self.offset_project(track_queries)
-                    track_queries = self.track_query_project(track_queries)
+
                 track_infos = {
-                    'track_queries': track_queries, 'track_queries_pos': track_queries_pos,
-                    'track_embed': self.track_embed.weight, 'attention_layers': self.attention_layers,
+                    'track_queries': track_queries, 'track_queries_pos': self.track_pos_embed.weight,
+                    'track_embed': self.track_embed.weight,
+                    'attention_layers': {
+                        "track_static_cross_attention_layers": self.track_static_cross_attention_layers,
+                        "track_self_attention_layers": self.track_self_attention_layers,
+                        "track_static_self_attention_layers": self.track_static_self_attention_layers,
+                        "track_ffn_layers": self.track_ffn_layers,
+                        "track_static_ffn_layers": self.track_static_ffn_layers,
+                        "track_pos_cross_attention_layers": self.track_pos_cross_attention_layers,
+                        "track_pos_self_attention_layers": self.track_pos_self_attention_layers,
+                        "track_pos_ffn_layers": self.track_pos_ffn_layers,
+                    },
                 }
                 outputs.append(self.sem_seg_head(None, track_infos=track_infos,
                                                  mask_features=mask_features[i+1:i+2],
@@ -905,11 +995,11 @@ class VISeg(MinVIS):
             masks = masks.cpu()
 
             for i in range(max_scores.shape[0]):
-                # if max_scores[i] < 0.1:
-                #     out_list[i]['pred_logits'].append(None)
-                # else:
-                #     out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
-                out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
+                if max_scores[i] < 0.1:
+                    out_list[i]['pred_logits'].append(None)
+                else:
+                    out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
+                #out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
                 out_list[i]['pred_masks'].append(masks[i])
             return
 
@@ -931,7 +1021,7 @@ class VISeg(MinVIS):
 
             keep_indexes = []
             for i in range(max_scores.shape[0]):
-                if max_scores[i] > 0.8:
+                if max_scores[i] > 0.6:
                     keep_indexes.append(i)
                     out_list.append({'pred_logits': [pred_logits[i].to(torch.float32).cpu()],
                                      'pred_masks': [masks[i]]})
@@ -941,26 +1031,30 @@ class VISeg(MinVIS):
         pred_logits = image_outputs['pred_logits'][0]  # (q, c)
         pred_masks = image_outputs['pred_masks'][0]  # (q, h, w)
         pred_queries = image_outputs['pred_queries']  # (q, b, c)
-        pred_queries_pos = image_outputs['pred_queries_pos']  # (q, b, c)
 
         new_indices = _process_new_embeds(pred_logits[:n_q], pred_masks[:n_q], out_list,
                                           first_resize_size, img_size, output_height, output_width)
         _process_track_embeds(pred_logits[n_q:], pred_masks[n_q:], out_list,
                               first_resize_size, img_size, output_height, output_width)
+
         track_queries_1 = pred_queries[n_q:]
-        track_queries_pos_1 = pred_queries_pos[n_q:]
         track_queries_2 = pred_queries[new_indices]
-        track_queries_pos_2 = pred_queries_pos[new_indices]
 
         track_queries = torch.cat([track_queries_1, track_queries_2], dim=0)
-        track_queries_pos = torch.cat([track_queries_pos_1, track_queries_pos_2], dim=0)
-
-        track_queries_pos = track_queries_pos + self.offset_project(track_queries)
-        track_queries = self.track_query_project(track_queries)
 
         track_infos = {
-            'track_queries': track_queries, 'track_queries_pos': track_queries_pos,
-            'track_embed': self.track_embed.weight, 'attention_layers': self.attention_layers,
+            'track_queries': track_queries, 'track_queries_pos': self.track_pos_embed.weight,
+            'track_embed': self.track_embed.weight,
+            'attention_layers': {
+                "track_static_cross_attention_layers": self.track_static_cross_attention_layers,
+                "track_self_attention_layers": self.track_self_attention_layers,
+                "track_static_self_attention_layers": self.track_static_self_attention_layers,
+                "track_ffn_layers": self.track_ffn_layers,
+                "track_static_ffn_layers": self.track_static_ffn_layers,
+                "track_pos_cross_attention_layers": self.track_pos_cross_attention_layers,
+                "track_pos_self_attention_layers": self.track_pos_self_attention_layers,
+                "track_pos_ffn_layers": self.track_pos_ffn_layers,
+            },
         }
         return track_infos
 

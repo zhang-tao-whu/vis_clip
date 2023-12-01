@@ -366,10 +366,22 @@ class MultiScaleMaskedTransformerDecoder_Prompt(nn.Module):
         assert track_infos is not None
 
         track_queries = track_infos['track_queries']  # (n_track, 1, c)
-        track_queries_pos = track_infos['track_queries_pos']  # (n_track, 1, c)
-        track_embed = track_infos['track_embed']  # (2, c), 0 is track, 1 is static
-        re_attention_layers = track_infos['attention_layers']  # as decoder attn layer numbers + 1
         n_track = track_queries.shape[0]
+        track_queries_pos = track_infos['track_queries_pos'].unsqueeze(0).repeat(n_track, 1, 1)  # (n_track, 1, c)
+        track_embed = track_infos['track_embed']  # (2, c), 0 is track, 1 is static
+        attention_layers = track_infos['attention_layers']
+        track_static_cross_attention_layers = attention_layers["track_static_cross_attention_layers"]
+        track_self_attention_layers = attention_layers["track_self_attention_layers"]
+        track_ffn_layers = attention_layers["track_ffn_layers"]
+
+        track_static_self_attention_layers = attention_layers["track_static_self_attention_layers"]
+        track_static_ffn_layers = attention_layers["track_static_ffn_layers"]
+
+        track_pos_cross_attention_layers = attention_layers["track_pos_cross_attention_layers"]
+        track_pos_self_attention_layers = attention_layers["track_pos_self_attention_layers"]
+        track_pos_ffn_layers = attention_layers["track_pos_ffn_layers"]
+
+        start_layers = 6
 
         src = []
         pos = []
@@ -398,25 +410,48 @@ class MultiScaleMaskedTransformerDecoder_Prompt(nn.Module):
         prompt_embed_2 = track_embed[1:].unsqueeze(1).repeat(query_embed.shape[0], 1, 1)
         prompt_embed = torch.cat([prompt_embed_2, prompt_embed_1], dim=0)
 
-        query_embed = torch.cat([query_embed, track_queries_pos], dim=0)
-        output = torch.cat([output, track_queries], dim=0)
+        #query_embed = torch.cat([query_embed, track_queries_pos], dim=0)
+        #output = torch.cat([output, track_queries], dim=0)
 
         predictions_class = []
         predictions_mask = []
 
         # prediction heads on learnable query features
-        output = re_attention_layers[0](
-            output, tgt_mask=None,
-            tgt_key_padding_mask=None,
-            query_pos=prompt_embed
-        )
         outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features,
                                                                                attn_mask_target_size=size_list[0])
-        predictions_class.append(outputs_class)
-        predictions_mask.append(outputs_mask)
-        attn_mask[:, 100:] = False
+        # predictions_class.append(outputs_class)
+        # predictions_mask.append(outputs_mask)
+        # attn_mask[:, 100:] = False
 
         for i in range(self.num_layers):
+
+            if i == start_layers:
+                # add track queries
+                for track_static_cross_attention_layer, track_self_attention_layer, track_ffn_layer in\
+                        zip(track_static_cross_attention_layers, track_self_attention_layers, track_ffn_layers):
+                    track_queries = track_static_cross_attention_layer(track_queries, output)
+                    track_queries = track_self_attention_layer(track_queries)
+                    track_queries = track_ffn_layer(track_queries)
+
+                for track_pos_cross_attention_layer, track_pos_self_attention_layer, track_pos_ffn_layer in\
+                    zip(track_pos_cross_attention_layers, track_pos_cross_attention_layers, track_pos_ffn_layers):
+                    track_queries_pos = track_pos_cross_attention_layer(track_queries_pos, query_embed,
+                                                                        pos=output, query_pos=track_queries)
+                    track_queries_pos = track_pos_self_attention_layer(track_queries_pos)
+                    track_queries_pos = track_pos_ffn_layer(track_queries_pos)
+
+                output = torch.cat([output, track_queries], dim=0)
+                query_embed = torch.cat([query_embed, track_queries_pos], dim=0)
+                for track_static_self_attention_layer, track_static_ffn_layer in\
+                    zip(track_static_self_attention_layers, track_static_ffn_layers):
+                    output = track_static_self_attention_layer(output, query_pos=prompt_embed)
+                    output = track_static_ffn_layer(output)
+
+                outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(
+                    output, mask_features, attn_mask_target_size=size_list[i % self.num_feature_levels])
+                predictions_class.append(outputs_class)
+                predictions_mask.append(outputs_mask)
+
             level_index = i % self.num_feature_levels
             attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
             # attention: cross-attention first
@@ -425,12 +460,6 @@ class MultiScaleMaskedTransformerDecoder_Prompt(nn.Module):
                 memory_mask=attn_mask,
                 memory_key_padding_mask=None,  # here we do not apply masking on padded region
                 pos=pos[level_index], query_pos=query_embed
-            )
-
-            output = re_attention_layers[i + 1](
-                output, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=prompt_embed
             )
 
             output = self.transformer_self_attention_layers[i](
@@ -445,15 +474,13 @@ class MultiScaleMaskedTransformerDecoder_Prompt(nn.Module):
             )
 
             outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features,
-                                                                                   attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
-            predictions_class.append(outputs_class)
-            predictions_mask.append(outputs_mask)
-
-        assert len(predictions_class) == self.num_layers + 1
+                                                                                 attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            if i >= start_layers:
+                predictions_class.append(outputs_class)
+                predictions_mask.append(outputs_mask)
 
         out = {
             'pred_queries': output,  # (q, b, c)
-            'pred_queries_pos': query_embed,  # (q, b, c)
             'pred_logits': predictions_class[-1],  # (b, q, cls)
             'pred_masks': predictions_mask[-1],  # (b, q, h, w)
             'aux_outputs': self._set_aux_loss(
@@ -527,7 +554,6 @@ class MultiScaleMaskedTransformerDecoder_Prompt(nn.Module):
 
         out = {
             'pred_queries': output,  # (q, b, c)
-            'pred_queries_pos': query_embed,  # (q, b, c)
             'pred_logits': predictions_class[-1],
             'pred_masks': predictions_mask[-1],
             'aux_outputs': self._set_aux_loss(
