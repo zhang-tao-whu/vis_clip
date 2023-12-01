@@ -997,10 +997,13 @@ class VISeg(MinVIS):
             for i in range(max_scores.shape[0]):
                 if max_scores[i] < 0.1:
                     out_list[i]['pred_logits'].append(None)
+                    out_list[i]['pred_masks'].append(torch.zeros_like(masks[i]))
                 else:
                     out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
+                    out_list[i]['pred_masks'].append(masks[i])
                 #out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
-                out_list[i]['pred_masks'].append(masks[i])
+
+                # out_list[i]['pred_masks'].append(masks[i])
             return
 
         def _process_new_embeds(pred_logits, pred_masks, out_list,
