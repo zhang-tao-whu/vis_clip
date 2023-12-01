@@ -904,10 +904,11 @@ class VISeg(MinVIS):
             masks = masks.cpu()
 
             for i in range(max_scores.shape[0]):
-                if max_scores[i] < 0.1:
-                    out_list[i]['pred_logits'].append(None)
-                else:
-                    out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
+                # if max_scores[i] < 0.1:
+                #     out_list[i]['pred_logits'].append(None)
+                # else:
+                #     out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
+                out_list[i]['pred_logits'].append(pred_logits[i].to(torch.float32).cpu())
                 out_list[i]['pred_masks'].append(masks[i])
             return
 
@@ -929,7 +930,7 @@ class VISeg(MinVIS):
 
             keep_indexes = []
             for i in range(max_scores.shape[0]):
-                if max_scores[i] > 0.3:
+                if max_scores[i] > 0.8:
                     keep_indexes.append(i)
                     out_list.append({'pred_logits': [pred_logits[i].to(torch.float32).cpu()],
                                      'pred_masks': [masks[i]]})
