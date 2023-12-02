@@ -905,6 +905,13 @@ class ClDVIS_online(MinVIS):
                 labels = targets_per_video['labels']
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
+
+                # try change gt label
+                ids_history = targets_per_video['ids'][:, :f + 1]
+                max_ids_history = torch.max(ids_history, dim=-1)[0]
+                is_bg = max_ids_history == -1
+                labels[is_bg] = self.sem_seg_head.num_classes
+
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         return image_outputs, outputs, gt_instances
 
