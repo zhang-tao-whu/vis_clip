@@ -941,7 +941,7 @@ class ClDVIS_online(MinVIS):
 
         # try new score compute
         max_scores = torch.max(pred_logits.softmax(dim=-1)[..., :-1], dim=-1)[0]
-        print(max_scores)
+        print(torch.max(max_scores, dim=0))
         cummax_scores = torch.cummax(max_scores, dim=0)[0]
         valid = cummax_scores > 0.1
         valid_nums = torch.sum(valid.to(torch.float32), dim=0)  # (q)
