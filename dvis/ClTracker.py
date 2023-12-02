@@ -944,8 +944,8 @@ class ClDVIS_online(MinVIS):
         cummax_scores = torch.cummax(max_scores, dim=0)[0]
         valid = cummax_scores > 0.3
         valid_nums = torch.sum(valid.to(torch.float32), dim=0)  # (q)
-        print(valid_nums)
-        out_logits = torch.sum(pred_logits * valid.to(torch.float32).unsqueeze(2), dim=0) / valid_nums.unsqueeze(1)
+        out_logits = torch.sum(pred_logits * valid.to(torch.float32).unsqueeze(2), dim=0) / (valid_nums.unsqueeze(1) + 1e-4)
+        out_logits[valid_nums == 0] = torch.mean(pred_logits, dim=0)[valid_nums == 0]
         out_logits = out_logits.unsqueeze(0)
 
         if aux_logits is not None:
