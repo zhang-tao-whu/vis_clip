@@ -90,7 +90,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">R50</td>
 <td align="center">COCO+OVIS</td>
-<td align="center"><a href="configs/ovis/CTVIS_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ovis/CTVIS_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -98,7 +98,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">R50</td>
 <td align="center">COCO+YTVIS19</td>
-<td align="center"><a href="configs/ytvis19/CTVIS_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis19/CTVIS_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -106,7 +106,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">R50</td>
 <td align="center">COCO+YTVIS21</td>
-<td align="center"><a href="configs/ytvis21/CTVIS_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis21/CTVIS_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -114,7 +114,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">R50</td>
 <td align="center">VIPSeg</td>
-<td align="center"><a href="configs/VIPSeg/CTVIS_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VIPSeg/CTVIS_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -122,7 +122,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">R50</td>
 <td align="center">VSPW</td>
-<td align="center"><a href="configs/VSPW/CTVIS_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VSPW/CTVIS_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -130,7 +130,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">VIT-L</td>
 <td align="center">COCO+OVIS</td>
-<td align="center"><a href="configs/ovis/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ovis/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -138,7 +138,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">VIT-L</td>
 <td align="center">COCO+YTVIS19</td>
-<td align="center"><a href="configs/ytvis19/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis19/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -146,7 +146,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">VIT-L</td>
 <td align="center">COCO+YTVIS21</td>
-<td align="center"><a href="configs/ytvis21/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis21/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -154,7 +154,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">VIT-L</td>
 <td align="center">VIPSeg</td>
-<td align="center"><a href="configs/VIPSeg/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VIPSeg/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -162,7 +162,7 @@ The "Config" column contains a link to the config file.
  <tr><td align="center">Mask2Former</td>
 <td align="center">VIT-L</td>
 <td align="center">VSPW</td>
-<td align="center"><a href="configs/VSPW/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VSPW/vit_adapter/CTVIS_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/14GniU-RD-CoH_l6wDgdcBw?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -207,7 +207,7 @@ The "Config" column contains a link to the config file.
 <td align="center">37.2</td>
 <td align="center">62.8</td>
 <td align="center">37.3</td>
-<td align="center"><a href="configs/ovis/DVIS_Plus_Online_R50_16wIter.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ovis/DVIS_Plus_Online_R50_16wIter.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -219,7 +219,7 @@ The "Config" column contains a link to the config file.
 <td align="center">41.2</td>
 <td align="center">68.9</td>
 <td align="center">40.9</td>
-<td align="center"><a href="configs/ovis/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ovis/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -231,7 +231,7 @@ The "Config" column contains a link to the config file.
 <td align="center">49.6</td>
 <td align="center">72.5</td>
 <td align="center">55.0</td>
-<td align="center"><a href="configs/ovis/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ovis/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -243,7 +243,7 @@ The "Config" column contains a link to the config file.
 <td align="center">53.4</td>
 <td align="center">78.9</td>
 <td align="center">58.5</td>
-<td align="center"><a href="configs/ovis/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ovis/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -273,7 +273,7 @@ The "Config" column contains a link to the config file.
 <td align="center">55.5</td>
 <td align="center">80.2</td>
 <td align="center">60.1</td>
-<td align="center"><a href="configs/ytvis19/DVIS_Plus_Online_R50_8wIter.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis19/DVIS_Plus_Online_R50_8wIter.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -285,7 +285,7 @@ The "Config" column contains a link to the config file.
 <td align="center">56.7</td>
 <td align="center">81.4</td>
 <td align="center">62.0</td>
-<td align="center"><a href="configs/ytvis19/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis19/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -297,7 +297,7 @@ The "Config" column contains a link to the config file.
 <td align="center">67.7</td>
 <td align="center">88.8</td>
 <td align="center">75.3</td>
-<td align="center"><a href="configs/ytvis19/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis19/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -309,7 +309,7 @@ The "Config" column contains a link to the config file.
 <td align="center">68.3</td>
 <td align="center">90.3</td>
 <td align="center">76.1</td>
-<td align="center"><a href="configs/ytvis19/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis19/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -339,7 +339,7 @@ The "Config" column contains a link to the config file.
 <td align="center">50.0</td>
 <td align="center">72.2</td>
 <td align="center">54.5</td>
-<td align="center"><a href="configs/ytvis21/DVIS_Plus_Online_R50_8wIter.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis21/DVIS_Plus_Online_R50_8wIter.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -351,7 +351,7 @@ The "Config" column contains a link to the config file.
 <td align="center">52.0</td>
 <td align="center">75.4</td>
 <td align="center">57.8</td>
-<td align="center"><a href="configs/ytvis21/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis21/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -363,7 +363,7 @@ The "Config" column contains a link to the config file.
 <td align="center">62.3</td>
 <td align="center">82.7</td>
 <td align="center">70.2</td>
-<td align="center"><a href="configs/ytvis21/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis21/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -375,7 +375,7 @@ The "Config" column contains a link to the config file.
 <td align="center">63.9</td>
 <td align="center">86.7</td>
 <td align="center">71.5</td>
-<td align="center"><a href="configs/ytvis21/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/ytvis21/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -405,7 +405,7 @@ The "Config" column contains a link to the config file.
 <td align="center">41.9</td>
 <td align="center">41.0</td>
 <td align="center">42.7</td>
-<td align="center"><a href="configs/VIPSeg/DVIS_Plus_Online_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VIPSeg/DVIS_Plus_Online_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -417,7 +417,7 @@ The "Config" column contains a link to the config file.
 <td align="center">44.2</td>
 <td align="center">44.5</td>
 <td align="center">43.9</td>
-<td align="center"><a href="configs/VIPSeg/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VIPSeg/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -429,7 +429,7 @@ The "Config" column contains a link to the config file.
 <td align="center">56.0</td>
 <td align="center">58.0</td>
 <td align="center">54.3</td>
-<td align="center"><a href="configs/VIPSeg/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VIPSeg/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -441,7 +441,7 @@ The "Config" column contains a link to the config file.
 <td align="center">58.0</td>
 <td align="center">61.2</td>
 <td align="center">55.2</td>
-<td align="center"><a href="configs/VIPSeg/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VIPSeg/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -472,7 +472,7 @@ The "Config" column contains a link to the config file.
 <td align="center">92.3</td>
 <td align="center">91.1</td>
 <td align="center">46.9</td>
-<td align="center"><a href="configs/VSPW/DVIS_Plus_Online_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VSPW/DVIS_Plus_Online_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -484,7 +484,7 @@ The "Config" column contains a link to the config file.
 <td align="center">93.4</td>
 <td align="center">92.4</td>
 <td align="center">48.6</td>
-<td align="center"><a href="configs/VSPW/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VSPW/DVIS_Plus_Offline_R50.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -496,7 +496,7 @@ The "Config" column contains a link to the config file.
 <td align="center">95.0</td>
 <td align="center">94.2</td>
 <td align="center">62.8</td>
-<td align="center"><a href="configs/VSPW/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VSPW/vit_adapter/DVIS_Plus_Online_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
@@ -508,7 +508,7 @@ The "Config" column contains a link to the config file.
 <td align="center">95.7</td>
 <td align="center">95.1</td>
 <td align="center">63.8</td>
-<td align="center"><a href="configs/VSPW/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
+<td align="center"><a href="configs/dvis_Plus/VSPW/vit_adapter/DVIS_Plus_Offline_VitAdapterL.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/10rYMoLDwQ5Mb3zveO-DFAg?pwd=dvis">baidupan</a></td>
 </tr>
 
