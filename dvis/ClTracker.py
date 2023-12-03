@@ -353,7 +353,12 @@ class ClReferringTracker_noiser(torch.nn.Module):
             self.memories = self.memories[-self.memories_max_length:]
 
         if len(self.memories) == 1:
-            return references
+            frame_embeds_pos = self.remix_transformer_cross_attention_layer_Memory(
+                frame_embeds_no_norm, frame_embeds_no_norm,
+                references, references,
+            )
+            frame_embeds_pos = self.remix_ffn_layer_Memory(frame_embeds_pos)
+            return references, frame_embeds_pos
         else:
             out_embed = self.out_embed.weight.unsqueeze(0).repeat(references.shape[0], references.shape[1], 1)
             memories = torch.stack(self.memories + [out_embed], dim=0)  # (mem_num + 1, q, b, c)
