@@ -304,6 +304,20 @@ class ClReferringTracker_noiser(torch.nn.Module):
                         normalize_before=False,
                     )
                 )
+            self.remix_transformer_cross_attention_layer_Memory = \
+                ReferringCrossAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
+                    standard=True
+                )
+            self.remix_ffn_layer_Memory = FFNLayer(
+                        d_model=hidden_channel,
+                        dim_feedforward=feedforward_channel,
+                        dropout=0.0,
+                        normalize_before=False,
+                    )
 
         self.filer_bg = False
 
@@ -314,13 +328,13 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.memories = []
         return
 
-    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None, query_pos=None):
+    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None, query_pos=None, key_pos=None):
         output = cross_attn(
             id, query,
             key, value,
             memory_mask=attn_mask,
             memory_key_padding_mask=None,
-            pos=None, query_pos=query_pos
+            pos=key_pos, query_pos=query_pos
         )
 
         output = self_attn(
@@ -333,7 +347,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         output = ffn(output)
         return output
 
-    def _use_memories(self, references):
+    def _use_memories(self, references, frame_embeds_no_norm):
         self.memories.append(references)
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
@@ -358,13 +372,22 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
                 # FFN
                 output = self.transformer_ffn_layers_Memory[i](output)
-            return output[-1].reshape(memories_shape[1:])
+            output = output[-1].reshape(memories_shape[1:])
+
+            frame_embeds_pos = self.remix_transformer_cross_attention_layer_Memory(
+                frame_embeds_no_norm, frame_embeds_no_norm,
+                output, output,
+            )
+            frame_embeds_pos = self.remix_ffn_layer_Memory(frame_embeds_pos)
+
+            return output, frame_embeds_pos
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
-            reference_pos = self._use_memories(reference)
+            reference_pos, frame_embeds_pos = self._use_memories(reference, frame_embeds_no_norm)
         else:
             reference_pos = None
+            frame_embeds_pos = None
 
             #reference_ = reference
 
@@ -398,14 +421,16 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                           cross_attn=self.transformer_cross_attention_layers_pathDenosing[i],
                                           self_attn=self.transformer_self_attention_layers_pathDenosing[i],
                                           ffn=self.transformer_ffn_layers_pathDenosing[i],
-                                          attn_mask=attn_mask, query_pos=reference_pos)
+                                          attn_mask=attn_mask, query_pos=reference_pos,
+                                          key_pos=frame_embeds_pos)
             output_2 = self.layer_forward(id=output_2, query=reference,
                                           key=frame_embeds_no_norm,
                                           value=frame_embeds_no_norm,
                                           cross_attn=self.transformer_cross_attention_layers_pathPropogation[i],
                                           self_attn=self.transformer_self_attention_layers_pathPropogation[i],
                                           ffn=self.transformer_ffn_layers_pathPropogation[i],
-                                          attn_mask=attn_mask, query_pos=reference_pos)
+                                          attn_mask=attn_mask, query_pos=reference_pos,
+                                          key_pos=frame_embeds_pos)
             ms_output.append(output_1)
             ms_output.append(output_2)
 
@@ -444,7 +469,8 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         cross_attn=self.transformer_cross_attention_layers_pathMerge[i],
                                         self_attn=self.transformer_self_attention_layers_pathMerge[i],
                                         ffn=self.transformer_ffn_layers_pathMerge[i],
-                                        attn_mask=attn_mask, query_pos=reference_pos)
+                                        attn_mask=attn_mask, query_pos=reference_pos,
+                                        key_pos=frame_embeds_pos)
             ms_output.append(output)
 
         #gaps = F.l1_loss(reference_, output.detach(), reduction='none')
@@ -907,10 +933,10 @@ class ClDVIS_online(MinVIS):
                 masks = targets_per_video['masks'][:, [f], :, :]
 
                 # try change gt label
-                ids_history = targets_per_video['ids'][:, :f + 1]
-                max_ids_history = torch.max(ids_history, dim=-1)[0]
-                is_bg = max_ids_history == -1
-                labels[is_bg] = self.sem_seg_head.num_classes
+                # ids_history = targets_per_video['ids'][:, :f + 1]
+                # max_ids_history = torch.max(ids_history, dim=-1)[0]
+                # is_bg = max_ids_history == -1
+                # labels[is_bg] = self.sem_seg_head.num_classes
 
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         return image_outputs, outputs, gt_instances
@@ -937,17 +963,17 @@ class ClDVIS_online(MinVIS):
         """
         pred_logits = outputs['pred_logits']
         pred_logits = pred_logits[0]  # (t, q, c)
-        #out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
+        out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
 
         # try new score compute
-        max_scores = torch.max(pred_logits.softmax(dim=-1)[..., :-1], dim=-1)[0]
-        # cummax_scores = torch.cummax(max_scores, dim=0)[0]
-        cummax_scores = max_scores
-        valid = cummax_scores > 0.1
-        valid_nums = torch.sum(valid.to(torch.float32), dim=0)  # (q)
-        out_logits = torch.sum(pred_logits * valid.to(torch.float32).unsqueeze(2), dim=0) / (valid_nums.unsqueeze(1) + 1e-4)
-        out_logits[valid_nums == 0] = torch.mean(pred_logits, dim=0)[valid_nums == 0]
-        out_logits = out_logits.unsqueeze(0)
+        # max_scores = torch.max(pred_logits.softmax(dim=-1)[..., :-1], dim=-1)[0]
+        # # cummax_scores = torch.cummax(max_scores, dim=0)[0]
+        # cummax_scores = max_scores
+        # valid = cummax_scores > 0.1
+        # valid_nums = torch.sum(valid.to(torch.float32), dim=0)  # (q)
+        # out_logits = torch.sum(pred_logits * valid.to(torch.float32).unsqueeze(2), dim=0) / (valid_nums.unsqueeze(1) + 1e-4)
+        # out_logits[valid_nums == 0] = torch.mean(pred_logits, dim=0)[valid_nums == 0]
+        # out_logits = out_logits.unsqueeze(0)
 
         if aux_logits is not None:
             aux_logits = aux_logits[0]
