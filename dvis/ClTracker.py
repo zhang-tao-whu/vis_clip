@@ -278,46 +278,10 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # try use memories
         self.memories = []
-        self.use_memories = True
+        self.use_memories = False
         if self.use_memories:
-            self.memories_max_length = 5
-            self.mem_layers = 3
-            self.memory_pos_embed = nn.Embedding(self.memories_max_length + 1, hidden_channel)
-            #self.void_embed = nn.Embedding(1, hidden_channel)
-            self.out_embed = nn.Embedding(1, hidden_channel)
-            self.transformer_self_attention_layers_Memory = nn.ModuleList()
-            self.transformer_ffn_layers_Memory = nn.ModuleList()
-            for _ in range(self.mem_layers):
-                self.transformer_self_attention_layers_Memory.append(
-                    SelfAttentionLayer(
-                        d_model=hidden_channel,
-                        nhead=num_head,
-                        dropout=0.0,
-                        normalize_before=False,
-                    )
-                )
-                self.transformer_ffn_layers_Memory.append(
-                    FFNLayer(
-                        d_model=hidden_channel,
-                        dim_feedforward=feedforward_channel,
-                        dropout=0.0,
-                        normalize_before=False,
-                    )
-                )
-            self.remix_transformer_cross_attention_layer_Memory = \
-                ReferringCrossAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                    standard=True
-                )
-            self.remix_ffn_layer_Memory = FFNLayer(
-                        d_model=hidden_channel,
-                        dim_feedforward=feedforward_channel,
-                        dropout=0.0,
-                        normalize_before=False,
-                    )
+            self.memories_max_length = 3
+            self.memory_activation = MLP(hidden_channel, hidden_channel, 1, 3)
 
         self.filer_bg = False
 
@@ -328,83 +292,46 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.memories = []
         return
 
-    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None, query_pos=None, key_pos=None):
+    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None):
         output = cross_attn(
             id, query,
             key, value,
             memory_mask=attn_mask,
             memory_key_padding_mask=None,
-            pos=key_pos, query_pos=query_pos
+            pos=None, query_pos=None
         )
 
         output = self_attn(
             output, tgt_mask=None,
             tgt_key_padding_mask=None,
-            query_pos=query_pos
+            query_pos=None
         )
 
         # FFN
         output = ffn(output)
         return output
 
-    def _use_memories(self, references, frame_embeds_no_norm):
+    def _use_memories(self, references):
         self.memories.append(references)
         if len(self.memories) > self.memories_max_length:
             self.memories = self.memories[-self.memories_max_length:]
-
-        if len(self.memories) == 1:
-            frame_embeds_pos = self.remix_transformer_cross_attention_layer_Memory(
-                frame_embeds_no_norm, frame_embeds_no_norm,
-                references, references,
-            )
-            frame_embeds_pos = self.remix_ffn_layer_Memory(frame_embeds_pos)
-            return references, frame_embeds_pos
-        else:
-            out_embed = self.out_embed.weight.unsqueeze(0).repeat(references.shape[0], references.shape[1], 1)
-            memories = torch.stack(self.memories + [out_embed], dim=0)  # (mem_num + 1, q, b, c)
-            memories_shape = memories.shape
-            memories = memories.flatten(1, 2)
-
-            mem_pos = self.memory_pos_embed.weight[-memories.shape[0]:].unsqueeze(1).repeat(1, memories.shape[1], 1)
-            output = memories
-
-            for i in range(self.mem_layers):
-                output = self.transformer_self_attention_layers_Memory[i](
-                    output, tgt_mask=None,
-                    tgt_key_padding_mask=None,
-                    query_pos=mem_pos
-                )
-
-                # FFN
-                output = self.transformer_ffn_layers_Memory[i](output)
-            output = output[-1].reshape(memories_shape[1:])
-
-            frame_embeds_pos = self.remix_transformer_cross_attention_layer_Memory(
-                frame_embeds_no_norm, frame_embeds_no_norm,
-                output, output,
-            )
-            frame_embeds_pos = self.remix_ffn_layer_Memory(frame_embeds_pos)
-
-            return output, frame_embeds_pos
+        memories = torch.stack(self.memories, dim=0)
+        activation = self.memory_activation(memories).sigmoid() + 1e-4
+        activation_sum = torch.sum(activation, dim=0)
+        output = (torch.sum(memories * activation, dim=0)) / activation_sum
+        if self.training and random.random() < 0.5:
+            return references + output * 0.0
+        return output
 
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
-            reference_pos, frame_embeds_pos = self._use_memories(reference, frame_embeds_no_norm)
-        else:
-            reference_pos = None
-            frame_embeds_pos = None
-
-            #reference_ = reference
+            reference = self._use_memories(reference)
 
         if self.filer_bg and single_frame_classes is not None:
             attn_mask = single_frame_classes == -1
-            if attn_mask.to(torch.float32).sum() == attn_mask.shape[0]:
-                attn_mask[:] = False
-            attn_mask = attn_mask.unsqueeze(0).repeat(frame_embeds_no_norm.shape[0], 1)  # (q, q)
+            attn_mask = attn_mask.unsqueeze(0).repeat(frame_embeds_no_norm.shape[0])  # (q, q)
             attn_mask = attn_mask.to(frame_embeds_no_norm.device)
         else:
-            if self.filer_bg:
-                print("Failed to filter BG !!!!!")
             attn_mask = None
 
         ms_output = []
@@ -426,16 +353,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                           cross_attn=self.transformer_cross_attention_layers_pathDenosing[i],
                                           self_attn=self.transformer_self_attention_layers_pathDenosing[i],
                                           ffn=self.transformer_ffn_layers_pathDenosing[i],
-                                          attn_mask=attn_mask, query_pos=reference_pos,
-                                          key_pos=frame_embeds_pos)
+                                          attn_mask=attn_mask, )
             output_2 = self.layer_forward(id=output_2, query=reference,
                                           key=frame_embeds_no_norm,
                                           value=frame_embeds_no_norm,
                                           cross_attn=self.transformer_cross_attention_layers_pathPropogation[i],
                                           self_attn=self.transformer_self_attention_layers_pathPropogation[i],
                                           ffn=self.transformer_ffn_layers_pathPropogation[i],
-                                          attn_mask=attn_mask, query_pos=reference_pos,
-                                          key_pos=frame_embeds_pos)
+                                          attn_mask=attn_mask, )
             ms_output.append(output_1)
             ms_output.append(output_2)
 
@@ -474,17 +399,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         cross_attn=self.transformer_cross_attention_layers_pathMerge[i],
                                         self_attn=self.transformer_self_attention_layers_pathMerge[i],
                                         ffn=self.transformer_ffn_layers_pathMerge[i],
-                                        attn_mask=attn_mask, query_pos=reference_pos,
-                                        key_pos=frame_embeds_pos)
+                                        attn_mask=attn_mask, )
             ms_output.append(output)
 
-        #gaps = F.l1_loss(reference_, output.detach(), reduction='none')
         self.last_frame_embeds = frame_embeds[indices]
         self.last_reference = reference
         ms_output = torch.stack(ms_output, dim=0)  # (1 + layers, q, b, c)
         self.last_outputs = ms_output
-        # return ms_output, indices, gaps
-        return ms_output, indices, None
+        return ms_output, indices
 
     def forward(self, frame_embeds, mask_features, resume=False,
                 return_indices=False, frame_classes=None,
@@ -506,7 +428,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
         n_frame, n_q, bs, _ = frame_embeds.size()
         outputs = []
         ret_indices = []
-        #all_gaps = []
 
         all_frames_references = []
 
@@ -526,15 +447,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
             if i == 0 and resume is False:
                 self._clear_memory()
                 self.last_frame_embeds = single_frame_embeds
-                ms_outputs, indices, gaps = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
+                ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
                                                          single_frame_embeds_no_norm, activate=False,
                                                          single_frame_classes=single_frame_classes, )
             else:
-                ms_outputs, indices, gaps = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
+                ms_outputs, indices = self.frame_forward(single_frame_embeds, single_frame_embeds_no_norm,
                                                          self.last_outputs[-1], activate=self.training,
                                                          single_frame_classes=single_frame_classes, )
             all_frames_references.append(self.last_reference)
-            #all_gaps.append(gaps)
             outputs.append(ms_outputs)
             ret_indices.append(indices)
         outputs = torch.stack(outputs, dim=0)  # (t, l, q, b, c)
@@ -544,8 +464,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
             outputs = outputs[:, -1:]
         outputs_class, outputs_masks = self.prediction(outputs, mask_features, all_frames_references)
 
-        #all_gaps = torch.stack(all_gaps, dim=0)
-
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
            'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
@@ -554,7 +472,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
            'pred_references': self.ref_proj_2(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
-           #'gaps': all_gaps.mean(),
         }
         if return_indices:
             return out, ret_indices
@@ -730,8 +647,6 @@ class ClDVIS_online(MinVIS):
         if cfg.MODEL.TRACKER.USE_CL:
             weight_dict.update({'loss_reid': 2})
 
-        #weight_dict.update({'loss_gaps': 1})
-
         losses = ["labels", "masks"]
 
         criterion = VideoSetCriterion(
@@ -851,7 +766,6 @@ class ClDVIS_online(MinVIS):
 
 
         if self.training:
-            # gaps = outputs['gaps']
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
             image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
@@ -865,7 +779,6 @@ class ClDVIS_online(MinVIS):
             losses_cl = self.get_cl_loss_ref(outputs, reference_match_result)
             # losses_cl = self.get_cl_loss_ref_with_memory(outputs, reference_match_result, targets=targets)
             losses.update(losses_cl)
-            # losses.update({'loss_gaps': gaps})
 
             self.iter += 1
 
@@ -936,13 +849,6 @@ class ClDVIS_online(MinVIS):
                 labels = targets_per_video['labels']
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
-
-                # try change gt label
-                # ids_history = targets_per_video['ids'][:, :f + 1]
-                # max_ids_history = torch.max(ids_history, dim=-1)[0]
-                # is_bg = max_ids_history == -1
-                # labels[is_bg] = self.sem_seg_head.num_classes
-
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
         return image_outputs, outputs, gt_instances
 
@@ -969,17 +875,6 @@ class ClDVIS_online(MinVIS):
         pred_logits = outputs['pred_logits']
         pred_logits = pred_logits[0]  # (t, q, c)
         out_logits = torch.mean(pred_logits, dim=0).unsqueeze(0)
-
-        # try new score compute
-        # max_scores = torch.max(pred_logits.softmax(dim=-1)[..., :-1], dim=-1)[0]
-        # # cummax_scores = torch.cummax(max_scores, dim=0)[0]
-        # cummax_scores = max_scores
-        # valid = cummax_scores > 0.1
-        # valid_nums = torch.sum(valid.to(torch.float32), dim=0)  # (q)
-        # out_logits = torch.sum(pred_logits * valid.to(torch.float32).unsqueeze(2), dim=0) / (valid_nums.unsqueeze(1) + 1e-4)
-        # out_logits[valid_nums == 0] = torch.mean(pred_logits, dim=0)[valid_nums == 0]
-        # out_logits = out_logits.unsqueeze(0)
-
         if aux_logits is not None:
             aux_logits = aux_logits[0]
             aux_logits = torch.mean(aux_logits, dim=0)  # (q, c)
