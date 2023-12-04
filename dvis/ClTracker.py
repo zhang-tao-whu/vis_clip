@@ -342,7 +342,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
             cur_embeds_no_norm=frame_embeds_no_norm,
             activate=activate,
         )
-        output_1 = noised_init
+        output_1 = noised_init.detach()
         output_2 = reference
         reference = self.ref_proj(reference)
 
@@ -516,6 +516,7 @@ class ClDVIS_online(MinVIS):
         sem_seg_head: nn.Module,
         # matcher_overall,
         criterion: nn.Module,
+        criterion_image,
         num_queries: int,
         object_mask_threshold: float,
         overlap_threshold: float,
@@ -579,11 +580,12 @@ class ClDVIS_online(MinVIS):
             num_frames=num_frames,
             window_inference=window_inference,
         )
+        self.criterion_image = criterion_image
         # frozen the segmenter
-        for p in self.backbone.parameters():
-            p.requires_grad_(False)
-        for p in self.sem_seg_head.parameters():
-            p.requires_grad_(False)
+        # for p in self.backbone.parameters():
+        #     p.requires_grad_(False)
+        # for p in self.sem_seg_head.parameters():
+        #     p.requires_grad_(False)
 
         self.tracker = tracker
         self.max_num = max_num
@@ -660,6 +662,24 @@ class ClDVIS_online(MinVIS):
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
         )
 
+        matcher_image = VideoHungarianMatcher(
+            cost_class=class_weight,
+            cost_mask=mask_weight,
+            cost_dice=dice_weight,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+        )
+
+        criterion_image = VideoSetCriterion(
+            sem_seg_head.num_classes,
+            matcher=matcher_image,
+            weight_dict=weight_dict,
+            eos_coef=no_object_weight,
+            losses=losses,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            oversample_ratio=cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
+            importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
+        )
+
         tracker = ClReferringTracker_noiser(
             hidden_channel=cfg.MODEL.MASK_FORMER.HIDDEN_DIM * 2,
             feedforward_channel=cfg.MODEL.MASK_FORMER.DIM_FEEDFORWARD,
@@ -677,6 +697,7 @@ class ClDVIS_online(MinVIS):
             "sem_seg_head": sem_seg_head,
             # "matcher_overall": matcher_overall,
             "criterion": criterion,
+            "criterion_image": criterion_image,
             "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
             "object_mask_threshold": cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD,
             "overlap_threshold": cfg.MODEL.MASK_FORMER.TEST.OVERLAP_THRESHOLD,
@@ -748,29 +769,42 @@ class ClDVIS_online(MinVIS):
         if not self.training and self.window_inference:
             outputs = self.run_window_inference(images.tensor, window_size=self.window_size)
         else:
-            self.backbone.eval()
-            self.sem_seg_head.eval()
-            with torch.no_grad():
-                features = self.backbone(images.tensor)
-                image_outputs = self.sem_seg_head(features)
-                object_labels = self._get_instance_labels(image_outputs['pred_logits'])
-                frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
-                frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
-                mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
-                del image_outputs['mask_features']
-                torch.cuda.empty_cache()
+            # try combine train
+            features = self.backbone(images.tensor)
+            image_outputs = self.sem_seg_head(features)
+            object_labels = self._get_instance_labels(image_outputs['pred_logits'])
+            frame_embds = image_outputs['pred_embds']  # (b, c, t, q)
+            frame_embds_no_norm = image_outputs['pred_embds_without_norm']  # (b, c, t, q)
+            mask_features = image_outputs['mask_features'].unsqueeze(0)
             outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True,
                                             resume=self.keep, frame_classes=object_labels,
                                             frame_embeds_no_norm=frame_embds_no_norm)
+            image_outputs_ori = image_outputs
             image_outputs = self.reset_image_output_order(image_outputs, indices)
+            # self.backbone.eval()
+            # self.sem_seg_head.eval()
+            # with torch.no_grad():
+            #     features = self.backbone(images.tensor)
+            #     image_outputs = self.sem_seg_head(features)
+            #     object_labels = self._get_instance_labels(image_outputs['pred_logits'])
+            #     frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
+            #     frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
+            #     mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
+            #     del image_outputs['mask_features']
+            #     torch.cuda.empty_cache()
+            # outputs, indices = self.tracker(frame_embds, mask_features, return_indices=True,
+            #                                 resume=self.keep, frame_classes=object_labels,
+            #                                 frame_embeds_no_norm=frame_embds_no_norm)
+            # image_outputs = self.reset_image_output_order(image_outputs, indices)
 
 
         if self.training:
             targets = self.prepare_targets(batched_inputs, images)
             # use the segmenter prediction results to guide the matching process during early training phase
-            image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
-                outputs, targets, image_outputs=image_outputs
+            image_outputs, outputs, targets, image_outputs_ori = self.frame_decoder_loss_reshape(
+                outputs, targets, image_outputs=image_outputs, image_outputs_ori=image_outputs_ori
             )
+            losses_image = self.criterion_image(image_outputs_ori, targets)
             if self.iter < self.max_iter_num // 2:
                 losses, reference_match_result = self.criterion(outputs, targets, matcher_outputs=image_outputs, ret_match_result=True)
             else:
@@ -782,12 +816,20 @@ class ClDVIS_online(MinVIS):
 
             self.iter += 1
 
+            for k in list(losses_image.keys()):
+                if k in self.criterion_image.weight_dict:
+                    losses_image[k] *= self.criterion_image.weight_dict[k]
+                else:
+                    # remove this loss if not specified in `weight_dict`
+                    losses_image.pop(k)
+
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
                     losses[k] *= self.criterion.weight_dict[k]
                 else:
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
+            losses.update({'image_'+key:losses_image[key] for key in losses_image.keys()})
             return losses
         else:
             outputs = self.post_processing(outputs)
@@ -826,7 +868,7 @@ class ClDVIS_online(MinVIS):
         labels[fg_scores < threthold] = -1
         return labels
 
-    def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None):
+    def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None, image_outputs_ori=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
         outputs['pred_references'] = einops.rearrange(outputs['pred_references'], 'b c t q -> (b t) q c')
@@ -834,6 +876,19 @@ class ClDVIS_online(MinVIS):
         if image_outputs is not None:
             image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
             image_outputs['pred_logits'] = einops.rearrange(image_outputs['pred_logits'], 'b t q c -> (b t) q c')
+
+        if image_outputs_ori is not None:
+            image_outputs_ori['pred_masks'] = einops.rearrange(image_outputs_ori['pred_masks'], 'b q t h w -> (b t) q () h w')
+            image_outputs_ori['pred_logits'] = einops.rearrange(image_outputs_ori['pred_logits'], 'b t q c -> (b t) q c')
+            if 'aux_outputs' in image_outputs_ori:
+                for i in range(len(image_outputs_ori['aux_outputs'])):
+                    image_outputs_ori['aux_outputs'][i]['pred_masks'] = einops.rearrange(
+                        image_outputs_ori['aux_outputs'][i]['pred_masks'], 'b q t h w -> (b t) q () h w'
+                    )
+                    image_outputs_ori['aux_outputs'][i]['pred_logits'] = einops.rearrange(
+                        image_outputs_ori['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
+                    )
+
         if 'aux_outputs' in outputs:
             for i in range(len(outputs['aux_outputs'])):
                 outputs['aux_outputs'][i]['pred_masks'] = einops.rearrange(
@@ -842,6 +897,7 @@ class ClDVIS_online(MinVIS):
                 outputs['aux_outputs'][i]['pred_logits'] = einops.rearrange(
                     outputs['aux_outputs'][i]['pred_logits'], 'b t q c -> (b t) q c'
                 )
+
         gt_instances = []
         for targets_per_video in targets:
             num_labeled_frames = targets_per_video['ids'].shape[1]
@@ -850,7 +906,7 @@ class ClDVIS_online(MinVIS):
                 ids = targets_per_video['ids'][:, [f]]
                 masks = targets_per_video['masks'][:, [f], :, :]
                 gt_instances.append({"labels": labels, "ids": ids, "masks": masks})
-        return image_outputs, outputs, gt_instances
+        return image_outputs, outputs, gt_instances, image_outputs_ori
 
     def reset_image_output_order(self, output, indices):
         """
@@ -860,13 +916,14 @@ class ClDVIS_online(MinVIS):
         :return: reordered outputs
         """
         # pred_keys, (b, c, t, q)
+        ret = {}
         indices = torch.Tensor(indices).to(torch.int64)  # (t, q)
         frame_indices = torch.range(0, indices.shape[0] - 1).to(indices).unsqueeze(1).repeat(1, indices.shape[1])
         # pred_masks, shape is (b, q, t, h, w)
-        output['pred_masks'][0] = output['pred_masks'][0][indices, frame_indices].transpose(0, 1)
+        ret['pred_masks'] = output['pred_masks'][0][indices, frame_indices].transpose(0, 1).unsqueeze(0)
         # pred logits, shape is (b, t, q, c)
-        output['pred_logits'][0] = output['pred_logits'][0][frame_indices, indices]
-        return output
+        ret['pred_logits'] = output['pred_logits'][0][frame_indices, indices].unsqueeze(0)
+        return ret
 
     def post_processing(self, outputs, aux_logits=None):
         """
