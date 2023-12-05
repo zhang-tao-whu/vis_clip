@@ -2060,7 +2060,7 @@ class ClDVIS_offline(ClDVIS_online):
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
-                    losses[k] *= self.criterion.weight_dict[k]
+                    losses[k] *= self.criterion.weight_dict[k] * 0.5
                 else:
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
