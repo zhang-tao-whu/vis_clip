@@ -236,12 +236,12 @@ class ClReferringTracker_noiser(torch.nn.Module):
 
         # for cl learning
         self.ref_proj = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
-        self.ref_proj_2 = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
+       # self.ref_proj_2 = MLP(hidden_channel, hidden_channel, hidden_channel, 3)
 
         for layer in self.ref_proj.layers:
             weight_init.c2_xavier_fill(layer)
-        for layer in self.ref_proj_2.layers:
-            weight_init.c2_xavier_fill(layer)
+        # for layer in self.ref_proj_2.layers:
+        #     weight_init.c2_xavier_fill(layer)
 
         # mask features projection
         self.mask_feature_proj = nn.Conv2d(
@@ -471,7 +471,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                outputs_class, outputs_masks
            ),
            'pred_embds': outputs[:, -1].permute(2, 3, 0, 1),  # (b, c, t, q),
-           'pred_references': self.ref_proj_2(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
+           #'pred_references': self.ref_proj_2(all_frames_references).permute(2, 3, 0, 1),  # (b, c, t, q),
         }
         if return_indices:
             return out, ret_indices
