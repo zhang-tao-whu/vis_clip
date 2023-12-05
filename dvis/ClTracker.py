@@ -1711,6 +1711,7 @@ class ClDVIS_offline(ClDVIS_online):
         backbone: Backbone,
         sem_seg_head: nn.Module,
         criterion: nn.Module,
+        criterion_image,
         num_queries: int,
         object_mask_threshold: float,
         overlap_threshold: float,
@@ -1763,6 +1764,8 @@ class ClDVIS_offline(ClDVIS_online):
         super().__init__(
             backbone=backbone,
             sem_seg_head=sem_seg_head,
+            # here is tracker's criterion
+            criterion_image=criterion_image,
             criterion=criterion,
             num_queries=num_queries,
             object_mask_threshold=object_mask_threshold,
@@ -1782,9 +1785,15 @@ class ClDVIS_offline(ClDVIS_online):
             task=task,
         )
 
-        # frozen the referring tracker
-        for p in self.tracker.parameters():
+        # frozen the segmenter
+        for p in self.backbone.parameters():
             p.requires_grad_(False)
+        for p in self.sem_seg_head.parameters():
+            p.requires_grad_(False)
+
+        # frozen the referring tracker
+        # for p in self.tracker.parameters():
+        #     p.requires_grad_(False)
 
         self.refiner = refiner
 
@@ -1828,6 +1837,26 @@ class ClDVIS_offline(ClDVIS_online):
         #weight_dict.update({'loss_reid': 2})
         losses = ["labels", "masks"]
 
+        # tracker_matcher
+        matcher_image = VideoHungarianMatcher_Consistent(
+            cost_class=class_weight,
+            cost_mask=mask_weight,
+            cost_dice=dice_weight,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            frames=cfg.INPUT.SAMPLING_FRAME_NUM
+        )
+
+        criterion_image = VideoSetCriterion(
+            sem_seg_head.num_classes,
+            matcher=matcher_image,
+            weight_dict=weight_dict,
+            eos_coef=no_object_weight,
+            losses=losses,
+            num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
+            oversample_ratio=cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
+            importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
+        )
+
         criterion = VideoSetCriterion(
             sem_seg_head.num_classes,
             matcher=matcher,
@@ -1867,6 +1896,7 @@ class ClDVIS_offline(ClDVIS_online):
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
             "criterion": criterion,
+            "criterion_image": criterion_image,
             "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
             "object_mask_threshold": cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD,
             "overlap_threshold": cfg.MODEL.MASK_FORMER.TEST.OVERLAP_THRESHOLD,
@@ -1936,43 +1966,72 @@ class ClDVIS_offline(ClDVIS_online):
         images = ImageList.from_tensors(images, self.size_divisibility)
         self.backbone.eval()
         self.sem_seg_head.eval()
-        self.tracker.eval()
+        # self.tracker.eval()
 
         if not self.training and self.window_inference:
             outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=self.window_size)
         else:
-            with torch.no_grad():
-                # due to GPU memory limitations, the segmenter processes the video clip by clip.
-                image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
-                object_labels = self._get_instance_labels(image_outputs['pred_logits'])
-                frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
-                frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
-                mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
-                del image_outputs['mask_features'], image_outputs['pred_embds_without_norm'],\
-                    image_outputs['pred_logits'], image_outputs['pred_embds']
+            image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
+            object_labels = self._get_instance_labels(image_outputs['pred_logits'])
+            frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
+            frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
+            mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
+            del image_outputs['mask_features'], image_outputs['pred_embds_without_norm'],\
+                image_outputs['pred_logits'], image_outputs['pred_embds']
 
-                # perform tracker/alignment
-                image_outputs = self.tracker(
-                    frame_embds, mask_features,
-                    resume=self.keep, frame_classes=object_labels,
-                    frame_embeds_no_norm=frame_embds_no_norm
-                )
-                online_pred_logits = image_outputs['pred_logits']  # (b, t, q, c)
-                # frame_embds_ = self.tracker.frame_forward(frame_embds)
-                frame_embds_ = frame_embds_no_norm.clone().detach()
-                instance_embeds = image_outputs['pred_embds'].clone().detach()
+            # perform tracker/alignment
+            image_outputs = self.tracker(
+                frame_embds, mask_features,
+                resume=self.keep, frame_classes=object_labels,
+                frame_embeds_no_norm=frame_embds_no_norm
+            )
+            online_pred_logits = image_outputs['pred_logits']  # (b, t, q, c)
+            # frame_embds_ = self.tracker.frame_forward(frame_embds)
+            frame_embds_ = frame_embds_no_norm
+            instance_embeds = image_outputs['pred_embds']
 
-                del frame_embds, frame_embds_no_norm
-                del image_outputs['pred_embds']
-                for j in range(len(image_outputs['aux_outputs'])):
-                    del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
-                torch.cuda.empty_cache()
+            # with torch.no_grad():
+            #     # due to GPU memory limitations, the segmenter processes the video clip by clip.
+            #     image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
+            #     object_labels = self._get_instance_labels(image_outputs['pred_logits'])
+            #     frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
+            #     frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
+            #     mask_features = image_outputs['mask_features'].clone().detach().unsqueeze(0)
+            #     del image_outputs['mask_features'], image_outputs['pred_embds_without_norm'],\
+            #         image_outputs['pred_logits'], image_outputs['pred_embds']
+            #
+            #     # perform tracker/alignment
+            #     image_outputs = self.tracker(
+            #         frame_embds, mask_features,
+            #         resume=self.keep, frame_classes=object_labels,
+            #         frame_embeds_no_norm=frame_embds_no_norm
+            #     )
+            #     online_pred_logits = image_outputs['pred_logits']  # (b, t, q, c)
+            #     # frame_embds_ = self.tracker.frame_forward(frame_embds)
+            #     frame_embds_ = frame_embds_no_norm.clone().detach()
+            #     instance_embeds = image_outputs['pred_embds'].clone().detach()
+            #
+            #     del frame_embds, frame_embds_no_norm
+            #     del image_outputs['pred_embds']
+            #     for j in range(len(image_outputs['aux_outputs'])):
+            #         del image_outputs['aux_outputs'][j]['pred_masks'], image_outputs['aux_outputs'][j]['pred_logits']
+            #     torch.cuda.empty_cache()
             # do temporal refine
             outputs = self.refiner(instance_embeds, frame_embds_, mask_features)
 
         if self.training:
             # mask classification target
             targets = self.prepare_targets(batched_inputs, images)
+
+            image_outputs_ori = image_outputs
+            image_outputs = {'pred_masks': image_outputs_ori['pred_masks'],
+                             'pred_logits': image_outputs_ori['pred_logits']}
+
+            _, image_outputs_ori, targets_image, _ = super().frame_decoder_loss_reshape(
+                image_outputs_ori, targets, image_outputs=None, image_outputs_ori=None
+            )
+            losses_tracker = self.criterion(image_outputs_ori, targets_image, matcher_outputs=None, ret_match_result=False)
+
             # use the online prediction results to guide the matching process during early training phase
             if self.iter < self.max_iter_num // 2:
                 image_outputs, outputs, targets = self.frame_decoder_loss_reshape(
@@ -1991,12 +2050,20 @@ class ClDVIS_offline(ClDVIS_online):
             cl_loss = self.get_cl_loss_with_memory(outputs, matching_result, targets)
             losses.update(cl_loss)
 
+            for k in list(losses_tracker.keys()):
+                if k in self.criterion_image.weight_dict:
+                    losses_tracker[k] *= self.criterion_image.weight_dict[k]
+                else:
+                    # remove this loss if not specified in `weight_dict`
+                    losses_tracker.pop(k)
+
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
                     losses[k] *= self.criterion.weight_dict[k]
                 else:
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
+            losses.update({'tracker_'+key: losses_tracker[key] for key in losses_tracker.keys()})
             return losses
         else:
             outputs, aux_pred_logits = self.post_processing(outputs, aux_logits=online_pred_logits)
