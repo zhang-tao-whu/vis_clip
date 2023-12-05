@@ -1,4 +1,4 @@
-_BASE_: CT_ClDVIS_Online_R50_Hard_combine.yaml
+_BASE_: denosing_propogation_merge.yaml
 MODEL:
   META_ARCHITECTURE: "ClDVIS_offline"
 
