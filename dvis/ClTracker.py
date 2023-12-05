@@ -143,10 +143,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.transformer_cross_attention_layers_pathMerge = nn.ModuleList()
         self.transformer_ffn_layers_pathMerge = nn.ModuleList()
 
-        self.transformer_self_attention_layers_reverse = nn.ModuleList()
-        self.transformer_cross_attention_layers_reverse = nn.ModuleList()
-        self.transformer_ffn_layers_reverse = nn.ModuleList()
-
         for _ in range(self.splits[0]):
             self.transformer_self_attention_layers_pathDenosing.append(
                 SelfAttentionLayer(
@@ -157,14 +153,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 )
             )
             self.transformer_self_attention_layers_pathPropogation.append(
-                SelfAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-            self.transformer_self_attention_layers_reverse.append(
                 SelfAttentionLayer(
                     d_model=hidden_channel,
                     nhead=num_head,
@@ -191,15 +179,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
                     standard=True
                 )
             )
-            self.transformer_cross_attention_layers_reverse.append(
-                ReferringCrossAttentionLayer(
-                    d_model=hidden_channel,
-                    nhead=num_head,
-                    dropout=0.0,
-                    normalize_before=False,
-                    standard=True
-                )
-            )
 
             self.transformer_ffn_layers_pathDenosing.append(
                 FFNLayer(
@@ -210,14 +189,6 @@ class ClReferringTracker_noiser(torch.nn.Module):
                 )
             )
             self.transformer_ffn_layers_pathPropogation.append(
-                FFNLayer(
-                    d_model=hidden_channel,
-                    dim_feedforward=feedforward_channel,
-                    dropout=0.0,
-                    normalize_before=False,
-                )
-            )
-            self.transformer_ffn_layers_reverse.append(
                 FFNLayer(
                     d_model=hidden_channel,
                     dim_feedforward=feedforward_channel,
@@ -321,19 +292,19 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.memories = []
         return
 
-    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None, query_pos=None, key_pos=None):
+    def layer_forward(self, id, query, key, value, cross_attn, self_attn, ffn, attn_mask=None):
         output = cross_attn(
             id, query,
             key, value,
             memory_mask=attn_mask,
             memory_key_padding_mask=None,
-            pos=key_pos, query_pos=query_pos
+            pos=None, query_pos=None
         )
 
         output = self_attn(
             output, tgt_mask=None,
             tgt_key_padding_mask=None,
-            query_pos=query_pos
+            query_pos=None
         )
 
         # FFN
@@ -352,33 +323,9 @@ class ClReferringTracker_noiser(torch.nn.Module):
             return references + output * 0.0
         return output
 
-    def _reverse_mix(self, frame_embeds, refereces):
-        for corss_attn_layer, self_attn_layer, ffn_layer in\
-                zip(self.transformer_cross_attention_layers_reverse, self.transformer_self_attention_layers_reverse,
-                    self.transformer_ffn_layers_reverse):
-            frame_embeds = corss_attn_layer(
-                frame_embeds, frame_embeds,
-                refereces, refereces,
-                memory_mask=None,
-                memory_key_padding_mask=None,
-                pos=None, query_pos=None
-            )
-
-            frame_embeds = self_attn_layer(
-                frame_embeds, tgt_mask=None,
-                tgt_key_padding_mask=None,
-                query_pos=None
-            )
-
-            # FFN
-            frame_embeds = ffn_layer(frame_embeds)
-        return frame_embeds
-
     def frame_forward(self, frame_embeds, frame_embeds_no_norm, reference, activate=True, single_frame_classes=None, ):
         if self.use_memories:
             reference = self._use_memories(reference)
-
-        frame_embeds_no_norm_pos = self._reverse_mix(frame_embeds_no_norm, reference)
 
         if self.filer_bg and single_frame_classes is not None:
             attn_mask = single_frame_classes == -1
@@ -406,16 +353,14 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                           cross_attn=self.transformer_cross_attention_layers_pathDenosing[i],
                                           self_attn=self.transformer_self_attention_layers_pathDenosing[i],
                                           ffn=self.transformer_ffn_layers_pathDenosing[i],
-                                          attn_mask=attn_mask, query_pos=reference,
-                                          key_pos=frame_embeds_no_norm_pos)
+                                          attn_mask=attn_mask, )
             output_2 = self.layer_forward(id=output_2, query=reference,
                                           key=frame_embeds_no_norm,
                                           value=frame_embeds_no_norm,
                                           cross_attn=self.transformer_cross_attention_layers_pathPropogation[i],
                                           self_attn=self.transformer_self_attention_layers_pathPropogation[i],
                                           ffn=self.transformer_ffn_layers_pathPropogation[i],
-                                          attn_mask=attn_mask, query_pos=reference,
-                                          key_pos=frame_embeds_no_norm_pos)
+                                          attn_mask=attn_mask, )
             ms_output.append(output_1)
             ms_output.append(output_2)
 
@@ -454,8 +399,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
                                         cross_attn=self.transformer_cross_attention_layers_pathMerge[i],
                                         self_attn=self.transformer_self_attention_layers_pathMerge[i],
                                         ffn=self.transformer_ffn_layers_pathMerge[i],
-                                        attn_mask=attn_mask, query_pos=reference,
-                                        key_pos=frame_embeds_no_norm_pos)
+                                        attn_mask=attn_mask, )
             ms_output.append(output)
 
         self.last_frame_embeds = frame_embeds[indices]
