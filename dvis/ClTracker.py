@@ -871,7 +871,7 @@ class ClDVIS_online(MinVIS):
     def frame_decoder_loss_reshape(self, outputs, targets, image_outputs=None, image_outputs_ori=None):
         outputs['pred_masks'] = einops.rearrange(outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
         outputs['pred_logits'] = einops.rearrange(outputs['pred_logits'], 'b t q c -> (b t) q c')
-        outputs['pred_references'] = einops.rearrange(outputs['pred_references'], 'b c t q -> (b t) q c')
+        #outputs['pred_references'] = einops.rearrange(outputs['pred_references'], 'b c t q -> (b t) q c')
 
         if image_outputs is not None:
             image_outputs['pred_masks'] = einops.rearrange(image_outputs['pred_masks'], 'b q t h w -> (b t) q () h w')
