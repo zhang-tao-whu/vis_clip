@@ -1971,7 +1971,8 @@ class ClDVIS_offline(ClDVIS_online):
         if not self.training and self.window_inference:
             outputs, online_pred_logits = self.run_window_inference(images.tensor, window_size=self.window_size)
         else:
-            image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
+            with torch.no_grad():
+                image_outputs = self.segmentor_windows_inference(images.tensor, window_size=21)
             object_labels = self._get_instance_labels(image_outputs['pred_logits'])
             frame_embds = image_outputs['pred_embds'].clone().detach()  # (b, c, t, q)
             frame_embds_no_norm = image_outputs['pred_embds_without_norm'].clone().detach()  # (b, c, t, q)
