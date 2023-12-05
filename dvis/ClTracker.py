@@ -1886,8 +1886,8 @@ class ClDVIS_offline(ClDVIS_online):
             mask_dim=cfg.MODEL.MASK_FORMER.HIDDEN_DIM,
             class_num=cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
             windows=cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
-            mask_agu=cfg.MODEL.REFINER.MASK_AGU,
-            mask_ratio=cfg.MODEL.REFINER.MASK_RATIO,
+            mask_agu=False,
+            mask_ratio=0.0,
         )
 
         max_iter_num = cfg.SOLVER.MAX_ITER
