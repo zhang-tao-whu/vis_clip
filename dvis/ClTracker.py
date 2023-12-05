@@ -257,7 +257,7 @@ class ClReferringTracker_noiser(torch.nn.Module):
         self.last_frame_embeds = None
         self.last_reference = None
 
-        self.noiser = Noiser(noise_ratio=0.5, mode=noise_mode)
+        self.noiser = Noiser(noise_ratio=-0.1, mode=noise_mode)
         # self.noiser = Noiser(noise_ratio=0.8, mode=noise_mode)
 
         # fuse denosing result and propagation
@@ -380,11 +380,11 @@ class ClReferringTracker_noiser(torch.nn.Module):
             activation = activation1 + activation2
             output = (output_1 * activation1 + output_2 * activation2) / activation
 
-            if self.training and random.random() < 0.5:
-                if random.random() < 0.5:
-                    output = output * 0.0 + output_1
-                else:
-                    output = output * 0.0 + output_2
+            # if self.training and random.random() < 0.5:
+            #     if random.random() < 0.5:
+            #         output = output * 0.0 + output_1
+            #     else:
+            #         output = output * 0.0 + output_2
 
         elif self.fuse_mode == 'laf':
             activation1 = self.activation(output_1).sigmoid()
@@ -2060,7 +2060,7 @@ class ClDVIS_offline(ClDVIS_online):
 
             for k in list(losses.keys()):
                 if k in self.criterion.weight_dict:
-                    losses[k] *= self.criterion.weight_dict[k] * 0.5
+                    losses[k] *= self.criterion.weight_dict[k] * 0.2
                 else:
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
