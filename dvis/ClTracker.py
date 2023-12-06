@@ -1619,7 +1619,7 @@ class TemporalRefiner(torch.nn.Module):
 
         outputs = torch.stack(outputs, dim=0).permute(3, 0, 4, 1, 2)  # (l, b, c, t, q) -> (t, l, q, b, c)
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
-        outputs = self.decoder_norm(outputs)
+        #outputs = self.decoder_norm(outputs)
         out = {
            'pred_logits': outputs_class[-1].transpose(1, 2),  # (b, t, q, c)
            'pred_masks': outputs_masks[-1],  # (b, q, t, h, w)
@@ -1729,6 +1729,7 @@ class ClDVIS_offline(ClDVIS_online):
         max_iter_num,
         window_size,
         task,
+        distill_proj,
     ):
         """
         Args:
@@ -1796,6 +1797,7 @@ class ClDVIS_offline(ClDVIS_online):
         #     p.requires_grad_(False)
 
         self.refiner = refiner
+        self.distill_proj = distill_proj
 
     @classmethod
     def from_config(cls, cfg):
@@ -1892,6 +1894,8 @@ class ClDVIS_offline(ClDVIS_online):
 
         max_iter_num = cfg.SOLVER.MAX_ITER
 
+        distill_proj = nn.Linear(cfg.MODEL.MASK_FORMER.HIDDEN_DIM * 2, cfg.MODEL.MASK_FORMER.HIDDEN_DIM * 2)
+
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
@@ -1914,6 +1918,7 @@ class ClDVIS_offline(ClDVIS_online):
             "max_iter_num": max_iter_num,
             "window_size": cfg.MODEL.MASK_FORMER.TEST.WINDOW_SIZE,
             "task": cfg.MODEL.MASK_FORMER.TEST.TASK,
+            "distill_proj": distill_proj
         }
 
     def forward(self, batched_inputs):
@@ -2025,6 +2030,8 @@ class ClDVIS_offline(ClDVIS_online):
             targets = self.prepare_targets(batched_inputs, images)
 
             image_outputs_ori = image_outputs
+            offline_embeds = outputs['pred_embds']
+            online_embeds = image_outputs_ori['pred_embds']
             image_outputs = {'pred_masks': image_outputs_ori['pred_masks'],
                              'pred_logits': image_outputs_ori['pred_logits']}
 
@@ -2065,6 +2072,11 @@ class ClDVIS_offline(ClDVIS_online):
                     # remove this loss if not specified in `weight_dict`
                     losses.pop(k)
             losses.update({'tracker_'+key: losses_tracker[key] for key in losses_tracker.keys()})
+            if self.iter < 500:
+                distill_weight = 0.1
+            else:
+                distill_weight = 1.0
+            losses.update({'distill_loss': F.l1_loss(self.distill_proj(online_embeds), offline_embeds.detach(), reduction='mean') * distill_weight})
             return losses
         else:
             outputs, aux_pred_logits = self.post_processing(outputs, aux_logits=online_pred_logits)
