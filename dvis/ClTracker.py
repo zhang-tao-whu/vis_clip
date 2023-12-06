@@ -2030,8 +2030,8 @@ class ClDVIS_offline(ClDVIS_online):
             targets = self.prepare_targets(batched_inputs, images)
 
             image_outputs_ori = image_outputs
-            offline_embeds = outputs['pred_embds']
-            online_embeds = image_outputs_ori['pred_embds']
+            offline_embeds = outputs['pred_embds'].permute(0, 2, 3, 1)
+            online_embeds = image_outputs_ori['pred_embds'].permute(0, 2, 3, 1)
             image_outputs = {'pred_masks': image_outputs_ori['pred_masks'],
                              'pred_logits': image_outputs_ori['pred_logits']}
 
