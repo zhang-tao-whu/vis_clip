@@ -111,7 +111,7 @@ class TemporalRefiner(torch.nn.Module):
             time_pos_embed = nn.functional.interpolate(
                 time_pos_embed,
                 scale_factor=(t0 / N, ),
-                mode="bilinear",
+                mode="linear",
             ).permute(2, 0, 1).repeat(1, n_batch * n_instance, 1)
 
         for i in range(self.num_layers):
