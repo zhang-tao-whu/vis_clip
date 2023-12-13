@@ -128,7 +128,7 @@ class TemporalRefiner(torch.nn.Module):
             # do short temporal attn
             output = output.reshape(self.tube_size, n_tube, n_batch * n_instance, n_channel)
             output = output.flatten(1, 2)  # (tube_size, n_tube * b * q, c)
-            output = self.transformer_short_aggregate_layers(
+            output = self.transformer_short_aggregate_layers[i](
                 output, tgt_mask=None,
                 tgt_key_padding_mask=None,
                 query_pos=time_pos_embed
