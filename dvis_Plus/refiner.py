@@ -88,6 +88,8 @@ class TemporalRefiner(torch.nn.Module):
 
         self.activation_proj = nn.Linear(hidden_channel, 1)
 
+        self.time_pos_embed = nn.Embedding(15, hidden_channel)
+
     def forward(self, instance_embeds, frame_embeds, mask_features):
         """
         :param instance_embeds: the aligned instance queries output by the tracker, shape is (b, c, t, q)
@@ -100,6 +102,17 @@ class TemporalRefiner(torch.nn.Module):
         outputs = []
         output = instance_embeds
         frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
+        if self.training:
+            time_pos_embed = self.time_pos_embed.weight.unsqueeze(1).repeat(1, n_batch * n_instance, 1)
+        else:
+            time_pos_embed = self.time_pos_embed.weight.unsqueeze(1).permute(1, 2, 0)  # (1, c, t)
+            N = time_pos_embed.shape[-1]
+            t0 = n_frames + 0.01
+            time_pos_embed = nn.functional.interpolate(
+                time_pos_embed,
+                scale_factor=(t0 / N, ),
+                mode="bicubic",
+            ).permute(2, 0, 1).repeat(1, n_batch * n_instance, 1)
 
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1)  # (t, b, q, c)
@@ -109,7 +122,7 @@ class TemporalRefiner(torch.nn.Module):
             output = self.transformer_time_self_attention_layers[i](
                 output, tgt_mask=None,
                 tgt_key_padding_mask=None,
-                query_pos=None
+                query_pos=time_pos_embed
             )
 
             # do short temporal conv
