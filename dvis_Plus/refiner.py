@@ -26,8 +26,7 @@ class TemporalRefiner(torch.nn.Module):
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
-        self.conv_short_aggregate_layers = nn.ModuleList()
-        self.conv_norms = nn.ModuleList()
+        self.transformer_short_aggregate_layers = nn.ModuleList()
 
         for _ in range(self.num_layers):
             self.transformer_time_self_attention_layers.append(
@@ -39,19 +38,14 @@ class TemporalRefiner(torch.nn.Module):
                 )
             )
 
-            self.conv_short_aggregate_layers.append(
-                nn.Sequential(
-                    nn.Conv1d(hidden_channel, hidden_channel,
-                              kernel_size=5, stride=1,
-                              padding='same', padding_mode='replicate'),
-                    nn.ReLU(inplace=True),
-                    nn.Conv1d(hidden_channel, hidden_channel,
-                              kernel_size=3, stride=1,
-                              padding='same', padding_mode='replicate'),
+            self.transformer_short_aggregate_layers.append(
+                SelfAttentionLayer(
+                    d_model=hidden_channel,
+                    nhead=num_head,
+                    dropout=0.0,
+                    normalize_before=False,
                 )
             )
-
-            self.conv_norms.append(nn.LayerNorm(hidden_channel))
 
             self.transformer_obj_self_attention_layers.append(
                 SelfAttentionLayer(
@@ -88,7 +82,9 @@ class TemporalRefiner(torch.nn.Module):
 
         self.activation_proj = nn.Linear(hidden_channel, 1)
 
-        self.time_pos_embed = nn.Embedding(15, hidden_channel)
+        self.tube_size = 5
+        self.time_pos_embed = nn.Embedding(self.tube_size, hidden_channel)
+        self.void_padding = nn.Embedding(1, hidden_channel)
 
     def forward(self, instance_embeds, frame_embeds, mask_features):
         """
@@ -102,17 +98,21 @@ class TemporalRefiner(torch.nn.Module):
         outputs = []
         output = instance_embeds
         frame_embeds = frame_embeds.permute(3, 0, 2, 1).flatten(1, 2)
-        if self.training:
-            time_pos_embed = self.time_pos_embed.weight.unsqueeze(1).repeat(1, n_batch * n_instance, 1)
+
+        # prepare pos embed
+        n_tube = n_frames // self.tube_size
+        if n_tube * self.tube_size != n_frames:
+            n_tube += 1
+        time_pos_embed = self.time_pos_embed.weight.unsqueeze(1).repeat(1, n_tube * n_batch * n_instance, 1)
+
+        # padding output
+        n_padding = n_tube * self.tube_size - n_frames
+        if n_padding != 0:
+            void_embedding = self.void_padding.weight.unsqueeze(1).unsqueeze(1).\
+                repeat(n_padding, n_batch, n_instance, 1)  # (n_pad, b, q, c)
+            output = torch.cat([output, void_embedding.permute(1, 3, 0, 2)])
         else:
-            time_pos_embed = self.time_pos_embed.weight.unsqueeze(1).permute(1, 2, 0)  # (1, c, t)
-            N = time_pos_embed.shape[-1]
-            t0 = n_frames + 0.01
-            time_pos_embed = nn.functional.interpolate(
-                time_pos_embed,
-                scale_factor=(t0 / N, ),
-                mode="linear",
-            ).permute(2, 0, 1).repeat(1, n_batch * n_instance, 1)
+            output = output + self.void_padding.weight.sum() * 0.0
 
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1)  # (t, b, q, c)
@@ -122,17 +122,20 @@ class TemporalRefiner(torch.nn.Module):
             output = self.transformer_time_self_attention_layers[i](
                 output, tgt_mask=None,
                 tgt_key_padding_mask=None,
-                query_pos=time_pos_embed
+                query_pos=None
             )
 
-            # do short temporal conv
-            output = output.permute(1, 2, 0)  # (bq, c, t)
-            output = self.conv_norms[i](
-                (self.conv_short_aggregate_layers[i](output) + output).transpose(1, 2)
-            ).transpose(1, 2)
-            output = output.reshape(
-                n_batch, n_instance, n_channel, n_frames
-            ).permute(1, 0, 3, 2).flatten(1, 2)  # (q, bt, c)
+            # do short temporal attn
+            output = output.reshape(self.tube_size, n_tube, n_batch * n_instance, n_channel)
+            output = output.flatten(1, 2)  # (tube_size, n_tube * b * q, c)
+            output = self.transformer_short_aggregate_layers(
+                output, tgt_mask=None,
+                tgt_key_padding_mask=None,
+                query_pos=time_pos_embed
+            )
+            output = output.reshape(self.tube_size * n_tube, n_batch, n_instance, n_channel)  # (t, b, q, c)
+            output = output.permute(2, 1, 0, 3)  # (q, b, t, c)
+            output = output.flatten(1, 2)  # (q, bt, c)
 
             # do objects self attention
             output = self.transformer_obj_self_attention_layers[i](
@@ -155,7 +158,10 @@ class TemporalRefiner(torch.nn.Module):
             )
 
             output = output.reshape(n_instance, n_batch, n_frames, n_channel).permute(1, 3, 2, 0)  # (b, c, t, q)
-            outputs.append(output)
+            if n_padding == 0:
+                outputs.append(output)
+            else:
+                outputs.append(output[:, :, :-n_padding])
 
         outputs = torch.stack(outputs, dim=0).permute(3, 0, 4, 1, 2)  # (l, b, c, t, q) -> (t, l, q, b, c)
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
