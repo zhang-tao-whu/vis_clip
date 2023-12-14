@@ -86,6 +86,8 @@ class TemporalRefiner(torch.nn.Module):
         self.time_pos_embed = nn.Embedding(self.tube_size, hidden_channel)
         self.void_padding = nn.Embedding(1, hidden_channel)
 
+        self.time_pos_embed_long = nn.Embedding(16, hidden_channel)
+
     def forward(self, instance_embeds, frame_embeds, mask_features):
         """
         :param instance_embeds: the aligned instance queries output by the tracker, shape is (b, c, t, q)
@@ -111,6 +113,15 @@ class TemporalRefiner(torch.nn.Module):
             void_embedding = self.void_padding.weight.unsqueeze(1).unsqueeze(1).\
               repeat(n_padding, n_batch, n_instance, 1).flatten(1, 2)  # (n_pad, b*q, c)
 
+        time_pos_embed_long = self.time_pos_embed_long.weight.unsqueeze(1).permute(1, 2, 0)  # (1, c, t)
+        N = time_pos_embed_long.shape[-1]
+        t0 = n_frames + 0.01
+        time_pos_embed_long = nn.functional.interpolate(
+            time_pos_embed_long,
+            scale_factor=(t0 / N,),
+            mode="linear",
+        ).permute(2, 0, 1).repeat(1, n_batch * n_instance, 1)
+
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1)  # (t, b, q, c)
             output = output.flatten(1, 2)  # (t, bq, c)
@@ -119,7 +130,7 @@ class TemporalRefiner(torch.nn.Module):
             output = self.transformer_time_self_attention_layers[i](
                 output, tgt_mask=None,
                 tgt_key_padding_mask=None,
-                query_pos=None
+                query_pos=time_pos_embed_long
             )
 
             # do short temporal attn
