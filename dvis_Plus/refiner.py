@@ -108,13 +108,8 @@ class TemporalRefiner(torch.nn.Module):
         # padding output
         n_padding = n_tube * self.tube_size - n_frames
         if n_padding != 0:
-            #void_embedding = self.void_padding.weight.unsqueeze(1).unsqueeze(1).\
-            #   repeat(n_padding, n_batch, n_instance, 1)  # (n_pad, b, q, c)
-            #output = torch.cat([output, void_embedding.permute(1, 3, 0, 2)], dim=2)
-            void_embedding = output[:, :, -1:].repeat(1, 1, n_padding, 1)
-            output = torch.cat([output, void_embedding], dim=2)
-        else:
-            output = output + self.void_padding.weight.sum() * 0.0
+            void_embedding = self.void_padding.weight.unsqueeze(1).unsqueeze(1).\
+              repeat(n_padding, n_batch, n_instance, 1).flatten(1, 2)  # (n_pad, b*q, c)
 
         for i in range(self.num_layers):
             output = output.permute(2, 0, 3, 1)  # (t, b, q, c)
@@ -128,6 +123,10 @@ class TemporalRefiner(torch.nn.Module):
             )
 
             # do short temporal attn
+            if n_padding != 0:
+                output = torch.cat([output, void_embedding], dim=0)
+            else:
+                output = output + self.void_padding.weight.sum() * 0.0
             output = output.reshape(self.tube_size, n_tube, n_batch * n_instance, n_channel)
             output = output.flatten(1, 2)  # (tube_size, n_tube * b * q, c)
             output = self.transformer_short_aggregate_layers[i](
@@ -136,6 +135,8 @@ class TemporalRefiner(torch.nn.Module):
                 query_pos=time_pos_embed
             )
             output = output.reshape(self.tube_size * n_tube, n_batch, n_instance, n_channel)  # (t, b, q, c)
+            if n_padding != 0:
+                output = output[-n_padding:]
             output = output.permute(2, 1, 0, 3)  # (q, b, t, c)
             output = output.flatten(1, 2)  # (q, bt, c)
 
@@ -160,10 +161,7 @@ class TemporalRefiner(torch.nn.Module):
             )
 
             output = output.reshape(n_instance, n_batch, n_frames, n_channel).permute(1, 3, 2, 0)  # (b, c, t, q)
-            if n_padding == 0:
-                outputs.append(output)
-            else:
-                outputs.append(output[:, :, :-n_padding])
+            outputs.append(output)
 
         outputs = torch.stack(outputs, dim=0).permute(3, 0, 4, 1, 2)  # (l, b, c, t, q) -> (t, l, q, b, c)
         outputs_class, outputs_masks = self.prediction(outputs, mask_features)
