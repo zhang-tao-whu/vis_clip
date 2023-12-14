@@ -123,6 +123,7 @@ class TemporalRefiner(torch.nn.Module):
             )
 
             # do short temporal attn
+            print(output.shape)
             if n_padding != 0:
                 output = torch.cat([output, void_embedding], dim=0)
             else:
@@ -139,6 +140,7 @@ class TemporalRefiner(torch.nn.Module):
                 output = output[-n_padding:]
             output = output.permute(2, 1, 0, 3)  # (q, b, t, c)
             output = output.flatten(1, 2)  # (q, bt, c)
+            print(output.shape)
 
             # do objects self attention
             output = self.transformer_obj_self_attention_layers[i](
