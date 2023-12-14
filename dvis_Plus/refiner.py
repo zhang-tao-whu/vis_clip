@@ -110,8 +110,9 @@ class TemporalRefiner(torch.nn.Module):
         if n_padding != 0:
             #void_embedding = self.void_padding.weight.unsqueeze(1).unsqueeze(1).\
             #   repeat(n_padding, n_batch, n_instance, 1)  # (n_pad, b, q, c)
+            #output = torch.cat([output, void_embedding.permute(1, 3, 0, 2)], dim=2)
             void_embedding = output[:, :, -1:].repeat(n_padding, 1, 1, 1)
-            output = torch.cat([output, void_embedding.permute(1, 3, 0, 2)], dim=2)
+            output = torch.cat([output, void_embedding], dim=2)
         else:
             output = output + self.void_padding.weight.sum() * 0.0
 
