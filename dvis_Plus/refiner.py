@@ -88,6 +88,8 @@ class TemporalRefiner(torch.nn.Module):
 
         self.time_pos_embed_long = nn.Embedding(16, hidden_channel)
 
+        self.merge_proj = nn.Linear(2 * hidden_channel, hidden_channel)
+
     def forward(self, instance_embeds, frame_embeds, mask_features):
         """
         :param instance_embeds: the aligned instance queries output by the tracker, shape is (b, c, t, q)
@@ -127,11 +129,12 @@ class TemporalRefiner(torch.nn.Module):
             output = output.flatten(1, 2)  # (t, bq, c)
 
             # do long temporal attention
-            output = self.transformer_time_self_attention_layers[i](
+            output_long = self.transformer_time_self_attention_layers[i](
                 output, tgt_mask=None,
                 tgt_key_padding_mask=None,
                 query_pos=time_pos_embed_long
             )
+            output = self.merge_proj(torch.cat([output, output_long], dim=-1))
 
             # do short temporal attn
             if n_padding != 0:
