@@ -25,7 +25,7 @@ from detectron2.utils.logger import setup_logger
 
 from mask2former import add_maskformer2_config
 from mask2former_video import add_maskformer2_video_config
-from dvis_Plus import add_minvis_config, add_dvis_config
+from dvis_Plus import add_minvis_config, add_dvis_config, add_ctvis_config
 from predictor import VisualizationDemo
 
 import shutil
@@ -38,6 +38,7 @@ def setup_cfg(args):
 	add_maskformer2_config(cfg)
 	add_maskformer2_video_config(cfg)
 	add_minvis_config(cfg)
+	add_dvis_config(cfg)
 	add_dvis_config(cfg)
 	cfg.merge_from_file(args.config_file)
 	cfg.merge_from_list(args.opts)

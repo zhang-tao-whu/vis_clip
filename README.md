@@ -8,9 +8,8 @@ Yuan Zhang, Pengfei Wan, Zhongyuan Wang and
 [Yu Wu](https://scholar.google.com/citations?hl=zh-CN&user=23SZHUwAAAAJ)
 
 
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/radar.png" width="200"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/radar_ov.png" width="200"/>
-<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/bar.png" width="400"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/radar.png" width="400"/>
+<img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/radar_ov.png" width="400"/>
 <img src="https://github.com/zhang-tao-whu/paper_images/blob/master/dvis_Plus/overview.png" width="800"/>
 </div>
 
@@ -50,17 +49,25 @@ Trained models are available for download in the [DVIS++ Model Zoo](MODEL_ZOO.md
 ## <a name="CitingDVIS"></a>Citing DVIS and DVIS++
 
 ```BibTeX
-@article{DVIS,
+@article{zhang2023dvis,
   title={DVIS: Decoupled Video Instance Segmentation Framework},
   author={Zhang, Tao and Tian, Xingye and Wu, Yu and Ji, Shunping and Wang, Xuebo and Zhang, Yuan and Wan, Pengfei},
   journal={arXiv preprint arXiv:2306.03413},
   year={2023}
+}
+
+@article{zhang2023dvisplus,
+  title={DVIS++: Improved Decoupled Framework for Universal Video Segmentation}, 
+  author={Tao Zhang and Xingye Tian and Yikang Zhou and Shunping Ji and Xuebo Wang and Xin Tao and Yuan Zhang and Pengfei Wan and Zhongyuan Wang and Yu Wu},
+  journal={arXiv preprint arXiv:2312.13305},
+  year={2023},
 }
 ```
 
 ## Acknowledgement
 
 This repo is largely based on [Mask2Former](https://github.com/facebookresearch/Mask2Former), 
-[MinVIS](https://github.com/NVlabs/MinVIS), [VITA](https://github.com/sukjunhwang/VITA), 
+[MinVIS](https://github.com/NVlabs/MinVIS), [VITA](https://github.com/sukjunhwang/VITA),
+[CTVIS](https://github.com/KainingYing/CTVIS),
 [FC-CLIP](https://github.com/bytedance/fc-clip) and [DVIS](https://github.com/zhang-tao-whu/DVIS).
 Thanks for their excellent works.
