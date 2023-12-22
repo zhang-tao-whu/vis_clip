@@ -597,7 +597,7 @@ The "Config" column contains a link to the config file.
 <td align="center">60.1</td>
 <td align="center">56.0</td>
 <td align="center">53.3</td>
-<td align="center">49.5</td>
+<td align="center">49.7</td>
 <td align="center"><a href="configs/open_vocabulary/DVIS_Online_supervised_convnextl.yaml">yaml</a></td>
 <td align="center"><a href="https://pan.baidu.com/s/1YhXmlrIkEmNGAWfgOnHjDA?pwd=dvis">baidupan</a></td>
 </tr>
